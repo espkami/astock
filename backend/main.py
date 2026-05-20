@@ -419,6 +419,31 @@ async def trigger_classify():
     return APIResponse(message=f"分类任务已触发，待处理 {pending} 条未分类新闻")
 
 
+@app.post("/api/llm/test")
+async def test_llm_connection_api(req: dict):
+    """测试大模型连接（多模型卡片里的「测试」按钮）"""
+    from backend.services.llm_client import test_llm_connection
+    provider = req.get("provider", "")
+    api_key  = req.get("api_key", "")
+    model    = req.get("model", "")
+    base_url = req.get("base_url", "")
+    if not provider or not api_key or not model:
+        return {"success": False, "error": "请填写提供商、模型和 API Key"}
+    result = await test_llm_connection(provider, api_key, model, base_url or None)
+    return result
+
+
+@app.post("/api/config/test-key")
+async def test_config_key(req: dict):
+    """兼容旧版测试接口"""
+    from backend.services.llm_client import test_llm_connection
+    result = await test_llm_connection(
+        req.get("provider", ""), req.get("api_key", ""),
+        req.get("model", ""), req.get("base_url") or None
+    )
+    return APIResponse(success=result["success"], data=result)
+
+
 @app.get("/api/match/progress")
 async def get_match_progress():
     """获取当前匹配进度"""

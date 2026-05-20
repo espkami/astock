@@ -2112,43 +2112,12 @@ const SEARCH_PROVIDER_MODELS = {
   custom:    [],
 };
 
-function onSearchProviderChange(provider, selectedModel) {
-  saveCfg('search_llm_provider', provider);
-  const models = SEARCH_PROVIDER_MODELS[provider] || [];
-  const btns = document.getElementById('searchModelBtns');
-  if (!btns) return;
-  btns.innerHTML = models.map(m =>
-    `<button class="model-btn${m===selectedModel?' active':''}" onclick="selectSearchModel('${m}',this)">${m}</button>`
-  ).join('');
-  const baseRow = document.getElementById('searchBaseUrlRow');
-  if (baseRow) baseRow.style.display = provider === 'custom' ? '' : 'none';
-}
+// 旧版单模型配置函数（已由多模型卡片列表取代，保留空函数避免调用报错）
+function onSearchProviderChange() {}
+function selectSearchModel() {}
 
-function selectSearchModel(model, btn) {
-  document.querySelectorAll('#searchModelBtns .model-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('search_llm_model').value = model;
-  saveCfg('search_llm_model', model);
-}
-
-async function testSearchLLM() {
-  const provider = document.getElementById('search_llm_provider').value;
-  const api_key  = document.getElementById('search_llm_api_key').value;
-  const model    = document.getElementById('search_llm_model').value;
-  const base_url = document.getElementById('search_llm_base_url')?.value || '';
-  const el = document.getElementById('searchTestResult');
-  if (!provider || !api_key || !model) {
-    el.textContent = '请先填写提供商、Key 和模型'; el.style.color='var(--orange-600)'; return;
-  }
-  el.textContent = '测试中...'; el.style.color='var(--text-muted)';
-  try {
-    const r = await api('/api/config/test-key', {
-      method:'POST', body:JSON.stringify({provider, api_key, model, base_url})
-    });
-    el.textContent = r.success ? '✅ 连接成功' : '❌ ' + (r.data?.error||'');
-    el.style.color = r.success ? 'var(--green-700)' : 'var(--red-700)';
-  } catch(e) { el.textContent='❌ '+e.message; el.style.color='var(--red-700)'; }
-}
+// 旧版搜索模型测试（已由卡片内测试按钮取代）
+function testSearchLLM() { toast('请使用卡片内的「测试」按钮', 'info'); }
 
 // ══════════════════════════════════════════════════════
 //  大模型配置
@@ -2517,42 +2486,22 @@ async function updateLlmKeyItem(i, field, val) {
   ]})});
 }
 
+// 旧版分析模型保存（已由卡片列表自动保存取代）
 async function saveLLMConfig() {
-  const provider = document.getElementById('llm_provider').value;
-  const api_key  = document.getElementById('llm_api_key').value;
-  const model    = document.getElementById('llm_model').value;
-  const base_url = document.getElementById('llm_base_url')?.value || '';
-  await api('/api/config', { method:'POST', body: JSON.stringify({ items: [
-    {key:'llm_provider', value: provider},
-    {key:'llm_api_key',  value: (keys[0]||{}).key||''},  // 兼容旧字段
-    {key:'llm_api_keys', value: keys},
-    {key:'llm_model',    value: model},
-    {key:'llm_base_url', value: base_url},
-  ]})});
+  const models = window._llmModels || [];
+  await saveLlmModels(models);
   toast('分析模型配置已保存', 'success');
 }
 
+// 旧版搜索模型保存（已由卡片列表自动保存取代）
 async function saveSearchLLMConfig() {
-  const provider = document.getElementById('search_llm_provider').value;
-  const api_key  = document.getElementById('search_llm_api_key').value;
-  const model    = document.getElementById('search_llm_model').value;
-  const base_url = document.getElementById('search_llm_base_url')?.value || '';
-  await api('/api/config', { method:'POST', body: JSON.stringify({ items: [
-    {key:'search_llm_provider', value: provider},
-    {key:'search_llm_api_key',  value: api_key},
-    {key:'search_llm_model',    value: model},
-    {key:'search_llm_base_url', value: base_url},
-  ]})});
+  const models = window._searchLlmModels || [];
+  await saveSearchLlmModels(models);
   toast('搜索模型配置已保存', 'success');
 }
 
-async function testLLMKey(){
-  const provider=document.getElementById('llm_provider').value,api_key=document.getElementById('llm_api_key').value;
-  const model=document.getElementById('llm_model').value,base_url=document.getElementById('llm_base_url').value;
-  const el=document.getElementById('testResult');el.textContent='测试中...';
-  try{const r=await api('/api/config/test-key',{method:'POST',body:JSON.stringify({provider,api_key,model,base_url})});el.textContent=r.success?'✅ 连接成功':'❌ '+(r.data?.error||'');el.style.color=r.success?'var(--green-700)':'var(--red-700)';}
-  catch(e){el.textContent='❌ '+e.message;el.style.color='var(--red-700)';}
-}
+// 旧版分析模型测试（已由卡片内测试按钮取代）
+function testLLMKey() { toast('请使用卡片内的「测试」按钮', 'info'); }
 function renderMatchTimes(times){
   _matchTimes=times;
   const c=document.getElementById('matchTimeTags');
@@ -2896,12 +2845,11 @@ function doLogout() {
 async function checkAuth() {
   if (!_authToken) { showLoginOverlay(); return false; }
   try {
-    // 直接用拦截后的 fetch，Token 自动附加
-    const res = await fetch('/api/auth/me');
-    if (!res.ok) { showLoginOverlay(); return false; }
-    const d = await res.json();
-    _authUser = d.username;
-    document.getElementById('navUsername').textContent = '👤 ' + _authUser;
+    // 用 api() 确保 Authorization header 自动附加
+    const d = await api('/api/auth/me');
+    _authUser = d.username || _authUser;
+    const el = document.getElementById('navUsername');
+    if (el) el.textContent = '👤 ' + _authUser;
     hideLoginOverlay();
     // 同步「立即分类」按钮
     api('/api/config').then(r => {
@@ -2910,6 +2858,12 @@ async function checkAuth() {
     }).catch(()=>{});
     return true;
   } catch(e) {
+    // token 失效才清除，网络错误不清除（避免离线时被踢出）
+    if (String(e).includes('401') || String(e).includes('Unauthorized')) {
+      _authToken = ''; _authUser = '';
+      localStorage.removeItem('astock_token');
+      localStorage.removeItem('astock_user');
+    }
     showLoginOverlay(); return false;
   }
 }

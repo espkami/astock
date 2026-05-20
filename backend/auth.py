@@ -16,7 +16,7 @@ SECRET_KEY = os.environ.get("JWT_SECRET", "astock-secret-change-in-production-20
 ALGORITHM  = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
-# bcrypt 直接调用，不再依赖 passlib
+# bcrypt 直接调用
 bearer_scheme = HTTPBearer(auto_error=False)
 
 # 初始管理员账号（从环境变量读取，默认 admin/admin）

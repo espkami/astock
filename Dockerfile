@@ -20,11 +20,11 @@ RUN mkdir -p /app/data
 
 EXPOSE 8000 5678
 
-# Entrypoint: debug mode when DEBUG=1, else normal
+# Entrypoint: debug mode when DEBUG=1, else production (no --reload)
 CMD ["sh", "-c", "\
   if [ \"$DEBUG\" = '1' ]; then \
     python -m debugpy --listen 0.0.0.0:5678 --wait-for-client \
       -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload; \
   else \
-    uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload; \
+    uvicorn backend.main:app --host 0.0.0.0 --port 8000; \
   fi"]
