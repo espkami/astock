@@ -1,0 +1,2989 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A股新闻·龙头股匹配</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    body { font-family: var(--font-sans); background: var(--surface-base); color: var(--text-primary); min-height: 100vh; }
+    #app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── 顶部导航 ── */
+    .topbar { position: sticky; top: 0; z-index: 100; background: var(--surface-primary); box-shadow: var(--shadow-lifted-card); height: 52px; display: flex; align-items: center; padding: 0 var(--space-6); gap: var(--space-5); }
+    .topbar-logo { font-weight: 700; font-size: 15px; white-space: nowrap; }
+    .topbar-logo span { color: var(--blue-900); }
+    .nav-links { display: flex; gap: var(--space-1); flex: 1; }
+    .nav-link { padding: var(--space-1) var(--space-3); border-radius: var(--radius-md); font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; border: none; background: none; transition: all var(--transition-fast); }
+
+    /* ── 设置下拉菜单 ── */
+    .nav-dropdown { position: relative; }
+    .dropdown-arrow { font-size: 10px; margin-left: 2px; display: inline-block; transition: transform var(--transition-fast); }
+    .dropdown-menu { display: none; position: absolute; top: calc(100% + 6px); left: 0; background: var(--surface-primary); border: 1px solid var(--border-default); border-radius: var(--radius-lg); box-shadow: var(--shadow-modal); min-width: 160px; z-index: 200; padding: 4px 0; }
+    .dropdown-menu.open { display: block; }
+    .dropdown-arrow.open { transform: rotate(180deg); }
+    .dropdown-item { display: block; width: 100%; padding: 8px 14px; font-size: 13px; color: var(--text-secondary); background: none; border: none; cursor: pointer; text-align: left; transition: background var(--transition-fast); white-space: nowrap; }
+    .dropdown-item:hover { background: var(--surface-hover); color: var(--text-primary); }
+    .dropdown-item.active { color: var(--text-primary); font-weight: 500; }
+
+    /* ── Token 消耗徽章 ── */
+    .token-badge { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius-md); background: var(--surface-secondary); border: 1px solid var(--border-subtle); cursor: pointer; font-size: 12px; color: var(--text-secondary); transition: all var(--transition-fast); white-space: nowrap; }
+    .token-badge:hover { border-color: var(--border-default); color: var(--text-primary); }
+    .nav-link:hover { background: var(--surface-hover); color: var(--text-primary); }
+    .nav-link.active { background: var(--surface-active); color: var(--text-primary); }
+    .topbar-actions { display: flex; align-items: center; gap: var(--space-2); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--neutral-600); flex-shrink: 0; }
+    .status-dot.running { background: var(--green-600); }
+
+    /* ── 页面 ── */
+    .page { display: none; padding: var(--space-5); max-width: 1440px; margin: 0 auto; width: 100%; }
+    .page.active { display: flex; flex-direction: column; gap: var(--space-4); }
+    .cfg-page { display: none; padding: var(--space-5); max-width: 900px; margin: 0 auto; width: 100%; flex-direction: column; gap: var(--space-4); }
+    .cfg-page.active { display: flex; }
+
+    /* ── 统计栏 ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); }
+    .stat-card { background: var(--surface-primary); box-shadow: var(--shadow-lifted-card); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); }
+    .stat-label { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+    .stat-value { font-size: 22px; font-weight: 700; }
+    .stat-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+    .stat-btn { margin-top: 5px; background: none; border: none; padding: 0; font-size: 11px; color: var(--blue-link); cursor: pointer; text-align: left; display: block; }
+    .stat-btn:hover { text-decoration: underline; }
+
+    /* ── 双栏主区 ── */
+    .main-grid { display: grid; grid-template-columns: 1fr 380px; gap: var(--space-4); }
+    @media (max-width: 1024px) { .main-grid { grid-template-columns: 1fr; } }
+
+    /* ── 面板通用 ── */
+    .panel { background: var(--surface-primary); box-shadow: var(--shadow-lifted-card); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; }
+    .panel-header { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
+    .panel-title { font-size: 13px; font-weight: 600; flex: 1; }
+    .panel-sub { font-size: 11px; color: var(--text-muted); }
+    .filter-tabs { display: flex; gap: var(--space-1); }
+    .filter-tab { padding: 3px var(--space-2); border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; border: none; background: none; color: var(--text-tertiary); transition: all var(--transition-fast); }
+    .filter-tab.active { background: var(--surface-active); color: var(--text-primary); font-weight: 500; }
+    .back-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: var(--blue-link); padding: 0; }
+    .back-btn:hover { text-decoration: underline; }
+
+    /* ── 左侧：新闻列表 ── */
+    .news-list { overflow-y: auto; max-height: calc(100vh - 240px); }
+    .news-item { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-subtle); cursor: pointer; transition: background var(--transition-fast); }
+    .news-item:hover { background: var(--surface-hover); }
+    .news-item.selected { background: var(--surface-active); }
+    .news-item-header { display: flex; align-items: flex-start; gap: var(--space-2); margin-bottom: 3px; }
+    .news-title { font-size: 13px; font-weight: 500; line-height: 1.4; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .news-summary { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 3px; }
+    .news-meta { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+    .news-source { font-size: 11px; color: var(--text-muted); }
+    .tag-pill { padding: 2px 7px; border-radius: 8px; font-size: 11px; background: var(--surface-secondary); color: var(--text-secondary); }
+    .matched-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-600); flex-shrink: 0; margin-top: 5px; }
+
+    /* 情感徽章 */
+    .badge-s { flex-shrink: 0; padding: 2px 6px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+    .badge-positive { background: var(--state-success-bg); color: var(--state-success-fg); }
+    .badge-negative { background: var(--state-error-bg); color: var(--state-error-fg); }
+    .badge-neutral { background: var(--surface-secondary); color: var(--text-tertiary); }
+
+    /* ── 右侧：匹配详情面板 ── */
+    .match-body { overflow-y: auto; max-height: calc(100vh - 240px); flex: 1; }
+    .match-empty { padding: var(--space-8); text-align: center; color: var(--text-muted); font-size: 13px; line-height: 1.8; }
+
+    /* 新闻摘要块 */
+    .news-block { padding: var(--space-4); border-bottom: 1px solid var(--border-subtle); background: var(--surface-secondary); }
+    .news-block-title { font-size: 13px; font-weight: 600; line-height: 1.5; margin-bottom: var(--space-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .news-block-summary { font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: var(--space-2); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+    .news-block-meta { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+
+    /* 股票卡片 */
+    .stock-item { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-subtle); }
+    .stock-item.rank-1 { background: linear-gradient(135deg, rgba(5,136,240,0.05) 0%, transparent 100%); }
+    .stock-item-header { display: flex; align-items: center; gap: var(--space-2); margin-bottom: 5px; }
+    .rank-num { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+    .rank-1 .rank-num { background: var(--blue-900); color: white; }
+    .rank-other .rank-num { background: var(--surface-secondary); color: var(--text-tertiary); }
+    .stock-name { font-size: 13px; font-weight: 600; }
+    .stock-code { font-size: 11px; color: var(--text-muted); }
+    .score-row { display: flex; align-items: center; gap: var(--space-2); margin: 3px 0; }
+    .score-lbl { font-size: 11px; color: var(--text-muted); width: 60px; flex-shrink: 0; }
+    .score-bar { flex: 1; height: 4px; border-radius: 2px; background: var(--surface-secondary); overflow: hidden; }
+    .score-fill { height: 100%; border-radius: 2px; background: var(--blue-800); }
+    .score-fill.green { background: var(--green-600); }
+    .score-num { font-size: 11px; color: var(--text-muted); width: 28px; text-align: right; flex-shrink: 0; }
+    .stock-reason { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-top: 4px; }
+    .stocks-label { padding: var(--space-2) var(--space-4); font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px; border-bottom: 1px solid var(--border-subtle); position: sticky; top: 0; background: var(--surface-primary); z-index: 1; }
+
+    /* ── 配置页 ── */
+    .config-section { background: var(--surface-primary); box-shadow: var(--shadow-lifted-card); border-radius: var(--radius-lg); padding: var(--space-5); }
+    .config-section-title { font-size: 14px; font-weight: 600; margin-bottom: var(--space-4); display: flex; align-items: center; justify-content: space-between; }
+    .form-row { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-3); }
+    .form-row label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+    .input { width: 100%; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--surface-base); color: var(--text-primary); font-size: 13px; font-family: var(--font-sans); outline: none; transition: border var(--transition-fast); }
+    .input:focus { border-color: var(--border-focus); }
+    .input-row { display: flex; gap: var(--space-2); align-items: center; }
+    .model-btns { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-bottom: var(--space-2); }
+    .model-btn { padding: 4px var(--space-3); border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; border: 1px solid var(--border-default); background: var(--surface-base); color: var(--text-secondary); transition: all var(--transition-fast); }
+    .model-btn.active { border-color: var(--blue-800); background: var(--blue-200); color: var(--blue-link); }
+    .list-manager { display: flex; flex-direction: column; gap: var(--space-2); }
+    .list-item { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface-base); border-radius: var(--radius-md); }
+    .list-item input { flex: 1; border: none; background: transparent; color: var(--text-primary); font-size: 13px; outline: none; }
+    .list-item-del { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 16px; padding: 0 2px; }
+    .list-item-del:hover { color: var(--red-600); }
+    /* ── 多模型配置卡片 ── */
+    .llm-model-card { border:1px solid var(--border-default); border-radius:var(--radius-lg);
+      padding:var(--space-4); background:var(--surface-primary); }
+    .llm-model-card:has(.llm-model-enabled:checked) { border-color:var(--blue-800); }
+    .llm-model-card-header { display:flex; align-items:center; gap:var(--space-2); margin-bottom:var(--space-3); }
+    .llm-model-card-body { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-2); }
+    @media (max-width:600px) { .llm-model-card-body { grid-template-columns:1fr; } }
+    .llm-model-badge { font-size:11px; padding:2px 8px; border-radius:8px;
+      background:var(--surface-secondary); color:var(--text-muted); }
+    .llm-model-badge.active { background:var(--state-success-bg); color:var(--state-success-fg); }
+
+    /* ── 大模型搜索模式卡片 ── */
+    .llm-mode-card { border:1px solid var(--border-subtle); border-radius:var(--radius-md);
+      padding:var(--space-3); transition:border-color var(--transition-fast); }
+    .llm-mode-card:has(input:checked) { border-color:var(--blue-800); background:var(--surface-hover); }
+    .llm-mode-card-header { display:flex; align-items:center; gap:var(--space-2); }
+    .llm-mode-card-title { font-size:13px; font-weight:600; white-space:nowrap; }
+    .llm-mode-card-desc { font-size:11px; color:var(--text-muted); overflow:hidden;
+      text-overflow:ellipsis; white-space:nowrap; }
+
+    /* ── 大模型搜索模式 Tab ── */
+    .llm-mode-tab { flex:1; padding:6px 8px; font-size:12px; font-weight:500; border:none;
+      background:none; color:var(--text-muted); border-radius:var(--radius-sm);
+      cursor:pointer; transition:all var(--transition-fast); }
+    .llm-mode-tab.active { background:var(--surface-primary); color:var(--text-primary);
+      box-shadow:var(--shadow-lifted-card); }
+    .llm-mode-tab:hover:not(.active) { color:var(--text-secondary); }
+
+    /* ── 关键词标签 ── */
+    .kw-tags { display:flex; flex-wrap:wrap; gap:6px; padding:6px 0; }
+    .kw-tag { display:inline-flex; align-items:center; gap:4px; padding:3px 8px 3px 10px;
+      border-radius:12px; background:var(--surface-secondary); border:1px solid var(--border-default);
+      font-size:12px; color:var(--text-primary); cursor:default; transition:all var(--transition-fast); }
+    .kw-tag:hover { border-color:var(--blue-800); background:var(--blue-200); }
+    .kw-tag input { border:none; background:transparent; font-size:12px; color:var(--text-primary);
+      outline:none; width:auto; min-width:40px; max-width:120px; }
+    .kw-tag-del { font-size:14px; line-height:1; color:var(--text-muted); cursor:pointer;
+      padding:0 2px; border:none; background:none; }
+    .kw-tag-del:hover { color:var(--state-error-fg); }
+    .kw-tag-add { padding:3px 10px; border-radius:12px; background:none;
+      border:1px dashed var(--border-default); font-size:12px; color:var(--text-muted);
+      cursor:pointer; transition:all var(--transition-fast); }
+    .kw-tag-add:hover { border-color:var(--blue-800); color:var(--blue-link); }
+    .kw-tag-add:disabled { opacity:.4; cursor:not-allowed; }
+
+
+    /* ── 建议快捷按钮 ── */
+    .suggest-btn { padding: 4px 10px; border-radius: var(--radius-md); font-size: 11px; line-height: 1.4; cursor: pointer; border: 1px solid var(--border-default); background: var(--surface-base); color: var(--text-secondary); transition: all var(--transition-fast); text-align:center; }
+    .suggest-btn span { font-size:10px; color: var(--text-muted); display:block; }
+    .suggest-btn:hover { border-color: var(--blue-800); color: var(--blue-link); background: var(--surface-hover); }
+    .suggest-btn.suggest-btn-active { border-color: var(--blue-800); background: var(--blue-200); color: var(--blue-link); font-weight:500; }
+    .suggest-btn.suggest-btn-active span { color: var(--blue-link); }
+    .toggle-switch { position: relative; width: 36px; height: 20px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: var(--neutral-600); border-radius: 10px; cursor: pointer; transition: background var(--transition-normal); }
+    .toggle-slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: transform var(--transition-normal); }
+    .toggle-switch input:checked + .toggle-slider { background: var(--blue-900); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); }
+    .slider-row { display: flex; align-items: center; gap: var(--space-3); }
+    .slider-row input[type=range] { flex: 1; }
+    .slider-val { font-size: 13px; font-weight: 600; min-width: 52px; text-align: right; }
+    .progress-bar-wrap { background: var(--surface-secondary); border-radius: 4px; height: 8px; overflow: hidden; margin: var(--space-2) 0; }
+    .progress-bar-fill { height: 100%; border-radius: 4px; background: var(--blue-800); transition: width 0.3s ease; }
+    .time-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
+    .time-tag { display: flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; background: var(--blue-200); color: var(--blue-link); font-size: 12px; font-weight: 500; }
+    .time-tag button { background: none; border: none; cursor: pointer; color: var(--blue-900); font-size: 14px; line-height: 1; padding: 0; margin-left: 2px; }
+    .time-tag button:hover { color: var(--red-600); }
+
+    /* ── 空/loading ── */
+    .empty-state { padding: var(--space-10); text-align: center; color: var(--text-muted); font-size: 13px; }
+    .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border-default); border-top-color: var(--blue-900); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── 弹窗 ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface-primary); border-radius: var(--radius-xl); padding: var(--space-6); max-width: 420px; width: 90%; box-shadow: var(--shadow-tooltip); }
+    .modal-title { font-size: 15px; font-weight: 600; margin-bottom: var(--space-3); }
+    .modal-body { font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-5); }
+    .modal-actions { display: flex; gap: var(--space-2); justify-content: flex-end; }
+
+    /* ── Toast ── */
+    #toast { position: fixed; bottom: var(--space-6); right: var(--space-6); z-index: 300; display: flex; flex-direction: column; gap: var(--space-2); }
+    .toast-item { padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); font-size: 13px; font-weight: 500; box-shadow: var(--shadow-tooltip); animation: slideIn 0.2s ease; }
+    .toast-success { background: var(--state-success-bg); color: var(--state-success-fg); }
+    .toast-error { background: var(--state-error-bg); color: var(--state-error-fg); }
+    .toast-info { background: var(--surface-elevated); color: var(--text-primary); }
+    @keyframes slideIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* ── 登录页 ── */
+    .login-overlay {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      background: var(--surface-base);
+      align-items: center; justify-content: center;
+      transition: background var(--transition-normal);
+    }
+    .login-overlay.show { display: flex; }
+    .login-card {
+      background: var(--surface-primary); box-shadow: var(--shadow-tooltip);
+      border-radius: var(--radius-xl); padding: var(--space-8);
+      width: 360px; max-width: 90vw;
+    }
+    .login-logo { text-align: center; font-size: 28px; font-weight: 700; margin-bottom: var(--space-2); }
+    .login-logo span { color: var(--blue-900); }
+    .login-subtitle { text-align: center; font-size: 13px; color: var(--text-muted); margin-bottom: var(--space-6); }
+    .login-field { margin-bottom: var(--space-4); }
+    .login-field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: var(--space-1); }
+    .login-error { color: var(--red-700); font-size: 12px; margin-top: var(--space-2); min-height: 18px; }
+
+    /* 用户管理表格 */
+    .user-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .user-table th { text-align: left; padding: 6px 10px; color: var(--text-muted); font-weight: 500; border-bottom: 1px solid var(--border-subtle); }
+    .user-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); }
+  
+    /* ── 热搜内联区块 ── */
+    .trending-col { border-right:1px solid var(--border-subtle); min-width:0; }
+    .trending-col:last-child { border-right:none; }
+    .trending-col-header { padding:6px var(--space-3); font-size:11px; font-weight:600;
+      color:var(--text-muted); background:var(--surface-secondary);
+      border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; }
+    .trending-col-list { max-height:220px; overflow-y:auto; }
+    .trending-row { display:flex; align-items:center; gap:6px;
+      padding:5px var(--space-3); border-bottom:1px solid var(--border-subtle);
+      font-size:12px; cursor:pointer; text-decoration:none; color:var(--text-primary); }
+    .trending-row:hover { background:var(--surface-hover); }
+    .trending-row-rank { min-width:16px; text-align:right; font-weight:700;
+      color:var(--text-muted); font-size:11px; flex-shrink:0; }
+    .trending-row-rank.t3 { color:var(--blue-900); }
+    .trending-row-word { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .trending-row-hot  { font-size:10px; color:var(--text-muted); flex-shrink:0; }
+    @media (max-width:768px) {
+      #trendingCols { grid-template-columns:1fr !important; }
+      .trending-col { border-right:none; border-bottom:1px solid var(--border-subtle); }
+      .trending-col:last-child { border-bottom:none; }
+      .trending-col-list { max-height:160px; }
+    }
+
+    /* ── 热搜面板 ── */
+    .trending-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); }
+    @media (max-width: 900px)  { .trending-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px)  { .trending-grid { grid-template-columns: 1fr; } }
+    .trending-panel { background:var(--surface-primary); border-radius:var(--radius-lg);
+      box-shadow:var(--shadow-lifted-card); overflow:hidden; }
+    .trending-header { padding:var(--space-2) var(--space-3);
+      border-bottom:1px solid var(--border-subtle);
+      display:flex; align-items:center; gap:var(--space-2); }
+    .trending-title { font-size:13px; font-weight:600; flex:1; }
+    .trending-time  { font-size:11px; color:var(--text-muted); }
+    .trending-list  { overflow-y:auto; max-height:320px; }
+    .trending-item  { display:flex; align-items:baseline; gap:var(--space-2);
+      padding:7px var(--space-3); border-bottom:1px solid var(--border-subtle);
+      cursor:pointer; transition:background var(--transition-fast); text-decoration:none; }
+    .trending-item:hover { background:var(--surface-hover); }
+    .trending-rank  { font-size:12px; font-weight:700; min-width:18px; text-align:right;
+      color:var(--text-muted); flex-shrink:0; }
+    .trending-rank.top3 { color:var(--blue-900); }
+    .trending-word  { font-size:12px; color:var(--text-primary); flex:1;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .trending-hot   { font-size:10px; color:var(--text-muted); flex-shrink:0; }
+    .trending-empty { padding:var(--space-4); text-align:center;
+      font-size:12px; color:var(--text-muted); }
+
+    /* ── 移动端操作栏（仅手机显示）── */
+    .mobile-action-bar {
+      display: none;
+      gap: var(--space-2);
+      padding: var(--space-2) 0;
+    }
+    .mobile-action-bar .btn { flex: 1; justify-content: center; font-size: 13px; }
+
+    /* ── 移动端 Tab 切换条 ── */
+    .mobile-tabs { display: none; }
+    @media (max-width: 768px) {
+      .mobile-tabs {
+        display: flex; gap: 0;
+        background: var(--surface-primary);
+        border-radius: var(--radius-lg);
+        padding: 3px;
+        box-shadow: var(--shadow-lifted-card);
+      }
+      .mobile-tab {
+        flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 500;
+        border: none; background: none; color: var(--text-secondary);
+        border-radius: var(--radius-md); cursor: pointer;
+        transition: all var(--transition-fast);
+      }
+      .mobile-tab.active {
+        background: var(--surface-active); color: var(--text-primary);
+      }
+      /* 手机端面板切换 */
+      #panelNews.mobile-hidden, #panelMatch.mobile-hidden { display: none; }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       移动端适配 — 手机优先（≤768px）
+       ═══════════════════════════════════════════════════ */
+
+    /* ── 平板（≤900px）：topbar 轻度压缩 ── */
+    @media (max-width: 900px) {
+      .topbar { padding: 0 var(--space-4); gap: var(--space-3); height: 48px; }
+      .topbar-logo { font-size: 14px; }
+      .token-badge { display: none !important; }
+      .stats-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    /* ── 手机（≤768px）：全面重排 ── */
+    @media (max-width: 768px) {
+      /* 顶部导航：Logo + 操作按钮分两行 */
+      .topbar {
+        height: auto;
+        flex-wrap: wrap;
+        padding: 8px var(--space-3);
+        gap: 6px;
+      }
+      .topbar-logo { flex: 1; font-size: 14px; }
+      .nav-links { order: 3; width: 100%; border-top: 1px solid var(--border-subtle); padding-top: 6px; gap: 4px; flex-wrap: wrap; }
+      .topbar-actions { gap: 6px; }
+
+      /* 操作按钮缩小 */
+      #collectBtn, #classifyBtn, #matchBtn {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+      #navUsername, #statusText { display: none; }
+      .status-dot { display: none; }
+      /* 操作按钮在手机 topbar 里隐藏，移到页面内 */
+      #collectBtn, #classifyBtn, #matchBtn { display: none; }
+      .mobile-action-bar { display: flex !important; }
+
+      /* 仪表盘页面 */
+      .page { padding: var(--space-3); }
+      .cfg-page { padding: var(--space-3); }
+
+      /* 统计卡片：2列 */
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-2); }
+      .stat-value { font-size: 18px; }
+
+      /* 主内容区：单列 */
+      .main-grid { grid-template-columns: 1fr; gap: var(--space-3); }
+
+      /* 新闻列表和匹配面板：限高调整 */
+      .news-list { max-height: 45vh; }
+      .match-body { max-height: 50vh; }
+
+      /* 面板 padding */
+      .panel-header { padding: var(--space-2) var(--space-3); }
+      .news-item { padding: var(--space-2) var(--space-3); }
+      .stock-item { padding: var(--space-2) var(--space-3); }
+      .news-block { padding: var(--space-3); }
+
+      /* 配置页 */
+      .config-section { padding: var(--space-4); }
+      .form-row { margin-bottom: var(--space-2); }
+
+      /* 建议按钮换行 */
+      .suggest-btn { font-size: 10px; padding: 3px 8px; }
+
+      /* 下拉菜单：向右展开避免出界 */
+      .dropdown-menu { left: auto; right: 0; }
+
+      /* 登录卡片 */
+      .login-card { padding: var(--space-6); }
+      .login-logo { font-size: 22px; }
+
+      /* 股票表格：横向滚动 */
+      #stockTable { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+      /* 历史记录 */
+      #historyList { max-height: 360px; }
+
+      /* filter-tabs 换行 */
+      .filter-tabs { flex-wrap: wrap; }
+
+      /* 模态框 */
+      .modal { padding: var(--space-4); width: 95vw; }
+    }
+
+    /* ── 极小屏（≤400px）── */
+    @media (max-width: 400px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .topbar-logo { font-size: 13px; }
+      .nav-link { font-size: 12px; padding: var(--space-1) var(--space-2); }
+      /* 操作按钮极度压缩 */
+      #collectBtn, #classifyBtn, #matchBtn {
+        font-size: 11px;
+        padding: 4px 6px;
+        letter-spacing: -0.2px;
+      }
+    }
+
+  </style>
+</head>
+<body>
+<!-- 登录遮罩 -->
+<div class="login-overlay show" id="loginOverlay">
+  <div class="login-card">
+    <!-- 主题切换按钮：右上角 -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:var(--space-2)">
+      <button class="theme-toggle btn btn-ghost btn-sm" style="font-size:16px;line-height:1" title="切换深色/浅色模式"></button>
+    </div>
+    <div class="login-logo">📈 A股<span>龙头匹配</span></div>
+    <div class="login-subtitle">请登录以继续使用</div>
+    <div class="login-field">
+      <label>用户名</label>
+      <input class="input" type="text" id="loginUsername" placeholder="admin" autocomplete="username"
+             onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()">
+    </div>
+    <div class="login-field">
+      <label>密码</label>
+      <input class="input" type="password" id="loginPassword" placeholder="••••••"
+             autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:var(--space-2)" onclick="doLogin()" id="loginBtn">
+      登录
+    </button>
+    <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:var(--space-4)">
+      默认账号 admin / admin，首次登录后请在「数据管理」页修改密码
+    </div>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- 顶部导航 -->
+  <nav class="topbar">
+    <div class="topbar-logo">📈 A股<span>龙头匹配</span></div>
+    <div class="nav-links">
+      <button class="nav-link active" onclick="navigate('dashboard')">仪表盘</button>
+      <!-- 设置下拉菜单 -->
+      <div class="nav-dropdown" id="settingsDropdown">
+        <button class="nav-link" onclick="toggleSettingsMenu(event)" id="settingsBtn">
+          ⚙️ 设置 <span class="dropdown-arrow" id="settingsArrow">▾</span>
+        </button>
+        <div class="dropdown-menu" id="settingsMenu">
+          <button class="dropdown-item" onclick="navigateFromMenu('news-config')">📰 新闻采集</button>
+          <button class="dropdown-item" onclick="navigateFromMenu('llm-config')">🧠 大模型配置</button>
+          <button class="dropdown-item" onclick="navigateFromMenu('stocks')">📊 股票数据</button>
+          <button class="dropdown-item" onclick="navigateFromMenu('data-mgmt')">🗄️ 数据管理</button>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText" style="font-size:12px;color:var(--text-muted)">检查中...</span>
+      <!-- Token 消耗显示 -->
+      <div class="token-badge" id="tokenBadge" title="累计 Token 消耗（点击重置）" onclick="resetTokenUsage()" style="display:none">
+        <span style="font-size:10px;opacity:.7">Token</span>
+        <span id="tokenVal" style="font-weight:600">0</span>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="triggerCollect()" id="collectBtn">立即采集</button>
+      <button class="btn btn-secondary btn-sm" onclick="triggerClassify()" id="classifyBtn">立即分类</button>
+      <button class="btn btn-primary btn-sm" onclick="triggerMatch()" id="matchBtn">立即匹配</button>
+      <span id="navUsername" style="font-size:12px;color:var(--text-muted)"></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="退出登录">退出</button>
+      <button class="theme-toggle btn btn-ghost btn-sm" style="font-size:16px">🌙</button>
+    </div>
+  </nav>
+
+  <!-- ══ 仪表盘 ══ -->
+  <div class="page active" id="page-dashboard">
+
+    <!-- 移动端操作栏（手机端显示，桌面端隐藏） -->
+    <div class="mobile-action-bar">
+      <button class="btn btn-secondary btn-sm" onclick="triggerCollect()" id="collectBtnM">立即采集</button>
+      <button class="btn btn-secondary btn-sm" onclick="triggerClassify()" id="classifyBtnM">立即分类</button>
+      <button class="btn btn-primary btn-sm" onclick="triggerMatch()" id="matchBtnM">立即匹配</button>
+    </div>
+
+    <!-- 统计栏 -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">新闻总数</div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <div class="stat-value" id="st-news">—</div>
+          <span style="font-size:11px;color:var(--text-muted)" id="st-news-label">今天</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:5px;flex-wrap:wrap">
+          <select id="windowUnit" onchange="onWindowChange()" style="font-size:11px;padding:2px 4px;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-base);color:var(--text-secondary);cursor:pointer">
+            <option value="day">按天</option>
+            <option value="hour">按小时</option>
+          </select>
+          <select id="windowValue" onchange="onWindowChange()" style="font-size:11px;padding:2px 4px;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-base);color:var(--text-secondary);cursor:pointer">
+            <option value="1">1</option>
+            <option value="3">3</option>
+            <option value="7">7</option>
+            <option value="14">14</option>
+            <option value="30">30</option>
+          </select>
+          <button class="stat-btn" style="margin-top:0" onclick="showAllNews()">查看 →</button>
+        </div>
+        <div id="st-news-history" style="font-size:11px;color:var(--text-muted);margin-top:3px"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">匹配结果</div>
+        <div class="stat-value" id="st-matches">—</div>
+        <button class="stat-btn" onclick="showAllResults()">查看匹配结果 →</button>
+      </div>
+      <div class="stat-card"><div class="stat-label">匹配利好 / 利空</div><div class="stat-value" id="st-sentiment">—</div><div class="stat-sub">基于匹配结果</div></div>
+      <div class="stat-card"><div class="stat-label">股票库</div><div class="stat-value" id="st-stocks">—</div></div>
+      <div class="stat-card"><div class="stat-label">当前模型</div><div class="stat-value" style="font-size:13px;margin-top:4px" id="st-model">—</div><div class="stat-sub" id="st-last-collect"></div></div>
+    </div>
+
+    <!-- 移动端 Tab 切换（桌面端隐藏） -->
+    <div class="mobile-tabs" id="mobileTabs">
+      <button class="mobile-tab active" onclick="switchMobileTab('news',this)">📰 新闻列表</button>
+      <button class="mobile-tab" onclick="switchMobileTab('match',this)">🎯 匹配结果</button>
+    </div>
+
+    <!-- 双栏：左新闻 右匹配 -->
+    <div class="main-grid">
+
+      <!-- 左：新闻列表 -->
+      <div class="panel" id="panelNews">
+        <!-- 热搜区块（仅热搜开启时显示） -->
+        <div id="trendingSection" style="display:none;border-bottom:1px solid var(--border-subtle)">
+          <div class="trending-section-header" onclick="toggleTrendingSection()" style="
+            padding:var(--space-2) var(--space-4);display:flex;align-items:center;gap:var(--space-2);
+            cursor:pointer;background:var(--surface-secondary);user-select:none">
+            <span style="font-size:12px;font-weight:600">🔥 实时热搜</span>
+            <div style="display:flex;gap:var(--space-1);flex:1" id="trendingSourceBadges"></div>
+            <span id="trendingToggleIcon" style="font-size:10px;color:var(--text-muted);transition:transform .2s">▼</span>
+          </div>
+          <div id="trendingBody" style="display:none">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border-subtle)" id="trendingCols">
+              <!-- 三列热搜由 JS 渲染 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 新闻列表 -->
+        <div class="panel-header">
+          <span class="panel-title" id="leftPanelTitle">最新新闻</span>
+          <div id="leftPanelActions" class="filter-tabs">
+            <button class="filter-tab active" onclick="filterNews('all',this)">全部</button>
+            <button class="filter-tab" onclick="filterNews('positive',this)">利好</button>
+            <button class="filter-tab" onclick="filterNews('negative',this)">利空</button>
+            <button class="filter-tab" onclick="filterNews('neutral',this)">中性</button>
+          </div>
+        </div>
+        <div class="news-list" id="leftList">
+          <div class="empty-state">暂无新闻，请先配置采集源并点击「立即采集」</div>
+        </div>
+      </div>
+
+      <!-- 右：匹配详情 -->
+      <div class="panel" id="panelMatch">
+        <div class="panel-header">
+          <span class="panel-title" id="rightPanelTitle">龙头股匹配</span>
+          <span class="panel-sub" id="rightPanelSub"></span>
+        </div>
+        <div class="match-body" id="rightBody">
+          <div class="match-empty">← 点击左侧新闻查看匹配结果</div>
+        </div>
+      </div>
+
+    </div>
+
+
+  </div><!-- /dashboard -->
+
+  <!-- ══ 新闻采集配置 ══ -->
+  <div class="cfg-page" id="page-news-config">
+    <div class="config-section">
+      <div class="config-section-title"><span>🔑 NewsAPI.ai</span>
+        <label class="toggle-switch"><input type="checkbox" id="newsapi_enabled" onchange="saveToggle('newsapi_enabled',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="form-row"><label>API Key 列表</label>
+        <div class="list-manager" id="newsapiKeyList"></div>
+        <button class="btn btn-ghost btn-sm" onclick="addListItem('newsapiKeyList','newsapi_keys','key','API Key','password')" style="align-self:flex-start;margin-top:4px">+ 添加 Key</button>
+      </div>
+      <div class="form-row">
+        <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:4px">
+          <label style="margin-bottom:0">关键词</label>
+          <span id="kwCountBadge" style="font-size:11px;padding:2px 7px;border-radius:8px;background:var(--surface-secondary);color:var(--text-muted)">0/15</span>
+          <span id="kwLimitWarn" style="display:none;font-size:11px;color:var(--state-error-fg)">⚠ 免费版上限 15 个</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">
+          每个关键词独立匹配（phrase 模式），建议聚焦三类方向：
+          <span style="color:var(--blue-link)">国际时事</span>（如：中美贸易、美联储）·
+          <span style="color:var(--green-600)">国内金融</span>（如：A股、涨停、央行）·
+          <span style="color:var(--state-warning-fg,#b45309)">科研创新</span>（如：芯片、大模型）
+        </div>
+        <div class="list-manager" id="newsapiKwList"></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">升级付费版可扩展至 50 个</div>
+      </div>
+      <div class="form-row"><label>每次拉取数量</label>
+        <select class="input" id="newsapi_page_size" onchange="saveCfg('newsapi_page_size',this.value)" style="width:120px">
+          <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
+        </select>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title"><span>📡 RSS 源</span>
+        <label class="toggle-switch"><input type="checkbox" id="rss_enabled" onchange="saveToggle('rss_enabled',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="form-row"><label>RSS URL 列表</label>
+        <div class="list-manager" id="rssFeedList"></div>
+        <button class="btn btn-ghost btn-sm" onclick="addRssFeed()" style="align-self:flex-start;margin-top:4px">+ 添加 RSS 源</button>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">
+        <span>🔥 热搜采集</span>
+        <label class="toggle-switch"><input type="checkbox" id="trending_enabled" onchange="saveToggle('trending_enabled',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">
+        实时抓取百度热搜、微博热搜，捕捉市场情绪与突发事件，每次采集获取 Top 20 热搜词条。
+      </p>
+      <div class="form-row" style="flex-direction:row;gap:var(--space-6)">
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <label class="toggle-switch"><input type="checkbox" id="baidu_trending_enabled" onchange="saveToggle('baidu_trending_enabled',this.checked)"><span class="toggle-slider"></span></label>
+          <span style="font-size:13px">🔍 百度热搜</span>
+          <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <label class="toggle-switch"><input type="checkbox" id="weibo_trending_enabled" onchange="saveToggle('weibo_trending_enabled',this.checked)"><span class="toggle-slider"></span></label>
+          <span style="font-size:13px">🌊 微博热搜</span>
+          <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <label class="toggle-switch"><input type="checkbox" id="douyin_trending_enabled" onchange="saveToggle('douyin_trending_enabled',this.checked)"><span class="toggle-slider"></span></label>
+          <span style="font-size:13px">🎵 抖音热搜</span>
+          <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">
+        <span>🤖 大模型搜索</span>
+        <label class="toggle-switch"><input type="checkbox" id="llm_search_enabled" onchange="saveToggle('llm_search_enabled',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">
+        使用大模型联网能力主动搜索新闻，三种预设模式各自独立开关与数量。搜索专用模型在「大模型配置」页配置。
+      </p>
+
+      <!-- 三个可选模式（可多选） -->
+      <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+
+        <!-- 时事热点 -->
+        <div class="llm-mode-card" id="llm-card-general">
+          <div class="llm-mode-card-header">
+            <label class="toggle-switch" style="flex-shrink:0">
+              <input type="checkbox" id="llm_general_enabled" onchange="saveCfg('llm_general_enabled',this.checked);updateLlmCard('general',this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="llm-mode-card-title">📰 时事热点</span>
+            <span class="llm-mode-card-desc">国内外重要新闻、科技、财经、社会热点</span>
+            <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0">
+              <span style="font-size:11px;color:var(--text-muted)">数量</span>
+              <select class="input" id="llm_general_count" onchange="saveCfg('llm_general_count',parseInt(this.value))" style="width:72px;padding:2px 6px;height:28px;font-size:12px">
+                <option value="5">5 条</option><option value="10" selected>10 条</option>
+                <option value="15">15 条</option><option value="20">20 条</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 科技/AI -->
+        <div class="llm-mode-card" id="llm-card-tech">
+          <div class="llm-mode-card-header">
+            <label class="toggle-switch" style="flex-shrink:0">
+              <input type="checkbox" id="llm_tech_enabled" onchange="saveCfg('llm_tech_enabled',this.checked);updateLlmCard('tech',this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="llm-mode-card-title">🤖 科技/AI</span>
+            <span class="llm-mode-card-desc">AI模型发布、大厂动向、融资并购，剔除软文</span>
+            <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0">
+              <span style="font-size:11px;color:var(--text-muted)">数量</span>
+              <select class="input" id="llm_tech_count" onchange="saveCfg('llm_tech_count',parseInt(this.value))" style="width:72px;padding:2px 6px;height:28px;font-size:12px">
+                <option value="5">5 条</option><option value="10" selected>10 条</option>
+                <option value="15">15 条</option><option value="20">20 条</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 财经市场 -->
+        <div class="llm-mode-card" id="llm-card-finance">
+          <div class="llm-mode-card-header">
+            <label class="toggle-switch" style="flex-shrink:0">
+              <input type="checkbox" id="llm_finance_enabled" onchange="saveCfg('llm_finance_enabled',this.checked);updateLlmCard('finance',this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="llm-mode-card-title">📈 财经市场</span>
+            <span class="llm-mode-card-desc">A股/美股/加密/大宗/宏观，附「发生了什么+影响」</span>
+            <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0">
+              <span style="font-size:11px;color:var(--text-muted)">数量</span>
+              <select class="input" id="llm_finance_count" onchange="saveCfg('llm_finance_count',parseInt(this.value))" style="width:72px;padding:2px 6px;height:28px;font-size:12px">
+                <option value="5">5 条</option><option value="10" selected>10 条</option>
+                <option value="15">15 条</option><option value="20">20 条</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">🤖 采集后自动分类</div>
+      <div class="form-row" style="flex-direction:row;align-items:flex-start;justify-content:space-between;gap:var(--space-4)">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500;margin-bottom:4px">采集完成后自动调用大模型分类</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+            <b>开启</b>：每次采集到新闻后自动提取摘要、情感、行业标签，无需手动点击「立即分类」。会持续消耗 Token。<br>
+            <b>关闭</b>：采集只入库，需要手动点击顶部「立即分类」按钮触发分类。Token 消耗完全可控。
+          </div>
+        </div>
+        <label class="toggle-switch" style="flex-shrink:0;margin-top:2px">
+          <input type="checkbox" id="auto_classify_enabled"
+            onchange="onAutoClassifyChange(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">⚙️ 采集间隔设置</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-4)">各路源独立计时，互不影响。点击建议值快速设置，也可拖动滑块自定义。</p>
+
+      <!-- NewsAPI 间隔 -->
+      <div class="form-row">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <label style="margin-bottom:0">🔑 NewsAPI.ai 采集间隔</label>
+          <span class="tag-pill">消耗 API 配额</span>
+        </div>
+        <div class="slider-row">
+          <input type="range" min="300" max="14400" step="300" id="newsapi_interval" value="1800"
+            oninput="onIntervalInput('newsapi')"
+            onchange="saveCfg('newsapi_interval',parseInt(this.value))">
+          <span class="slider-val" id="newsapi_interval_val">30分</span>
+        </div>
+        <!-- 建议快捷标签 -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <span style="font-size:11px;color:var(--text-muted);align-self:center">建议：</span>
+          <button class="suggest-btn" onclick="setInterval('newsapi',3600)">1小时<br><span>省配额</span></button>
+          <button class="suggest-btn suggest-btn-active" onclick="setInterval('newsapi',7200)">2小时<br><span>推荐 ★</span></button>
+          <button class="suggest-btn" onclick="setInterval('newsapi',14400)">4小时<br><span>免费版</span></button>
+        </div>
+        <div id="newsapi_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:5px"></div>
+      </div>
+
+      <!-- RSS 间隔 -->
+      <div class="form-row">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <label style="margin-bottom:0">📡 RSS 采集间隔</label>
+          <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">完全免费</span>
+        </div>
+        <div class="slider-row">
+          <input type="range" min="60" max="3600" step="60" id="rss_interval" value="300"
+            oninput="onIntervalInput('rss')"
+            onchange="saveCfg('rss_interval',parseInt(this.value))">
+          <span class="slider-val" id="rss_interval_val">5分</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <span style="font-size:11px;color:var(--text-muted);align-self:center">建议：</span>
+          <button class="suggest-btn" onclick="setInterval('rss',300)">5分钟<br><span>近实时</span></button>
+          <button class="suggest-btn suggest-btn-active" onclick="setInterval('rss',1800)">30分钟<br><span>推荐 ★</span></button>
+          <button class="suggest-btn" onclick="setInterval('rss',3600)">1小时<br><span>低负载</span></button>
+        </div>
+        <div id="rss_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:5px"></div>
+      </div>
+
+      <!-- 大模型搜索间隔 -->
+      <div class="form-row">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <label style="margin-bottom:0">🤖 大模型搜索间隔</label>
+          <span class="tag-pill">消耗 LLM Token</span>
+        </div>
+        <div class="slider-row">
+          <input type="range" min="600" max="86400" step="600" id="llm_search_interval" value="3600"
+            oninput="onIntervalInput('llm_search')"
+            onchange="saveCfg('llm_search_interval',parseInt(this.value))">
+          <span class="slider-val" id="llm_search_interval_val">1小时</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <span style="font-size:11px;color:var(--text-muted);align-self:center">建议：</span>
+          <button class="suggest-btn suggest-btn-active" onclick="setInterval('llm_search',3600)">1小时<br><span>推荐 ★</span></button>
+          <button class="suggest-btn" onclick="setInterval('llm_search',7200)">2小时<br><span>省Token</span></button>
+          <button class="suggest-btn" onclick="setInterval('llm_search',86400)">每天1次<br><span>最省</span></button>
+        </div>
+        <div id="llm_search_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:5px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 大模型配置 ══ -->
+  <div class="cfg-page" id="page-llm-config">
+    <div class="config-section">
+      <div class="config-section-title">🧠 分析匹配模型</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">
+        用于新闻分类和龙头股匹配。可添加多个不同平台的模型，系统轮询调用，遇到 429 自动切换到下一个。
+      </p>
+
+      <!-- 多模型列表 -->
+      <div id="llmModelList" style="display:flex;flex-direction:column;gap:var(--space-3);margin-bottom:var(--space-3)"></div>
+      <button class="btn btn-ghost btn-sm" onclick="addLlmModel()">+ 添加模型配置</button>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">🔍 新闻搜索专用模型</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">
+        用于「大模型搜索」路线主动联网抓取新闻，与分析匹配模型独立配置。可添加多个模型轮询，遇到 429 自动切换。<br>
+        <strong>留空则自动使用分析匹配模型列表。</strong>
+      </p>
+      <div id="searchLlmModelList" style="display:flex;flex-direction:column;gap:var(--space-3);margin-bottom:var(--space-3)"></div>
+      <button class="btn btn-ghost btn-sm" onclick="addSearchLlmModel()">+ 添加搜索模型配置</button>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">⏰ 定时匹配设置</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">新闻持续采集（不消耗 Token），匹配在指定时间点触发（消耗 Token）。</p>
+      <div class="form-row"><label>已设定的匹配时间点</label>
+        <div class="time-tags" id="matchTimeTags"><span style="font-size:12px;color:var(--text-muted)">暂未设置</span></div>
+      </div>
+      <div class="form-row"><label>添加时间点（24小时制）</label>
+        <div class="input-row">
+          <input class="input" type="time" id="newMatchTime" style="width:130px">
+          <button class="btn btn-secondary btn-sm" onclick="addMatchTime()">+ 添加</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted)">常用：08:00 开盘前 · 12:00 午间 · 15:30 收盘后 · 20:00 晚间</div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">📊 新闻分析偏好</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-4)">
+        控制大模型如何解读新闻、提取行业标签和情感判断。
+      </p>
+
+      <div class="form-row">
+        <label>分析侧重</label>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2)" id="analysisFocusList">
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="focus_opt_stock">
+            <input type="radio" name="analysis_focus" value="stock" style="margin-top:2px;flex-shrink:0" onchange="onFocusChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">📈 股票影响优先</div>
+              <div style="font-size:12px;color:var(--text-muted)">重点判断对 A 股个股或板块的利好/利空影响，适合短线关注</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="focus_opt_industry">
+            <input type="radio" name="analysis_focus" value="industry" style="margin-top:2px;flex-shrink:0" onchange="onFocusChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">🏭 行业趋势优先</div>
+              <div style="font-size:12px;color:var(--text-muted)">重点提取行业动态和产业链变化，适合中长线研究</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="focus_opt_macro">
+            <input type="radio" name="analysis_focus" value="macro" style="margin-top:2px;flex-shrink:0" onchange="onFocusChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">🌐 宏观政策优先</div>
+              <div style="font-size:12px;color:var(--text-muted)">重点关注政策面、宏观经济对市场的影响，适合政策敏感型投资</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="focus_opt_balanced">
+            <input type="radio" name="analysis_focus" value="balanced" checked style="margin-top:2px;flex-shrink:0" onchange="onFocusChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">⚖️ 综合均衡（默认）</div>
+              <div style="font-size:12px;color:var(--text-muted)">全面提取行业、情感、关键词，适合大多数场景</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-top:var(--space-3)">
+        <label>情感判断标准</label>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+          <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+            <input type="radio" name="sentiment_standard" value="strict" onchange="saveCfg('sentiment_standard',this.value)">
+            <div><span style="font-size:13px;font-weight:500">严格</span> <span style="font-size:12px;color:var(--text-muted)">— 只有明确利好/利空才标注，其余归中性（减少误判）</span></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+            <input type="radio" name="sentiment_standard" value="normal" checked onchange="saveCfg('sentiment_standard',this.value)">
+            <div><span style="font-size:13px;font-weight:500">标准（默认）</span> <span style="font-size:12px;color:var(--text-muted)">— 综合标题和内容判断情感倾向</span></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+            <input type="radio" name="sentiment_standard" value="sensitive" onchange="saveCfg('sentiment_standard',this.value)">
+            <div><span style="font-size:13px;font-weight:500">敏感</span> <span style="font-size:12px;color:var(--text-muted)">— 对潜在影响也进行判断，利好/利空比例更高</span></div>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">🎯 股票匹配偏好</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-4)">
+        控制每条新闻匹配出哪类 A 股企业，以及返回数量。
+      </p>
+
+      <!-- 企业类型偏好 -->
+      <div class="form-row">
+        <label>优先匹配的企业类型</label>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2)" id="matchTypePref">
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="mtype_leader">
+            <input type="radio" name="match_company_type" value="leader" checked style="margin-top:2px;flex-shrink:0" onchange="onMatchTypeChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">🏆 行业龙头 / 头部企业（默认）</div>
+              <div style="font-size:12px;color:var(--text-muted)">优先匹配同行业中市值最大、知名度最高的龙头股，如宁德时代、比亚迪、平安银行等</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="mtype_direct">
+            <input type="radio" name="match_company_type" value="direct" style="margin-top:2px;flex-shrink:0" onchange="onMatchTypeChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">🎯 直接相关企业</div>
+              <div style="font-size:12px;color:var(--text-muted)">匹配新闻中直接提及或业务最相关的企业，不限龙头，精准度更高</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="mtype_chain">
+            <input type="radio" name="match_company_type" value="chain" style="margin-top:2px;flex-shrink:0" onchange="onMatchTypeChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">🔗 产业链上下游</div>
+              <div style="font-size:12px;color:var(--text-muted)">同时匹配直接相关企业及其上下游，适合研究产业链传导效应</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="mtype_broad">
+            <input type="radio" name="match_company_type" value="broad" style="margin-top:2px;flex-shrink:0" onchange="onMatchTypeChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">🌐 同行业全覆盖</div>
+              <div style="font-size:12px;color:var(--text-muted)">覆盖整个相关行业的企业，发现更多潜在受益标的</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- 返回数量 -->
+      <div class="form-row" style="margin-top:var(--space-4)">
+        <label>每条新闻最多返回股票数</label>
+        <div class="slider-row">
+          <input type="range" min="3" max="10" id="match_top_k" value="5"
+            oninput="document.getElementById('topk_val').textContent=this.value+'只'"
+            onchange="saveCfg('match_top_k',parseInt(this.value))">
+          <span class="slider-val" id="topk_val">5只</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">建议 3~5 只，聚焦核心标的；最多 10 只</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 股票数据 ══ -->
+  <div class="cfg-page" id="page-stocks">
+    <div class="config-section">
+      <div class="config-section-title">📊 股票数据概览</div>
+      <div class="stats-grid" style="margin-bottom:0">
+        <div class="stat-card"><div class="stat-label">股票总数</div><div class="stat-value" id="sk-total">—</div></div>
+        <div class="stat-card"><div class="stat-label">主营业务覆盖</div><div class="stat-value" id="sk-coverage">—</div><div class="stat-sub" id="sk-coverage-sub"></div></div>
+        <div class="stat-card"><div class="stat-label">最后更新</div><div class="stat-value" style="font-size:12px;margin-top:4px" id="sk-updated">—</div></div>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">
+        <span>🔑 Tushare 配置</span>
+        <label class="toggle-switch" title="开启后优先使用 Tushare 获取股票数据（含行业分类）">
+          <input type="checkbox" id="tushare_enabled" onchange="onTushareToggle(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">
+        <span id="tushare_status_text">🔴 关闭 — 使用新浪行情（免费，无行业分类）</span>
+      </div>
+      <div class="form-row"><label>Tushare Token</label>
+        <div class="input-row">
+          <input class="input" type="password" id="tushare_token" placeholder="填入 Token 后开启开关" oninput="saveCfg('tushare_token',this.value)">
+          <button class="btn btn-ghost btn-sm" onclick="togglePwd('tushare_token')">👁</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+          Tushare 优势：含申万行业分类、上市日期，数据更准确 · 
+          <a href="https://tushare.pro/register" target="_blank" style="color:var(--blue-link)">获取 Token →</a>
+        </div>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">🔄 更新操作</div>
+      <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)">
+        <button class="btn btn-primary" onclick="triggerStockUpdate()">立即更新全量股票</button>
+        <button class="btn btn-secondary" onclick="loadStockStats()">刷新概览</button>
+        <div style="font-size:11px;color:var(--text-muted);align-self:center">
+          更新分两步：① 拉取股票列表 → ② 补全全部主营业务（约 20~30 分钟，可查看进度条）
+        </div>
+      </div>
+      <div id="updateProgressWrap" style="display:none">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px" id="progressMsg">准备中...</div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px" id="progressPct">0%</div>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">📋 股票列表</div>
+      <div class="input-row" style="margin-bottom:var(--space-3)">
+        <input class="input" type="text" id="stockSearch" placeholder="搜索股票名称或代码..." oninput="searchStocks(this.value)" style="max-width:300px">
+      </div>
+      <div id="stockTable" style="overflow-x:auto"></div>
+      <div id="stockPagination" style="display:flex;align-items:center;gap:4px;margin-top:var(--space-3);flex-wrap:wrap"></div>
+    </div>
+  </div>
+
+  <!-- ══ 数据管理 ══ -->
+  <div class="cfg-page" id="page-data-mgmt">
+    <div class="config-section">
+      <div class="config-section-title">🗓 数据保留策略</div>
+      <div class="form-row"><label>保留天数</label>
+        <div class="input-row">
+          <input class="input" type="number" id="data_retention_days" min="7" max="365" value="30" style="width:100px" oninput="saveCfg('data_retention_days',parseInt(this.value))">
+          <span style="font-size:13px;color:var(--text-secondary)">天</span>
+        </div>
+      </div>
+      <div class="form-row"><label style="display:flex;align-items:center;gap:var(--space-2)">
+        <label class="toggle-switch"><input type="checkbox" id="auto_clean" checked onchange="saveToggle('auto_clean',this.checked)"><span class="toggle-slider"></span></label>
+        自动清除（每天 02:00 执行）
+      </label></div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">🧹 手动清除</div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
+          <div><div style="font-size:13px;font-weight:500">清除历史新闻数据</div><div style="font-size:12px;color:var(--text-muted)">清除新闻及分类结果</div></div>
+          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['news','matches'])">清除</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
+          <div><div style="font-size:13px;font-weight:500">清除全部匹配结果</div><div style="font-size:12px;color:var(--text-muted)">保留新闻，清除匹配记录</div></div>
+          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['matches'])">清除</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
+          <div><div style="font-size:13px;font-weight:500">重置股票基础数据</div><div style="font-size:12px;color:var(--red-700)">⚠️ 清空 stocks + stock_profile</div></div>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red-600)" onclick="confirmClean(['stocks'])">重置</button>
+        </div>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">💾 数据导出</div>
+      <button class="btn btn-primary" onclick="exportData()">导出全量数据 JSON</button>
+    </div>
+
+    <!-- 📂 历史数据 -->
+    <div class="config-section" id="historySection">
+      <div class="config-section-title">
+        <span>📂 历史数据查看</span>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <select id="histUnit" onchange="loadHistoryStats()" style="font-size:12px;padding:3px 6px;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-base);color:var(--text-secondary)">
+            <option value="day">按天</option>
+            <option value="hour">按小时</option>
+          </select>
+          <select id="histValue" onchange="loadHistoryStats()" style="font-size:12px;padding:3px 6px;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-base);color:var(--text-secondary)">
+            <option value="1">1</option>
+            <option value="3">3</option>
+            <option value="7">7</option>
+            <option value="14">14</option>
+            <option value="30">30</option>
+          </select>
+          <span style="font-size:12px;color:var(--text-muted)">以前的历史数据</span>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-4)">
+        超出上方时间窗口的新闻和匹配结果归入历史，点击「查看」可展开详情。
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-4)">
+        <div style="padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">历史新闻</div>
+          <div style="font-size:22px;font-weight:700" id="hist-news-count">—</div>
+          <button class="stat-btn" onclick="showHistoryNews()">查看历史新闻 →</button>
+        </div>
+        <div style="padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">历史匹配结果</div>
+          <div style="font-size:22px;font-weight:700" id="hist-results-count">—</div>
+          <button class="stat-btn" onclick="showHistoryResults()">查看历史匹配 →</button>
+        </div>
+      </div>
+      <!-- 展开列表 -->
+      <div id="historyListWrap" style="display:none">
+        <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-3)">
+          <span style="font-size:13px;font-weight:500" id="histListTitle"></span>
+          <div class="filter-tabs" id="histFilterTabs"></div>
+          <button class="back-btn" style="margin-left:auto" onclick="closeHistoryList()">收起 ↑</button>
+        </div>
+        <div id="historyList" style="max-height:480px;overflow-y:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)"></div>
+      </div>
+    </div>
+
+    <!-- 👤 账号管理 -->
+    <div class="config-section">
+      <div class="config-section-title">👤 账号管理</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-4)">管理系统登录账号，支持多用户。</p>
+
+      <!-- 用户列表 -->
+      <div style="margin-bottom:var(--space-4);overflow-x:auto">
+        <table class="user-table" id="userTable">
+          <thead><tr><th>用户名</th><th>角色</th><th>创建时间</th><th>操作</th></tr></thead>
+          <tbody id="userTableBody"><tr><td colspan="4" style="padding:12px;color:var(--text-muted)">加载中...</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- 修改密码 -->
+      <div style="background:var(--surface-base);border-radius:var(--radius-md);padding:var(--space-4);margin-bottom:var(--space-3)">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:var(--space-3)">🔑 修改密码</div>
+        <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center">
+          <select class="input" id="pwUsername" style="width:130px;flex-shrink:0"></select>
+          <input class="input" type="password" id="pwNew" placeholder="新密码" style="width:150px">
+          <input class="input" type="password" id="pwConfirm" placeholder="确认新密码" style="width:150px">
+          <button class="btn btn-secondary btn-sm" onclick="doChangePassword()">修改密码</button>
+        </div>
+      </div>
+
+      <!-- 添加用户 -->
+      <div style="background:var(--surface-base);border-radius:var(--radius-md);padding:var(--space-4)">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:var(--space-3)">➕ 添加用户</div>
+        <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center">
+          <input class="input" type="text" id="newUsername" placeholder="用户名" style="width:150px">
+          <input class="input" type="password" id="newPassword" placeholder="密码（至少4位）" style="width:180px">
+          <button class="btn btn-primary btn-sm" onclick="doAddUser()">添加用户</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-title" id="confirmTitle">确认操作</div>
+    <div class="modal-body" id="confirmBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="confirmOkBtn">确认</button>
+    </div>
+  </div>
+</div>
+<!-- 匹配进度浮层 -->
+<div id="matchProgressOverlay" style="display:none;position:fixed;bottom:24px;right:24px;z-index:500;
+  background:var(--surface-primary);border:1px solid var(--border-default);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-modal);padding:16px 20px;min-width:280px;max-width:340px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <span style="font-size:13px;font-weight:600">🎯 匹配进行中</span>
+    <span id="matchProgressCount" style="font-size:12px;color:var(--text-muted)">0 / 0</span>
+  </div>
+  <div style="background:var(--surface-secondary);border-radius:4px;height:6px;overflow:hidden;margin-bottom:8px">
+    <div id="matchProgressBar" style="height:100%;background:var(--blue-800);border-radius:4px;
+      transition:width .4s ease;width:0%"></div>
+  </div>
+  <div id="matchProgressCurrent" style="font-size:11px;color:var(--text-muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis">准备中...</div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/static/theme.js"></script>
+<script>
+// ══════════════════════════════════════════════════════
+//  全局状态
+// ══════════════════════════════════════════════════════
+const API = '';
+let currentPage = 'dashboard';
+let _newsFilter = 'all';        // 当前新闻过滤
+let _newsData = [];             // 新闻缓存
+let _newsOffset = 0;            // 分页偏移
+let _newsTotal = 0;             // 窗口内总条数
+let _newsLoading = false;       // 防重复加载
+const _NEWS_PAGE_SIZE = 50;     // 每页条数
+let _matchedIds = new Set();    // 已匹配新闻 id 集合
+let _matchCache = {};           // { newsId: matched_stocks[] }
+let _selectedNewsId = null;
+let _leftMode = 'news';         // 'news' | 'all-news' | 'all-results'
+let _allResultsData = [];
+let stockCurrentPage = 1, stockSearchKw = '';
+let progressEsSource = null;
+let _matchTimes = [];
+
+const PROVIDER_MODELS = {
+  anthropic: ['claude-sonnet-4-20250514','claude-opus-4-20250514','claude-haiku-4-5-20251001'],
+  openai:    ['gpt-4o','gpt-4o-mini','gpt-4-turbo'],
+  qwen:      ['qwen-max','qwen-plus','qwen-turbo'],
+  glm:       ['GLM-4.5-Flash','GLM-4-Flash','glm-4-air','GLM-4'],
+  deepseek:  ['deepseek-chat','deepseek-reasoner'],
+  custom:    [],
+};
+
+// ══════════════════════════════════════════════════════
+//  工具
+// ══════════════════════════════════════════════════════
+const _origFetch = window.fetch.bind(window);
+async function api(path, opts={}) {
+  // window.fetch 는 아래에서 오버라이드돼 토큰 자동 주입 + 401 처리
+  const headers = {'Content-Type':'application/json', ...(opts.headers||{})};
+  if (_authToken) headers['Authorization'] = 'Bearer ' + _authToken;
+  const res = await _origFetch(API+path, {...opts, headers});
+  if (res.status === 401 && !path.includes('/auth/login')) {
+    _authToken = ''; _authUser = '';
+    localStorage.removeItem('astock_token');
+    localStorage.removeItem('astock_user');
+    showLoginOverlay();
+    throw new Error('Unauthorized');
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast-item toast-${type}`; el.textContent = msg;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+function fmtDatetime(s) {
+  if (!s) return '';
+  // 取前16位：2026-05-20 18:15 或 2026-05-20T18:15
+  const raw = String(s).replace('T', ' ').slice(0, 16);
+  return raw;
+}
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const sentLabel = s => ({positive:'利好',negative:'利空',neutral:'中性'}[s]||s);
+const sentClass = s => ({positive:'badge-positive',negative:'badge-negative',neutral:'badge-neutral'}[s]||'badge-neutral');
+function saveCfg(k,v) { api('/api/config',{method:'POST',body:JSON.stringify({items:[{key:k,value:v}]})}).catch(e=>toast('保存失败','error')); }
+function saveToggle(k,v) { saveCfg(k,v); }
+function togglePwd(id) { const el=document.getElementById(id); el.type=el.type==='password'?'text':'password'; }
+// ── 采集间隔辅助函数 ──────────────────────────────────────────────────────────
+const INTERVAL_CFG = {
+  newsapi:    { key:'newsapi_interval',    valId:'newsapi_interval_val',    hintId:'newsapi_interval_hint',
+                hints: {3600:'每天12次，消耗约12次API配额', 7200:'每天12次，推荐·免费版每月约200次配额', 14400:'每天6次，适合免费版'} },
+  rss:        { key:'rss_interval',        valId:'rss_interval_val',        hintId:'rss_interval_hint',
+                hints: {300:'每天288次，近实时但流量较高', 1800:'每天48次，推荐·兼顾时效与负载', 3600:'每天24次，低负载'} },
+  llm_search: { key:'llm_search_interval', valId:'llm_search_interval_val', hintId:'llm_search_interval_hint',
+                hints: {3600:'每天24次，约消耗24K tokens', 7200:'每天12次，约消耗12K tokens', 86400:'每天1次，最省Token'} },
+};
+
+function onIntervalInput(src) {
+  const cfg = INTERVAL_CFG[src];
+  const el = document.getElementById(src + '_interval');
+  const v = parseInt(el?.value || 0);
+  // 更新显示值
+  document.getElementById(cfg.valId).textContent = fmtInterval(v);
+  // 更新 hint
+  const hint = document.getElementById(cfg.hintId);
+  if (hint) {
+    const timesPerDay = Math.round(86400 / v);
+    const customHint = cfg.hints[v] || `每天 ${timesPerDay} 次`;
+    hint.textContent = customHint;
+  }
+  // 更新建议按钮高亮
+  updateSuggestBtns(src, v);
+}
+
+function setInterval(src, seconds) {
+  const cfg = INTERVAL_CFG[src];
+  const elId = src + '_interval';
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.value = seconds;
+  onIntervalInput(src);
+  saveCfg(cfg.key, seconds);
+}
+
+function updateSuggestBtns(src, val) {
+  // 找该 src 对应的所有 suggest-btn，匹配 onclick 里的秒数
+  document.querySelectorAll('.suggest-btn').forEach(btn => {
+    const match = btn.getAttribute('onclick')?.match(/setInterval\('([^']+)',(\d+)\)/);
+    if (match && match[1] === src) {
+      btn.classList.toggle('suggest-btn-active', parseInt(match[2]) === val);
+    }
+  });
+}
+
+function initIntervalHints() {
+  ['newsapi','rss','llm_search'].forEach(src => onIntervalInput(src));
+}
+
+function fmtInterval(s) {
+  if (s<60) return s+'秒';
+  if (s<3600) return Math.round(s/60)+'分';
+  const h=s/3600; return (Number.isInteger(h)?h:h.toFixed(1))+'小时';
+}
+
+// ── 移动端 Tab 切换 ──────────────────────────────────────────────────────────
+// ── 热搜区块（内嵌新闻面板上方）────────────────────────────────────────────
+let _trendingOpen = false;
+
+function toggleTrendingSection() {
+  _trendingOpen = !_trendingOpen;
+  const body = document.getElementById('trendingBody');
+  const icon = document.getElementById('trendingToggleIcon');
+  if (body) body.style.display = _trendingOpen ? '' : 'none';
+  if (icon) icon.style.transform = _trendingOpen ? 'rotate(180deg)' : '';
+}
+
+async function loadTrending() {
+  try {
+    const cfg = (await api('/api/config')).data || {};
+    const section = document.getElementById('trendingSection');
+    if (!cfg.trending_enabled) { if (section) section.style.display = 'none'; return; }
+
+    const d = await api('/api/trending');
+    const sources = [
+      { key:'baidu',  emoji:'🔍', label:'百度' },
+      { key:'weibo',  emoji:'🌊', label:'微博' },
+      { key:'douyin', emoji:'🎵', label:'抖音' },
+    ];
+
+    // 过滤掉没数据的来源
+    const active = sources.filter(s => (d[s.key]||[]).length > 0);
+    if (!active.length) { if (section) section.style.display = 'none'; return; }
+
+    if (section) section.style.display = '';
+
+    // 更新来源徽章
+    const badges = document.getElementById('trendingSourceBadges');
+    if (badges) {
+      badges.innerHTML = active.map(s =>
+        `<span style="font-size:10px;padding:1px 6px;border-radius:8px;
+          background:var(--surface-primary);color:var(--text-muted)">${s.emoji}${s.label} ${(d[s.key]||[]).length}</span>`
+      ).join('');
+    }
+
+    // 渲染三列
+    const cols = document.getElementById('trendingCols');
+    if (!cols) return;
+    cols.style.gridTemplateColumns = `repeat(${active.length}, 1fr)`;
+    cols.innerHTML = active.map(src => {
+      const items = d[src.key] || [];
+      const time = items[0]?.created_at ? fmtDatetime(items[0].created_at) : '';
+      const rows = items.map((item, i) => {
+        const rank = i + 1;
+        const hotMatch = (item.content||'').match(/热度([\d,]+)/);
+        const hot = hotMatch ? hotMatch[1] : '';
+        return `<a class="trending-row" href="${esc(item.url||'#')}" target="_blank" rel="noopener">
+          <span class="trending-row-rank ${rank<=3?'t3':''}">${rank}</span>
+          <span class="trending-row-word" title="${esc(item.title)}">${esc(item.title)}</span>
+          ${hot?`<span class="trending-row-hot">${hot}</span>`:''}
+        </a>`;
+      }).join('');
+      return `<div class="trending-col">
+        <div class="trending-col-header">
+          <span>${src.emoji} ${src.label}热搜</span>
+          <span>${time}</span>
+        </div>
+        <div class="trending-col-list">${rows}</div>
+      </div>`;
+    }).join('');
+
+  } catch(e) { /* 静默失败 */ }
+}
+
+function switchMobileTab(tab, el) {
+  document.querySelectorAll('.mobile-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const newsPanel  = document.getElementById('panelNews');
+  const matchPanel = document.getElementById('panelMatch');
+  if (!newsPanel || !matchPanel) return;
+  if (tab === 'news') {
+    newsPanel.classList.remove('mobile-hidden');
+    matchPanel.classList.add('mobile-hidden');
+  } else {
+    newsPanel.classList.add('mobile-hidden');
+    matchPanel.classList.remove('mobile-hidden');
+  }
+}
+
+// 点击新闻时手机端自动切换到匹配面板
+function _mobileAutoSwitchToMatch() {
+  if (window.innerWidth <= 768) {
+    const btn = document.querySelector('.mobile-tab:last-child');
+    if (btn) switchMobileTab('match', btn);
+  }
+}
+
+// ── 设置下拉菜单 ──────────────────────────────────────────────────────────────
+function toggleSettingsMenu(e) {
+  e.stopPropagation();
+  const menu  = document.getElementById('settingsMenu');
+  const arrow = document.getElementById('settingsArrow');
+  const isOpen = menu.classList.contains('open');
+  // 关闭所有下拉
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.dropdown-arrow').forEach(a => a.classList.remove('open'));
+  if (!isOpen) {
+    menu.classList.add('open');
+    arrow.classList.add('open');
+  }
+}
+
+function navigateFromMenu(page) {
+  // 关闭菜单
+  document.getElementById('settingsMenu').classList.remove('open');
+  document.getElementById('settingsArrow').classList.remove('open');
+  navigate(page);
+  // 高亮设置按钮
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+  document.getElementById('settingsBtn').classList.add('active');
+  // 高亮对应菜单项
+  document.querySelectorAll('.dropdown-item').forEach(item => {
+    item.classList.toggle('active', item.getAttribute('onclick')?.includes("'"+page+"'"));
+  });
+}
+
+// 点击其他地方关闭下拉
+document.addEventListener('click', () => {
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.dropdown-arrow').forEach(a => a.classList.remove('open'));
+});
+
+// ── Token 消耗显示 ──────────────────────────────────────────────────────────
+function fmtTokens(n) {
+  if (!n || n === 0) return '0';
+  if (n < 1000) return n + '';
+  if (n < 1_000_000) return (n/1000).toFixed(1) + 'K';
+  return (n/1_000_000).toFixed(2) + 'M';
+}
+
+function updateTokenBadge(usage) {
+  const badge = document.getElementById('tokenBadge');
+  const val   = document.getElementById('tokenVal');
+  if (!badge || !usage) return;
+  const total = (usage.input || 0) + (usage.output || 0);
+  if (total === 0) { badge.style.display = 'none'; return; }
+  badge.style.display = 'flex';
+  val.textContent = fmtTokens(total);
+  const month = usage.month || '本月';
+  badge.title = `${month} Token 消耗（月度自动重置）\ninput: ${fmtTokens(usage.input||0)}\noutput: ${fmtTokens(usage.output||0)}\n调用次数: ${usage.calls||0}\n\n点击手动重置`;
+}
+
+async function resetTokenUsage() {
+  if (!confirm('确认重置 Token 消耗计数？')) return;
+  await api('/api/config', {method:'POST', body: JSON.stringify({items:[{key:'token_usage_total',value:{input:0,output:0,calls:0}}]})});
+  updateTokenBadge({input:0,output:0,calls:0});
+}
+
+function navigate(page) {
+  document.querySelectorAll('.page,.cfg-page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.dropdown-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page)?.classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+page+"'")) n.classList.add('active'); });
+  currentPage = page;
+  if (page==='dashboard') { loadStats(); loadNews(); loadTrending(); }
+  if (page==='stocks') { loadStockStats(); loadStocks(); }
+  if (page==='llm-config') loadLLMConfig();
+  if (page==='news-config') loadNewsConfig();
+  if (page==='data-mgmt') loadDataMgmtConfig();
+}
+
+// ══════════════════════════════════════════════════════
+//  统计
+// ══════════════════════════════════════════════════════
+// 时间窗口状态
+let _windowUnit = 'day';
+let _windowValue = 1;
+
+function onWindowChange() {
+  _windowUnit = document.getElementById('windowUnit').value;
+  _windowValue = parseInt(document.getElementById('windowValue').value);
+  loadWindowNews();
+}
+
+async function loadWindowNews() {
+  try {
+    const r = await api(`/api/news/window?unit=${_windowUnit}&value=${_windowValue}`);
+    document.getElementById('st-news').textContent = r.count;
+    document.getElementById('st-news-label').textContent = r.label;
+    const histEl = document.getElementById('st-news-history');
+    histEl.textContent = r.history_count > 0 ? `另有 ${r.history_count} 条历史数据` : '';
+    // 用窗口数据刷新新闻列表
+    _newsData = r.items;
+    if (_leftMode === 'news') renderNewsList(_newsData);
+  } catch(e) { console.error('窗口新闻加载失败', e); }
+}
+
+async function loadStats() {
+  try {
+    const d = (await api('/api/stats')).data;
+    // 新闻总数由 loadWindowNews 负责，这里只更新其他字段
+    document.getElementById('st-news').textContent = d.total_news;
+    document.getElementById('st-matches').textContent = d.total_matches;
+    document.getElementById('st-sentiment').textContent = `${d.positive_count} / ${d.negative_count}`;
+    document.getElementById('st-stocks').textContent = d.total_stocks;
+    document.getElementById('st-model').textContent = d.current_model;
+    if (d.token_usage) updateTokenBadge(d.token_usage);
+    document.getElementById('st-last-collect').textContent = d.last_collect_at ? '最近: '+d.last_collect_at.slice(0,16) : '尚未采集';
+    const dot = document.getElementById('statusDot');
+    dot.className = 'status-dot'+(d.scheduler_running?' running':'');
+    document.getElementById('statusText').textContent = d.scheduler_running?'运行中':'已停止';
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════
+//  左侧面板：最新新闻（默认模式）
+// ══════════════════════════════════════════════════════
+async function loadNews() {
+  _leftMode = 'news';
+  _newsOffset = 0;
+  _newsData = [];
+  setLeftHeader('最新新闻', `
+    <button class="filter-tab ${_newsFilter==='all'?'active':''}" onclick="filterNews('all',this)">全部</button>
+    <button class="filter-tab ${_newsFilter==='positive'?'active':''}" onclick="filterNews('positive',this)">利好</button>
+    <button class="filter-tab ${_newsFilter==='negative'?'active':''}" onclick="filterNews('negative',this)">利空</button>
+    <button class="filter-tab ${_newsFilter==='neutral'?'active':''}" onclick="filterNews('neutral',this)">中性</button>`);
+
+  const list = document.getElementById('leftList');
+  list.innerHTML = '<div class="empty-state"><span class="loading"></span></div>';
+
+  try {
+    // 并行拉取第一页新闻 + 已匹配 id
+    const [r, mr] = await Promise.all([
+      api(`/api/news/window?unit=${_windowUnit}&value=${_windowValue}&limit=${_NEWS_PAGE_SIZE}&offset=0&sentiment=${_newsFilter}`),
+      api('/api/matched-ids').catch(()=>({ids:[]})),
+    ]);
+    _newsData = r.items || [];
+    _newsTotal = r.total || r.count || 0;
+    _newsOffset = _newsData.length;
+    _matchedIds = new Set(mr.ids || []);
+    // 更新统计卡片
+    document.getElementById('st-news').textContent = r.count;
+    document.getElementById('st-news-label').textContent = r.label;
+    const histEl = document.getElementById('st-news-history');
+    if (histEl) histEl.textContent = r.history_count > 0 ? `另有 ${r.history_count} 条历史数据` : '';
+    renderNewsList(_newsData, false);
+    // 绑定滚动加载更多
+    _bindNewsScroll();
+  } catch(e) {
+    list.innerHTML = `<div class="empty-state">加载失败: ${esc(e.message)}</div>`;
+  }
+}
+
+async function loadMoreNews() {
+  if (_newsLoading || _newsOffset >= _newsTotal) return;
+  _newsLoading = true;
+  try {
+    const r = await api(`/api/news/window?unit=${_windowUnit}&value=${_windowValue}&limit=${_NEWS_PAGE_SIZE}&offset=${_newsOffset}&sentiment=${_newsFilter}`);
+    const newItems = r.items || [];
+    _newsData = _newsData.concat(newItems);
+    _newsOffset += newItems.length;
+    renderNewsList(newItems, true);  // append 模式
+  } catch(e) { /* 静默失败 */ }
+  finally { _newsLoading = false; }
+}
+
+function _bindNewsScroll() {
+  const list = document.getElementById('leftList');
+  if (!list) return;
+  list.onscroll = () => {
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 80) {
+      loadMoreNews();
+    }
+  };
+}
+
+function renderNewsList(items, append=false) {
+  const list = document.getElementById('leftList');
+  if (!append && !items.length) { list.innerHTML = '<div class="empty-state">暂无新闻</div>'; return; }
+  const html = items.map(n => `
+    <div class="news-item${n.id===_selectedNewsId?' selected':''}" id="ni-${n.id}" onclick="selectNews(${n.id},this)">
+      <div class="news-item-header">
+        ${_matchedIds.has(n.id) ? '<div class="matched-dot" title="已匹配"></div>' : ''}
+        <span class="news-title">${esc(n.title)}</span>
+        <span class="badge-s ${sentClass(n.sentiment)}">${sentLabel(n.sentiment)}</span>
+      </div>
+      ${n.summary ? `<div class="news-summary">${esc(n.summary)}</div>` : ''}
+      <div class="news-meta">
+        <span class="news-source">${esc(n.source||'')} · ${fmtDatetime(n.published_at||n.created_at)}</span>
+        ${(n.industries||[]).slice(0,2).map(i=>`<span class="tag-pill">${esc(i)}</span>`).join('')}
+        ${(n.keywords||[]).slice(0,2).map(k=>`<span class="tag-pill">${esc(k)}</span>`).join('')}
+      </div>
+    </div>`).join('');
+  if (append) {
+    const sentinel = list.querySelector('.load-more-sentinel');
+    if (sentinel) sentinel.remove();
+    list.insertAdjacentHTML('beforeend', html);
+  } else {
+    list.innerHTML = html;
+  }
+  // 还有更多时显示底部提示
+  if (_newsOffset < _newsTotal) {
+    list.insertAdjacentHTML('beforeend',
+      `<div class="load-more-sentinel" style="text-align:center;padding:10px;font-size:11px;color:var(--text-muted)">
+        ↓ 滚动加载更多（${_newsOffset} / ${_newsTotal}）
+      </div>`);
+  }
+}
+
+function filterNews(sentiment, btn) {
+  document.querySelectorAll('#leftPanelActions .filter-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  _newsFilter = sentiment;
+  // 重置分页，从服务端重新加载（过滤由后端处理）
+  _newsOffset = 0;
+  _newsData = [];
+  loadNews();
+}
+
+function selectNews(id, el) {
+  _mobileAutoSwitchToMatch();
+  document.querySelectorAll('.news-item').forEach(n=>n.classList.remove('selected'));
+  el.classList.add('selected');
+  _selectedNewsId = id;
+  showMatchResult(id);
+}
+
+// ══════════════════════════════════════════════════════
+//  左侧面板：查看所有新闻
+// ══════════════════════════════════════════════════════
+let _allNewsFilter = 'all';
+let _allNewsOffset = 0;
+let _allNewsTotal = 0;
+let _allNewsLoading = false;
+
+async function showAllNews() {
+  _leftMode = 'all-news';
+  _allNewsFilter = 'all';
+  _allNewsOffset = 0;
+  _newsData = [];
+  setLeftHeader('所有新闻', `
+    <button class="back-btn" onclick="backToNews()">← 返回</button>
+    <button class="filter-tab active" onclick="filterAllNews('all',this)">全部</button>
+    <button class="filter-tab" onclick="filterAllNews('positive',this)">利好</button>
+    <button class="filter-tab" onclick="filterAllNews('negative',this)">利空</button>
+    <button class="filter-tab" onclick="filterAllNews('neutral',this)">中性</button>`, false);
+
+  const list = document.getElementById('leftList');
+  list.innerHTML = '<div class="empty-state"><span class="loading"></span></div>';
+  await _loadAllNewsPage(false);
+  list.onscroll = () => {
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 80) _loadAllNewsPage(true);
+  };
+}
+
+async function _loadAllNewsPage(append) {
+  if (_allNewsLoading || (append && _allNewsOffset >= _allNewsTotal)) return;
+  _allNewsLoading = true;
+  try {
+    const sent = _allNewsFilter !== 'all' ? `&sentiment=${_allNewsFilter}` : '';
+    const r = await api(`/api/news?limit=50&offset=${_allNewsOffset}${sent}`);
+    const items = r.items || [];
+    _allNewsTotal = r.total || items.length;
+    _allNewsOffset += items.length;
+    _newsData = append ? _newsData.concat(items) : items;
+    renderAllNewsList(items, append);
+  } catch(e) {
+    if (!append) document.getElementById('leftList').innerHTML = `<div class="empty-state">加载失败</div>`;
+  } finally { _allNewsLoading = false; }
+}
+
+function filterAllNews(sentiment, btn) {
+  document.querySelectorAll('#leftPanelActions .filter-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  _allNewsFilter = sentiment;
+  _allNewsOffset = 0;
+  _newsData = [];
+  _loadAllNewsPage(false);
+}
+
+function renderAllNewsList(items, append=false) {
+  const list = document.getElementById('leftList');
+  if (!append && !items.length) { list.innerHTML = '<div class="empty-state">暂无新闻</div>'; return; }
+  const html = items.map(n => `
+    <div class="news-item${n.id===_selectedNewsId?' selected':''}" id="ni-${n.id}" onclick="selectNews(${n.id},this)">
+      <div class="news-item-header">
+        ${_matchedIds.has(n.id) ? '<div class="matched-dot" title="已匹配"></div>' : ''}
+        <span class="news-title">${esc(n.title)}</span>
+        <span class="badge-s ${sentClass(n.sentiment)}">${sentLabel(n.sentiment)}</span>
+      </div>
+      ${n.summary ? `<div class="news-summary">${esc(n.summary)}</div>` : '<div class="news-summary" style="color:var(--text-muted);font-style:italic">尚未分类</div>'}
+      <div class="news-meta">
+        <span class="news-source">${esc(n.source||'')} · ${fmtDatetime(n.published_at||n.created_at)}</span>
+        ${(n.industries||[]).slice(0,2).map(i=>`<span class="tag-pill">${esc(i)}</span>`).join('')}
+        ${n.url ? `<a href="${esc(n.url)}" target="_blank" style="font-size:11px;color:var(--blue-link);text-decoration:none;margin-left:auto">原文 ↗</a>` : ''}
+      </div>
+    </div>`).join('');
+  if (append) {
+    const s = list.querySelector('.load-more-sentinel');
+    if (s) s.remove();
+    list.insertAdjacentHTML('beforeend', html);
+  } else {
+    list.innerHTML = html;
+  }
+  if (_allNewsOffset < _allNewsTotal) {
+    list.insertAdjacentHTML('beforeend',
+      `<div class="load-more-sentinel" style="text-align:center;padding:10px;font-size:11px;color:var(--text-muted)">
+        ↓ 滚动加载更多（${_allNewsOffset} / ${_allNewsTotal}）
+      </div>`);
+  }
+}
+
+function backToNews() { loadNews(); }
+
+// ══════════════════════════════════════════════════════
+//  左侧面板：查看所有匹配结果
+// ══════════════════════════════════════════════════════
+let _allResultsFilter = 'all';
+let _allResultsOffset = 0;
+let _allResultsTotal = 0;
+let _allResultsLoading = false;
+
+async function showAllResults() {
+  _leftMode = 'all-results';
+  _allResultsFilter = 'all';
+  _allResultsOffset = 0;
+  _allResultsData = [];
+  setLeftHeader('所有匹配结果', `
+    <button class="back-btn" onclick="backToNews()">← 返回</button>
+    <button class="filter-tab active" onclick="filterAllResults('all',this)">全部</button>
+    <button class="filter-tab" onclick="filterAllResults('positive',this)">利好</button>
+    <button class="filter-tab" onclick="filterAllResults('negative',this)">利空</button>
+    <button class="filter-tab" onclick="filterAllResults('neutral',this)">中性</button>`, false);
+
+  const list = document.getElementById('leftList');
+  list.innerHTML = '<div class="empty-state"><span class="loading"></span></div>';
+  await _loadAllResultsPage(false);
+  list.onscroll = () => {
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 80) _loadAllResultsPage(true);
+  };
+}
+
+async function _loadAllResultsPage(append) {
+  if (_allResultsLoading || (append && _allResultsOffset >= _allResultsTotal)) return;
+  _allResultsLoading = true;
+  try {
+    const sent = _allResultsFilter !== 'all' ? `&sentiment=${_allResultsFilter}` : '';
+    const r = await api(`/api/results?limit=50&offset=${_allResultsOffset}${sent}`);
+    const items = r.items || [];
+    _allResultsTotal = r.total || items.length;
+    _allResultsOffset += items.length;
+    _allResultsData = append ? _allResultsData.concat(items) : items;
+    // 缓存 matched_stocks 供点击时使用
+    items.forEach(i => { _matchCache[i.news_id] = i.matched_stocks; });
+    renderAllResultsList(items, append);
+  } catch(e) {
+    if (!append) document.getElementById('leftList').innerHTML = `<div class="empty-state">加载失败</div>`;
+  } finally { _allResultsLoading = false; }
+}
+
+function filterAllResults(sentiment, btn) {
+  document.querySelectorAll('#leftPanelActions .filter-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  _allResultsFilter = sentiment;
+  _allResultsOffset = 0;
+  _allResultsData = [];
+  _loadAllResultsPage(false);
+}
+
+function renderAllResultsList(items, append=false) {
+  const list = document.getElementById('leftList');
+  if (!append && !items.length) { list.innerHTML = '<div class="empty-state">暂无匹配结果</div>'; return; }
+  const html = items.map(item => {
+    const si = item.match_sentiment || item.sentiment || 'neutral';
+    const top = item.matched_stocks?.[0];
+    return `<div class="news-item${item.news_id===_selectedNewsId?' selected':''}" id="ni-${item.news_id}" onclick="selectNewsFromResult(${item.news_id},${item.id},this)">
+      <div class="news-item-header">
+        ${top ? `<span class="matched-dot" style="background:var(--blue-800)" title="${esc(top.name)}"></span>` : ''}
+        <span class="news-title">${esc(item.title)}</span>
+        <span class="badge-s ${sentClass(si)}">${sentLabel(si)}</span>
+      </div>
+      ${item.summary ? `<div class="news-summary">${esc(item.summary)}</div>` : ''}
+      <div class="news-meta">
+        <span class="news-source">${esc(item.source||'')} · ${fmtDatetime(item.published_at||item.created_at)}</span>
+        ${(item.matched_stocks||[]).slice(0,3).map(s=>`<span class="tag-pill" style="background:var(--blue-200);color:var(--blue-link)">${esc(s.name)}</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  if (append) {
+    const s = list.querySelector('.load-more-sentinel');
+    if (s) s.remove();
+    list.insertAdjacentHTML('beforeend', html);
+  } else {
+    list.innerHTML = html;
+  }
+  if (_allResultsOffset < _allResultsTotal) {
+    list.insertAdjacentHTML('beforeend',
+      `<div class="load-more-sentinel" style="text-align:center;padding:10px;font-size:11px;color:var(--text-muted)">
+        ↓ 滚动加载更多（${_allResultsOffset} / ${_allResultsTotal}）
+      </div>`);
+  }
+}
+
+function selectNewsFromResult(newsId, resultId, el) {
+  _mobileAutoSwitchToMatch();
+  document.querySelectorAll('.news-item').forEach(n=>n.classList.remove('selected'));
+  el.classList.add('selected');
+  _selectedNewsId = newsId;
+  // 从缓存中找匹配结果
+  const item = _allResultsData.find(i=>i.id===resultId);
+  if (item) {
+    _matchCache[newsId] = item.matched_stocks;
+    showMatchResult(newsId);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  左侧面板 header 工具
+// ══════════════════════════════════════════════════════
+function setLeftHeader(title, actionsHtml) {
+  document.getElementById('leftPanelTitle').textContent = title;
+  document.getElementById('leftPanelActions').innerHTML = actionsHtml;
+}
+
+// ══════════════════════════════════════════════════════
+//  右侧：匹配结果展示
+// ══════════════════════════════════════════════════════
+async function showMatchResult(newsId) {
+  const rightBody = document.getElementById('rightBody');
+
+  // 找新闻详情（从各缓存里找）
+  const news = _newsData.find(n=>n.id===newsId)
+    || _allResultsData.find(i=>i.news_id===newsId);
+
+  // 未匹配
+  if (!_matchedIds.has(newsId)) {
+    document.getElementById('rightPanelTitle').textContent = '龙头股匹配';
+    document.getElementById('rightPanelSub').textContent = '';
+    rightBody.innerHTML = `<div class="match-empty">该新闻暂无匹配结果<br><span style="font-size:11px;margin-top:4px;display:block">请点击「立即匹配」批量处理</span></div>`;
+    return;
+  }
+
+  // 已匹配但缓存里没有：按需懒加载
+  let stocks = _matchCache[newsId];
+  if (!stocks) {
+    rightBody.innerHTML = `<div class="match-empty"><span class="loading"></span></div>`;
+    try {
+      const r = await api(`/api/results?news_id=${newsId}&limit=1`);
+      const item = (r.items||[])[0];
+      stocks = item?.matched_stocks || [];
+      _matchCache[newsId] = stocks;
+    } catch(e) {
+      rightBody.innerHTML = `<div class="match-empty">加载失败</div>`;
+      return;
+    }
+  }
+
+  if (!stocks || stocks.length === 0) {
+    document.getElementById('rightPanelTitle').textContent = '龙头股匹配';
+    document.getElementById('rightPanelSub').textContent = '';
+    rightBody.innerHTML = `<div class="match-empty">该新闻暂无匹配结果<br><span style="font-size:11px;margin-top:4px;display:block">请点击「立即匹配」批量处理</span></div>`;
+    return;
+  }
+
+  document.getElementById('rightPanelTitle').textContent = '龙头股匹配';
+  document.getElementById('rightPanelSub').textContent = `${stocks.length} 只`;
+
+  // 新闻摘要块
+  let newsBlock = '';
+  if (news) {
+    const si = news.sentiment || 'neutral';
+    newsBlock = `<div class="news-block">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        <span class="badge-s ${sentClass(si)}">${sentLabel(si)}</span>
+        ${(news.industries||[]).map(i=>`<span class="tag-pill">${esc(i)}</span>`).join('')}
+      </div>
+      <div class="news-block-title">${esc(news.title)}</div>
+      ${news.summary ? `<div class="news-block-summary">${esc(news.summary)}</div>` : ''}
+      <div class="news-block-meta">
+        ${(news.keywords||[]).slice(0,4).map(k=>`<span class="tag-pill">${esc(k)}</span>`).join('')}
+        ${news.url ? `<a href="${esc(news.url)}" target="_blank" style="font-size:11px;color:var(--blue-link);text-decoration:none;margin-left:auto">原文 ↗</a>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // 股票列表
+  const stocksHtml = stocks.length
+    ? `<div class="stocks-label">匹配龙头股 · ${stocks.length} 只</div>` +
+      stocks.map((s,i) => `
+        <div class="stock-item ${i===0?'rank-1':'rank-other'}">
+          <div class="stock-item-header">
+            <div class="rank-num">${i+1}</div>
+            <span class="stock-name">${esc(s.name)}</span>
+            <span class="stock-code">${esc(s.ts_code)}</span>
+            <span class="badge-s ${sentClass(s.sentiment_impact)}" style="margin-left:auto">${sentLabel(s.sentiment_impact)}</span>
+          </div>
+          <div class="score-row">
+            <span class="score-lbl">综合评分</span>
+            <div class="score-bar"><div class="score-fill" style="width:${Math.min(s.score*100,100)}%"></div></div>
+            <span class="score-num">${(s.score*100).toFixed(0)}</span>
+          </div>
+          ${s.semantic_score ? `<div class="score-row">
+            <span class="score-lbl">语义相似</span>
+            <div class="score-bar"><div class="score-fill green" style="width:${Math.min(s.semantic_score*100,100)}%"></div></div>
+            <span class="score-num">${(s.semantic_score*100).toFixed(0)}</span>
+          </div>` : ''}
+          <div class="stock-reason">${esc(s.reason)}</div>
+        </div>`).join('')
+    : '<div class="match-empty">暂无匹配股票</div>';
+
+  rightBody.innerHTML = newsBlock + stocksHtml;
+}
+
+// ══════════════════════════════════════════════════════
+//  顶部按钮
+// ══════════════════════════════════════════════════════
+async function triggerCollect() {
+  const btns = [document.getElementById('collectBtn'), document.getElementById('collectBtnM')].filter(Boolean);
+  btns.forEach(b=>{ b.disabled=true; b.textContent='采集中...'; });
+  try {
+    await api('/api/collect',{method:'POST'});
+    toast('采集任务已触发，新闻将持续入库','success');
+    setTimeout(()=>{ loadStats(); loadNews(); }, 5000);
+  } catch(e) { toast('触发失败: '+e.message,'error'); }
+  finally { btns.forEach(b=>{ b.disabled=false; b.textContent='立即采集'; }); }
+}
+
+async function triggerClassify() {
+  const btns = [document.getElementById('classifyBtn'), document.getElementById('classifyBtnM')].filter(Boolean);
+  btns.forEach(b=>{ b.disabled=true; b.textContent='分类中...'; });
+  try {
+    const r = await api('/api/classify',{method:'POST'});
+    toast((r.message||'分类任务已触发'), 'success');
+    setTimeout(()=>{ loadStats(); loadNews(); }, 8000);
+  } catch(e) { toast('触发失败: '+e.message,'error'); }
+  finally { setTimeout(()=>{ btns.forEach(b=>{ b.disabled=false; b.textContent='立即分类'; }); }, 3000); }
+}
+
+let _matchPollTimer = null;
+
+async function triggerMatch() {
+  const btns = [document.getElementById('matchBtn'), document.getElementById('matchBtnM')].filter(Boolean);
+  btns.forEach(b=>{ b.disabled=true; b.textContent='匹配中...'; });
+  try {
+    const r = await api('/api/match',{method:'POST'});
+    const msg = r.message || '匹配任务已触发';
+    toast(msg, 'info');
+    // 显示进度浮层并开始轮询
+    showMatchProgress();
+    startMatchPolling(btns);
+  } catch(e) {
+    toast('触发失败: '+e.message,'error');
+    btns.forEach(b=>{ b.disabled=false; b.textContent='立即匹配'; });
+  }
+}
+
+function showMatchProgress() {
+  const overlay = document.getElementById('matchProgressOverlay');
+  if (overlay) overlay.style.display = 'block';
+}
+
+function hideMatchProgress() {
+  const overlay = document.getElementById('matchProgressOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function startMatchPolling(btns) {
+  if (_matchPollTimer) clearInterval(_matchPollTimer);
+  _matchPollTimer = setInterval(async () => {
+    try {
+      const p = await api('/api/match/progress');
+      const done = p.done || 0;
+      const total = p.total || 0;
+      const pct = total > 0 ? Math.round(done / total * 100) : 0;
+      const current = p.current || '';
+      const finished = p.finished === true;
+
+      // 更新进度条
+      const bar = document.getElementById('matchProgressBar');
+      const count = document.getElementById('matchProgressCount');
+      const cur = document.getElementById('matchProgressCurrent');
+      if (bar) bar.style.width = pct + '%';
+      if (count) count.textContent = `${done} / ${total}`;
+      if (cur) cur.textContent = finished ? '✅ 匹配完成！' : (current ? `正在匹配：${current}` : '准备中...');
+
+      if (finished && total > 0) {
+        clearInterval(_matchPollTimer);
+        _matchPollTimer = null;
+        btns.forEach(b=>{ b.disabled=false; b.textContent='立即匹配'; });
+        toast(`匹配完成，共处理 ${total} 条`, 'success');
+        setTimeout(()=>{ hideMatchProgress(); loadStats(); loadNews(); }, 2000);
+      }
+    } catch(e) { /* 静默失败 */ }
+  }, 1500);  // 每1.5秒轮询一次
+}
+
+// ══════════════════════════════════════════════════════
+//  新闻采集配置
+// ══════════════════════════════════════════════════════
+async function loadNewsConfig() {
+  const cfg = (await api('/api/config')).data||{};
+  setToggle('newsapi_enabled', cfg.newsapi_enabled);
+  setToggle('rss_enabled', cfg.rss_enabled);
+  setToggle('llm_search_enabled', cfg.llm_search_enabled);
+  setToggle('trending_enabled', cfg.trending_enabled);
+  setToggle('baidu_trending_enabled', cfg.baidu_trending_enabled !== false);
+  setToggle('weibo_trending_enabled', cfg.weibo_trending_enabled !== false);
+  setToggle('douyin_trending_enabled', cfg.douyin_trending_enabled !== false);
+  // 自动分类开关（默认开启）
+  const autoClassify = cfg.auto_classify_enabled !== false;
+  setToggle('auto_classify_enabled', autoClassify);
+  updateClassifyBtnVisibility(autoClassify);
+
+  if (cfg.newsapi_page_size) document.getElementById('newsapi_page_size').value = cfg.newsapi_page_size;
+  const ni=cfg.newsapi_interval||1800; document.getElementById('newsapi_interval').value=ni; document.getElementById('newsapi_interval_val').textContent=fmtInterval(ni);
+  const ri=cfg.rss_interval||300; document.getElementById('rss_interval').value=ri; document.getElementById('rss_interval_val').textContent=fmtInterval(ri);
+  const li=cfg.llm_search_interval||3600; document.getElementById('llm_search_interval').value=li; document.getElementById('llm_search_interval_val').textContent=fmtInterval(li);
+  renderKeyList('newsapiKeyList', cfg.newsapi_keys||[], 'newsapi_keys');
+  renderKwList('newsapiKwList', cfg.newsapi_keywords||[], 'newsapi_keywords');
+  initIntervalHints();
+  renderFeedList('rssFeedList', cfg.rss_feeds||[], 'rss_feeds');
+  renderDirList('llmDirList', cfg.llm_search_directions||[], 'llm_search_directions');
+  // 三个预设模式状态
+  setToggle('llm_general_enabled', cfg.llm_general_enabled !== false);
+  setToggle('llm_tech_enabled', cfg.llm_tech_enabled !== false);
+  setToggle('llm_finance_enabled', cfg.llm_finance_enabled !== false);
+  const gc = cfg.llm_general_count || 10;
+  const tc = cfg.llm_tech_count    || 10;
+  const fc = cfg.llm_finance_count || 10;
+  ['llm_general_count','llm_tech_count','llm_finance_count'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) el.value = [gc, tc, fc][i];
+  });
+}
+function onAutoClassifyChange(enabled) {
+  saveCfg('auto_classify_enabled', enabled);
+  updateClassifyBtnVisibility(enabled);
+}
+
+function updateClassifyBtnVisibility(autoClassify) {
+  // 自动分类开启时，手动「立即分类」按钮无意义，隐藏
+  const btns = [
+    document.getElementById('classifyBtn'),
+    document.getElementById('classifyBtnM'),
+  ];
+  btns.forEach(btn => {
+    if (!btn) return;
+    btn.style.display = autoClassify ? 'none' : '';
+  });
+}
+
+function setToggle(id,val){const el=document.getElementById(id);if(el)el.checked=!!val;}
+function renderKeyList(cId,items,cfgKey){document.getElementById(cId).innerHTML=items.map((item,i)=>`<div class="list-item"><label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" ${item.enabled?'checked':''} onchange="updateListItem('${cfgKey}',${i},'enabled',this.checked)"><span class="toggle-slider"></span></label><input type="password" value="${esc(item.key||'')}" placeholder="API Key" onchange="updateListItem('${cfgKey}',${i},'key',this.value)"><button class="list-item-del" onclick="removeListItem('${cfgKey}',${i})">×</button></div>`).join('');}
+function renderKwList(cId, items, cfgKey) {
+  const MAX_KW = 15;
+  const container = document.getElementById(cId);
+  // 横向标签流
+  container.innerHTML = `<div class="kw-tags">
+    ${items.map((kw, i) => `
+      <span class="kw-tag">
+        <input type="text" value="${esc(kw)}" title="点击编辑"
+          style="width:${Math.max(40, Math.min(120, (kw.length||4)*13))}px"
+          onchange="updateKwItem('${cfgKey}',${i},this.value)"
+          onblur="this.style.width=Math.max(40,Math.min(120,(this.value.length||4)*13))+'px'">
+        <button class="kw-tag-del" onclick="removeKwItem('${cfgKey}',${i})" title="删除">×</button>
+      </span>`).join('')}
+    <button class="kw-tag-add" id="addKwBtn"
+      onclick="addNewsKeyword()"
+      ${items.length >= MAX_KW ? 'disabled title="已达免费版上限（15个）"' : ''}>
+      + 添加
+    </button>
+  </div>`;
+  // 更新计数徽章
+  const badge  = document.getElementById('kwCountBadge');
+  const warn   = document.getElementById('kwLimitWarn');
+  if (badge) {
+    badge.textContent = `${items.length}/${MAX_KW}`;
+    badge.style.background = items.length >= MAX_KW ? 'var(--state-error-bg)' : 'var(--surface-secondary)';
+    badge.style.color = items.length >= MAX_KW ? 'var(--state-error-fg)' : 'var(--text-muted)';
+  }
+  if (warn) warn.style.display = items.length >= MAX_KW ? 'inline' : 'none';
+}
+function renderFeedList(cId,items,cfgKey){document.getElementById(cId).innerHTML=items.map((item,i)=>`<div class="list-item"><label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" ${item.enabled?'checked':''} onchange="updateListItem('${cfgKey}',${i},'enabled',this.checked)"><span class="toggle-slider"></span></label><input type="text" value="${esc(item.name||'')}" placeholder="名称" style="width:90px" onchange="updateListItem('${cfgKey}',${i},'name',this.value)"><input type="text" value="${esc(item.url||'')}" placeholder="RSS URL" onchange="updateListItem('${cfgKey}',${i},'url',this.value)"><button class="list-item-del" onclick="removeListItem('${cfgKey}',${i})">×</button></div>`).join('');}
+function renderDirList(cId,items,cfgKey){document.getElementById(cId).innerHTML=items.map((item,i)=>`<div class="list-item"><label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" ${item.enabled?'checked':''} onchange="updateListItem('${cfgKey}',${i},'enabled',this.checked)"><span class="toggle-slider"></span></label><input type="text" value="${esc(item.text||'')}" placeholder="如：A股半导体板块政策与产能新闻" onchange="updateListItem('${cfgKey}',${i},'text',this.value)"><button class="list-item-del" onclick="removeListItem('${cfgKey}',${i})">×</button></div>`).join('');}
+async function getListCfg(k){return(await api('/api/config')).data?.[k]||[];}
+async function updateListItem(k,i,f,v){const items=await getListCfg(k);if(items[i]){items[i][f]=v;saveCfg(k,items);}}
+async function removeListItem(k,i){const items=await getListCfg(k);items.splice(i,1);saveCfg(k,items);loadNewsConfig();}
+async function updateKwItem(k,i,v){const items=await getListCfg(k);items[i]=v;saveCfg(k,items);}
+async function removeKwItem(k,i){const items=await getListCfg(k);items.splice(i,1);saveCfg(k,items);loadNewsConfig();}
+async function addNewsKeyword(){
+  const MAX_KW=15;
+  const items=await getListCfg('newsapi_keywords');
+  if(items.length>=MAX_KW){showToast('已达免费版上限（15个关键词），请先删除部分再添加','warning');return;}
+  items.push('');
+  await api('/api/config',{method:'POST',body:JSON.stringify({items:[{key:'newsapi_keywords',value:items}]})});
+  loadNewsConfig();
+  // 聚焦最后一个输入框
+  setTimeout(()=>{const inputs=document.querySelectorAll('#newsapiKwList .kw-tag input');if(inputs.length)inputs[inputs.length-1].focus();},100);
+}
+async function addListItem(cId,cfgKey,field,ph,it){const items=await getListCfg(cfgKey);items.push({[field]:'',enabled:true});await api('/api/config',{method:'POST',body:JSON.stringify({items:[{key:cfgKey,value:items}]})});loadNewsConfig();}
+async function addRssFeed(){const items=await getListCfg('rss_feeds');items.push({name:'',url:'',enabled:true});await api('/api/config',{method:'POST',body:JSON.stringify({items:[{key:'rss_feeds',value:items}]})});loadNewsConfig();}
+// ── 大模型搜索模式卡片 ──────────────────────────────────────────────────────
+function updateLlmCard(mode, enabled) {
+  // :has() CSS 自动处理样式，这里备用
+}
+
+async function addLlmDirection(){const items=await getListCfg('llm_search_directions');items.push({text:'',enabled:true});await api('/api/config',{method:'POST',body:JSON.stringify({items:[{key:'llm_search_directions',value:items}]})});loadNewsConfig();}
+
+// ── 搜索专用模型 ──
+const SEARCH_PROVIDER_MODELS = {
+  anthropic: ['claude-sonnet-4-20250514','claude-haiku-4-5-20251001'],
+  openai:    ['gpt-4o','gpt-4o-mini'],
+  qwen:      ['qwen-max','qwen-plus','qwen-turbo'],
+  glm:       ['glm-4','glm-4-flash','glm-4-air'],
+  deepseek:  ['deepseek-chat'],
+  custom:    [],
+};
+
+function onSearchProviderChange(provider, selectedModel) {
+  saveCfg('search_llm_provider', provider);
+  const models = SEARCH_PROVIDER_MODELS[provider] || [];
+  const btns = document.getElementById('searchModelBtns');
+  if (!btns) return;
+  btns.innerHTML = models.map(m =>
+    `<button class="model-btn${m===selectedModel?' active':''}" onclick="selectSearchModel('${m}',this)">${m}</button>`
+  ).join('');
+  const baseRow = document.getElementById('searchBaseUrlRow');
+  if (baseRow) baseRow.style.display = provider === 'custom' ? '' : 'none';
+}
+
+function selectSearchModel(model, btn) {
+  document.querySelectorAll('#searchModelBtns .model-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('search_llm_model').value = model;
+  saveCfg('search_llm_model', model);
+}
+
+async function testSearchLLM() {
+  const provider = document.getElementById('search_llm_provider').value;
+  const api_key  = document.getElementById('search_llm_api_key').value;
+  const model    = document.getElementById('search_llm_model').value;
+  const base_url = document.getElementById('search_llm_base_url')?.value || '';
+  const el = document.getElementById('searchTestResult');
+  if (!provider || !api_key || !model) {
+    el.textContent = '请先填写提供商、Key 和模型'; el.style.color='var(--orange-600)'; return;
+  }
+  el.textContent = '测试中...'; el.style.color='var(--text-muted)';
+  try {
+    const r = await api('/api/config/test-key', {
+      method:'POST', body:JSON.stringify({provider, api_key, model, base_url})
+    });
+    el.textContent = r.success ? '✅ 连接成功' : '❌ ' + (r.data?.error||'');
+    el.style.color = r.success ? 'var(--green-700)' : 'var(--red-700)';
+  } catch(e) { el.textContent='❌ '+e.message; el.style.color='var(--red-700)'; }
+}
+
+// ══════════════════════════════════════════════════════
+//  大模型配置
+// ══════════════════════════════════════════════════════
+async function loadLLMConfig() {
+  const cfg=(await api('/api/config')).data||{};
+  // 多模型列表
+  let llmModels = cfg.llm_models || [];
+  if (!llmModels.length && cfg.llm_provider) {
+    llmModels = [{provider:cfg.llm_provider, model:cfg.llm_model||'',
+      api_key:cfg.llm_api_key||'', base_url:cfg.llm_base_url||'', enabled:true}];
+  }
+  window._llmModels = llmModels;
+  renderLlmModelList(llmModels);
+  // 兼容旧字段（保留给其他功能使用）
+  if(cfg.llm_provider) { try{document.getElementById('llm_provider').value=cfg.llm_provider;}catch(e){} }
+  if(cfg.llm_api_key)document.getElementById('llm_api_key').value=cfg.llm_api_key;
+  if(cfg.llm_base_url)document.getElementById('llm_base_url').value=cfg.llm_base_url;
+  if(cfg.llm_model)document.getElementById('llm_model').value=cfg.llm_model;
+  if(cfg.match_top_k){
+    document.getElementById('match_top_k').value=cfg.match_top_k;
+    document.getElementById('topk_val').textContent=cfg.match_top_k+'只';
+  }
+  // 恢复企业类型偏好
+  const mtype = cfg.match_company_type || 'leader';
+  const mtypeRadio = document.querySelector(`input[name="match_company_type"][value="${mtype}"]`);
+  if (mtypeRadio) { mtypeRadio.checked = true; highlightMatchType(mtype); }
+  // 恢复分析偏好
+  const focus = cfg.analysis_focus || 'balanced';
+  const focusRadio = document.querySelector(`input[name="analysis_focus"][value="${focus}"]`);
+  if (focusRadio) { focusRadio.checked = true; highlightFocusOption(focus); }
+  const sentiment = cfg.sentiment_standard || 'normal';
+  const sentRadio = document.querySelector(`input[name="sentiment_standard"][value="${sentiment}"]`);
+  if (sentRadio) sentRadio.checked = true;
+  // 搜索专用模型配置
+  // 搜索专用模型列表
+  let searchModels = cfg.search_llm_models || [];
+  if (!searchModels.length && cfg.search_llm_provider) {
+    searchModels = [{provider:cfg.search_llm_provider, model:cfg.search_llm_model||'',
+      api_key:cfg.search_llm_api_key||'', base_url:cfg.search_llm_base_url||'', enabled:true}];
+  }
+  window._searchLlmModels = searchModels;
+  renderSearchLlmModelList(searchModels);
+
+  const r=await api('/api/config/match-schedule').catch(()=>({data:{times:[]}}));
+  renderMatchTimes(r.data?.times||[]);
+}
+function onProviderChange(provider,selectedModel){saveCfg('llm_provider',provider);const models=PROVIDER_MODELS[provider]||[];document.getElementById('modelBtns').innerHTML=models.map(m=>`<button class="model-btn${m===selectedModel?' active':''}" onclick="selectModel('${m}',this)">${m}</button>`).join('');document.getElementById('baseUrlRow').style.display=provider==='custom'?'':'none';}
+function selectModel(m,btn){document.querySelectorAll('.model-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.getElementById('llm_model').value=m;saveCfg('llm_model',m);}
+// ══ 多模型配置列表 ═══════════════════════════════════════════════════════════
+
+// PROVIDER_MODELS 已在顶部定义，此处补充 PROVIDER_LABELS
+const PROVIDER_LABELS = {
+  anthropic:'Anthropic (Claude)', openai:'OpenAI (GPT)',
+  qwen:'阿里云 Qwen', glm:'智谱 GLM', deepseek:'DeepSeek', custom:'自定义',
+};
+
+function renderLlmModelList(models) {
+  const el = document.getElementById('llmModelList');
+  if (!el) return;
+  if (!models.length) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:var(--space-3);
+      border:1px dashed var(--border-default);border-radius:var(--radius-md);text-align:center">
+      暂无配置，点击「+ 添加模型配置」添加第一个</div>`;
+    return;
+  }
+  el.innerHTML = models.map((m, i) => {
+    const provOpts = Object.entries(PROVIDER_LABELS).map(([v,l]) =>
+      `<option value="${v}" ${m.provider===v?'selected':''}>${l}</option>`).join('');
+    const modelOpts = (PROVIDER_MODELS[m.provider]||[]).map(mo =>
+      `<option value="${mo}" ${m.model===mo?'selected':''}>${mo}</option>`).join('');
+    const needBase = m.provider === 'custom';
+    const activeIdx = models.findIndex(x => x.enabled !== false);
+    const isActive = i === activeIdx;
+    return `
+    <div class="llm-model-card" id="llm-model-card-${i}">
+      <div class="llm-model-card-header">
+        <label class="toggle-switch" style="flex-shrink:0">
+          <input type="checkbox" class="llm-model-enabled" ${m.enabled!==false?'checked':''}
+            onchange="updateLlmModel(${i},'enabled',this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size:13px;font-weight:600;flex:1">${PROVIDER_LABELS[m.provider]||m.provider||'未配置'}</span>
+        <span class="llm-model-badge ${isActive?'active':''}">${isActive?'▶ 当前使用':'备用'}</span>
+        <button class="btn btn-ghost btn-sm" style="color:var(--state-error-fg)"
+          onclick="removeLlmModel(${i})">删除</button>
+      </div>
+      <div class="llm-model-card-body">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">提供商</div>
+          <select class="input" style="width:100%" onchange="updateLlmModel(${i},'provider',this.value);renderLlmModelList(window._llmModels)">
+            <option value="">请选择</option>${provOpts}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">模型</div>
+          <input class="input" type="text" style="width:100%" value="${esc(m.model||'')}"
+            placeholder="Model ID" list="model-opts-${i}"
+            onchange="updateLlmModel(${i},'model',this.value)">
+          <datalist id="model-opts-${i}">${modelOpts}</datalist>
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">API Key</div>
+          <div class="input-row">
+            <input class="input" type="password" style="flex:1" value="${esc(m.api_key||'')}"
+              placeholder="sk-..." onchange="updateLlmModel(${i},'api_key',this.value)">
+            <button class="btn btn-ghost btn-sm" onclick="toggleLlmKeyPwd(this)">👁</button>
+            <button class="btn btn-secondary btn-sm" onclick="testLlmModelAt(${i})">测试</button>
+          </div>
+        </div>
+        ${needBase ? `<div style="grid-column:1/-1">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Base URL</div>
+          <input class="input" type="text" style="width:100%" value="${esc(m.base_url||'')}"
+            placeholder="https://..." onchange="updateLlmModel(${i},'base_url',this.value)">
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 搜索专用模型列表（复用分析模型卡片渲染）──────────────────────────────
+function renderSearchLlmModelList(models) {
+  const el = document.getElementById('searchLlmModelList');
+  if (!el) return;
+  if (!models.length) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:var(--space-3);
+      border:1px dashed var(--border-default);border-radius:var(--radius-md);text-align:center">
+      暂无配置，留空则自动使用分析匹配模型</div>`;
+    return;
+  }
+  el.innerHTML = models.map((m, i) => {
+    const provOpts = [['','留空（使用分析模型）'],...Object.entries(PROVIDER_LABELS)].map(([v,l]) =>
+      `<option value="${v}" ${m.provider===v?'selected':''}>${l}</option>`).join('');
+    const modelOpts = (PROVIDER_MODELS[m.provider]||[]).map(mo =>
+      `<option value="${mo}" ${m.model===mo?'selected':''}>${mo}</option>`).join('');
+    const needBase = m.provider === 'custom';
+    const activeIdx = models.findIndex(x => x.enabled !== false);
+    const isActive = i === activeIdx;
+    return `
+    <div class="llm-model-card">
+      <div class="llm-model-card-header">
+        <label class="toggle-switch" style="flex-shrink:0">
+          <input type="checkbox" class="llm-model-enabled" ${m.enabled!==false?'checked':''}
+            onchange="updateSearchLlmModel(${i},'enabled',this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size:13px;font-weight:600;flex:1">${PROVIDER_LABELS[m.provider]||m.provider||'未配置'}</span>
+        <span class="llm-model-badge ${isActive?'active':''}">${isActive?'▶ 当前使用':'备用'}</span>
+        <button class="btn btn-ghost btn-sm" style="color:var(--state-error-fg)"
+          onclick="removeSearchLlmModel(${i})">删除</button>
+      </div>
+      <div class="llm-model-card-body">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">提供商</div>
+          <select class="input" style="width:100%" onchange="updateSearchLlmModel(${i},'provider',this.value);renderSearchLlmModelList(window._searchLlmModels)">
+            ${provOpts}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">模型</div>
+          <input class="input" type="text" style="width:100%" value="${esc(m.model||'')}"
+            placeholder="Model ID" list="search-model-opts-${i}"
+            onchange="updateSearchLlmModel(${i},'model',this.value)">
+          <datalist id="search-model-opts-${i}">${modelOpts}</datalist>
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">API Key</div>
+          <div class="input-row">
+            <input class="input" type="password" style="flex:1" value="${esc(m.api_key||'')}"
+              placeholder="sk-..." onchange="updateSearchLlmModel(${i},'api_key',this.value)">
+            <button class="btn btn-ghost btn-sm" onclick="toggleLlmKeyPwd(this)">👁</button>
+            <button class="btn btn-secondary btn-sm" onclick="testSearchLlmModelAt(${i})">测试</button>
+          </div>
+        </div>
+        ${needBase ? `<div style="grid-column:1/-1">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Base URL</div>
+          <input class="input" type="text" style="width:100%" value="${esc(m.base_url||'')}"
+            placeholder="https://..." onchange="updateSearchLlmModel(${i},'base_url',this.value)">
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function getSearchLlmModels() {
+  const cfg = (await api('/api/config')).data || {};
+  let models = cfg.search_llm_models || [];
+  // 兼容旧配置
+  if (!models.length && cfg.search_llm_provider) {
+    models = [{
+      provider: cfg.search_llm_provider, model: cfg.search_llm_model||'',
+      api_key: cfg.search_llm_api_key||'', base_url: cfg.search_llm_base_url||'',
+      enabled: true,
+    }];
+  }
+  window._searchLlmModels = models;
+  return models;
+}
+
+async function saveSearchLlmModels(models) {
+  window._searchLlmModels = models;
+  const first = models.find(m => m.enabled !== false) || models[0] || {};
+  await api('/api/config', {method:'POST', body: JSON.stringify({items:[
+    {key:'search_llm_models',    value: models},
+    {key:'search_llm_provider',  value: first.provider||''},
+    {key:'search_llm_model',     value: first.model||''},
+    {key:'search_llm_api_key',   value: first.api_key||''},
+    {key:'search_llm_base_url',  value: first.base_url||''},
+  ]})});
+  renderSearchLlmModelList(models);
+}
+
+async function addSearchLlmModel() {
+  const models = await getSearchLlmModels();
+  models.push({provider:'', model:'', api_key:'', base_url:'', enabled: true});
+  await saveSearchLlmModels(models);
+}
+
+async function removeSearchLlmModel(i) {
+  const models = await getSearchLlmModels();
+  models.splice(i, 1);
+  await saveSearchLlmModels(models);
+}
+
+async function updateSearchLlmModel(i, field, val) {
+  const models = await getSearchLlmModels();
+  if (models[i]) models[i][field] = val;
+  await saveSearchLlmModels(models);
+}
+
+async function testSearchLlmModelAt(i) {
+  const models = await getSearchLlmModels();
+  const m = models[i];
+  if (!m || !m.provider || !m.api_key || !m.model) {
+    toast('请先填写提供商、模型和 Key', 'warning'); return;
+  }
+  toast('测试连接中...', 'info');
+  try {
+    const r = await api('/api/llm/test', {method:'POST', body: JSON.stringify({
+      provider: m.provider, api_key: m.api_key, model: m.model, base_url: m.base_url||''
+    })});
+    if (r.success) toast(`✅ 连接成功：${r.response||'ok'}`, 'success');
+    else toast(`❌ 连接失败：${r.error||'未知错误'}`, 'error');
+  } catch(e) { toast('测试失败: '+e.message, 'error'); }
+}
+
+async function getLlmModels() {
+  const cfg = (await api('/api/config')).data || {};
+  let models = cfg.llm_models || [];
+  // 兼容旧配置：单模型 → 列表
+  if (!models.length && cfg.llm_provider) {
+    models = [{
+      provider: cfg.llm_provider, model: cfg.llm_model||'',
+      api_key: cfg.llm_api_key||'', base_url: cfg.llm_base_url||'',
+      enabled: true,
+    }];
+  }
+  window._llmModels = models;
+  return models;
+}
+
+async function saveLlmModels(models) {
+  window._llmModels = models;
+  // 同时更新旧字段兼容
+  const first = models.find(m => m.enabled !== false) || models[0] || {};
+  await api('/api/config', {method:'POST', body: JSON.stringify({items:[
+    {key:'llm_models',    value: models},
+    {key:'llm_provider',  value: first.provider||''},
+    {key:'llm_model',     value: first.model||''},
+    {key:'llm_api_key',   value: first.api_key||''},
+    {key:'llm_base_url',  value: first.base_url||''},
+  ]})});
+  renderLlmModelList(models);
+}
+
+async function addLlmModel() {
+  const models = await getLlmModels();
+  models.push({provider:'', model:'', api_key:'', base_url:'', enabled: true});
+  await saveLlmModels(models);
+}
+
+async function removeLlmModel(i) {
+  const models = await getLlmModels();
+  models.splice(i, 1);
+  await saveLlmModels(models);
+}
+
+async function updateLlmModel(i, field, val) {
+  const models = await getLlmModels();
+  if (models[i]) { models[i][field] = val; }
+  await saveLlmModels(models);
+}
+
+async function testLlmModelAt(i) {
+  const models = await getLlmModels();
+  const m = models[i];
+  if (!m || !m.provider || !m.api_key || !m.model) {
+    toast('请先填写提供商、模型和 Key', 'warning'); return;
+  }
+  toast('测试连接中...', 'info');
+  try {
+    const r = await api('/api/llm/test', {method:'POST', body: JSON.stringify({
+      provider: m.provider, api_key: m.api_key, model: m.model, base_url: m.base_url||''
+    })});
+    if (r.success) toast(`✅ 连接成功：${r.response||'ok'}`, 'success');
+    else toast(`❌ 连接失败：${r.error||'未知错误'}`, 'error');
+  } catch(e) { toast('测试失败: '+e.message, 'error'); }
+}
+
+function renderLlmKeyList(keys) {
+  const el = document.getElementById('llmKeyList');
+  if (!el) return;
+  el.innerHTML = keys.map((k, i) => `
+    <div class="list-item">
+      <label class="toggle-switch" style="flex-shrink:0">
+        <input type="checkbox" ${k.enabled !== false ? 'checked' : ''}
+          onchange="updateLlmKeyItem(${i},'enabled',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+      <input type="password" value="${esc(k.key||'')}" placeholder="sk-..."
+        onchange="updateLlmKeyItem(${i},'key',this.value)">
+      <button class="btn btn-ghost btn-sm" onclick="toggleLlmKeyPwd(this)">👁</button>
+      <button class="list-item-del" onclick="removeLlmKey(${i})">×</button>
+    </div>`).join('');
+}
+
+function toggleLlmKeyPwd(btn) {
+  const input = btn.previousElementSibling;
+  if (input) input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function getLlmKeys() {
+  const cfg = (await api('/api/config')).data || {};
+  return cfg.llm_api_keys || (cfg.llm_api_key ? [{key: cfg.llm_api_key, enabled: true}] : []);
+}
+
+async function addLlmKey() {
+  const keys = await getLlmKeys();
+  keys.push({key: '', enabled: true});
+  await api('/api/config', {method:'POST', body: JSON.stringify({items:[
+    {key:'llm_api_keys', value: keys}
+  ]})});
+  renderLlmKeyList(keys);
+  setTimeout(() => {
+    const inputs = document.querySelectorAll('#llmKeyList .list-item input[type="password"]');
+    if (inputs.length) inputs[inputs.length-1].focus();
+  }, 100);
+}
+
+async function removeLlmKey(i) {
+  const keys = await getLlmKeys();
+  keys.splice(i, 1);
+  await api('/api/config', {method:'POST', body: JSON.stringify({items:[
+    {key:'llm_api_keys', value: keys},
+    {key:'llm_api_key',  value: (keys[0]||{}).key||''}
+  ]})});
+  renderLlmKeyList(keys);
+}
+
+async function updateLlmKeyItem(i, field, val) {
+  const keys = await getLlmKeys();
+  if (keys[i]) keys[i][field] = val;
+  await api('/api/config', {method:'POST', body: JSON.stringify({items:[
+    {key:'llm_api_keys', value: keys},
+    {key:'llm_api_key',  value: (keys[0]||{}).key||''}
+  ]})});
+}
+
+async function saveLLMConfig() {
+  const provider = document.getElementById('llm_provider').value;
+  const api_key  = document.getElementById('llm_api_key').value;
+  const model    = document.getElementById('llm_model').value;
+  const base_url = document.getElementById('llm_base_url')?.value || '';
+  await api('/api/config', { method:'POST', body: JSON.stringify({ items: [
+    {key:'llm_provider', value: provider},
+    {key:'llm_api_key',  value: (keys[0]||{}).key||''},  // 兼容旧字段
+    {key:'llm_api_keys', value: keys},
+    {key:'llm_model',    value: model},
+    {key:'llm_base_url', value: base_url},
+  ]})});
+  toast('分析模型配置已保存', 'success');
+}
+
+async function saveSearchLLMConfig() {
+  const provider = document.getElementById('search_llm_provider').value;
+  const api_key  = document.getElementById('search_llm_api_key').value;
+  const model    = document.getElementById('search_llm_model').value;
+  const base_url = document.getElementById('search_llm_base_url')?.value || '';
+  await api('/api/config', { method:'POST', body: JSON.stringify({ items: [
+    {key:'search_llm_provider', value: provider},
+    {key:'search_llm_api_key',  value: api_key},
+    {key:'search_llm_model',    value: model},
+    {key:'search_llm_base_url', value: base_url},
+  ]})});
+  toast('搜索模型配置已保存', 'success');
+}
+
+async function testLLMKey(){
+  const provider=document.getElementById('llm_provider').value,api_key=document.getElementById('llm_api_key').value;
+  const model=document.getElementById('llm_model').value,base_url=document.getElementById('llm_base_url').value;
+  const el=document.getElementById('testResult');el.textContent='测试中...';
+  try{const r=await api('/api/config/test-key',{method:'POST',body:JSON.stringify({provider,api_key,model,base_url})});el.textContent=r.success?'✅ 连接成功':'❌ '+(r.data?.error||'');el.style.color=r.success?'var(--green-700)':'var(--red-700)';}
+  catch(e){el.textContent='❌ '+e.message;el.style.color='var(--red-700)';}
+}
+function renderMatchTimes(times){
+  _matchTimes=times;
+  const c=document.getElementById('matchTimeTags');
+  if(!times.length){c.innerHTML='<span style="font-size:12px;color:var(--text-muted)">暂未设置</span>';return;}
+  c.innerHTML=times.map(t=>`<div class="time-tag">${t}<button onclick="removeMatchTime('${t}')" title="删除">×</button></div>`).join('');
+}
+async function addMatchTime(){
+  const val=document.getElementById('newMatchTime').value;
+  if(!val){toast('请选择时间','error');return;}
+  if(_matchTimes.includes(val)){toast('该时间点已存在','error');return;}
+  const newTimes=[..._matchTimes,val].sort();
+  try{await api('/api/config/match-schedule',{method:'POST',body:JSON.stringify({times:newTimes})});renderMatchTimes(newTimes);document.getElementById('newMatchTime').value='';toast(`已添加定时匹配: ${val}`,'success');}
+  catch(e){toast('添加失败: '+e.message,'error');}
+}
+async function removeMatchTime(t){
+  const newTimes=_matchTimes.filter(x=>x!==t);
+  try{await api('/api/config/match-schedule',{method:'POST',body:JSON.stringify({times:newTimes})});renderMatchTimes(newTimes);toast(`已移除: ${t}`,'info');}
+  catch(e){toast('移除失败','error');}
+}
+
+// ══════════════════════════════════════════════════════
+//  股票数据
+// ══════════════════════════════════════════════════════
+async function loadStockStats(){const d=(await api('/api/stocks/stats')).data||{};document.getElementById('sk-total').textContent=d.total||0;document.getElementById('sk-coverage').textContent=(d.profile_coverage||0)+'%';document.getElementById('sk-coverage-sub').textContent=`${d.with_profile||0} / ${d.total||0} 只`;document.getElementById('sk-updated').textContent=d.last_updated?d.last_updated.slice(0,16):'从未更新';}
+async function loadStocks(page=1,kw=''){
+  stockCurrentPage=page;
+  const d=await api(`/api/stocks?page=${page}&page_size=50&keyword=${encodeURIComponent(kw)}`);
+  const table=document.getElementById('stockTable');
+  if(!d.items?.length){table.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-muted)">暂无股票数据</div>';return;}
+  const totalPages = Math.ceil(d.total/50);
+  table.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="border-bottom:1px solid var(--border-subtle)">
+      <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;white-space:nowrap">代码</th>
+      <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;white-space:nowrap">名称</th>
+      <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;white-space:nowrap">板块</th>
+      <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;white-space:nowrap">行业</th>
+      <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500">主营业务</th>
+    </tr></thead>
+    <tbody>${d.items.map(s=>{
+      const desc = s.business_desc || '';
+      return `<tr style="border-bottom:1px solid var(--border-subtle);vertical-align:top">
+        <td style="padding:6px 8px;font-family:monospace;font-size:12px;color:var(--text-secondary);white-space:nowrap">${esc(s.ts_code)}</td>
+        <td style="padding:6px 8px;font-weight:500;white-space:nowrap">${esc(s.name)}</td>
+        <td style="padding:6px 8px;white-space:nowrap"><span class="tag-pill">${esc(s.market||'—')}</span></td>
+        <td style="padding:6px 8px;font-size:12px;color:var(--text-secondary);white-space:nowrap">${esc(s.industry||'—')}</td>
+        <td style="padding:6px 8px;font-size:12px;color:var(--text-secondary);max-width:320px;line-height:1.5">
+          ${desc ? esc(desc.length>80?desc.slice(0,80)+'…':desc) : '<span style="color:var(--text-muted)">补全中...</span>'}
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  // 分页控件
+  renderStockPagination(page, totalPages);
+}
+
+function renderStockPagination(current, total) {
+  const el = document.getElementById('stockPagination');
+  if (!el) return;
+  // 生成页码：当前页前后各2页 + 首尾页
+  const pages = new Set([1, total]);
+  for (let i = Math.max(1, current-2); i <= Math.min(total, current+2); i++) pages.add(i);
+  const sorted = [...pages].sort((a,b)=>a-b);
+
+  let html = `<button class="btn btn-ghost btn-sm" onclick="stockPage(-1)" ${current<=1?'disabled':''}>← 上一页</button>`;
+  let prev = 0;
+  for (const p of sorted) {
+    if (p - prev > 1) html += `<span style="padding:0 4px;color:var(--text-muted)">…</span>`;
+    html += `<button class="btn btn-sm ${p===current?'btn-primary':'btn-ghost'}" onclick="loadStocks(${p},stockSearchKw)">${p}</button>`;
+    prev = p;
+  }
+  html += `<button class="btn btn-ghost btn-sm" onclick="stockPage(1)" ${current>=total?'disabled':''}>下一页 →</button>`;
+  html += `<span style="font-size:12px;color:var(--text-muted);margin-left:4px">共 ${total} 页 / ${stockSearchKw?'搜索结果':'全部'}</span>`;
+  // 跳页输入框
+  html += `<input type="number" min="1" max="${total}" value="${current}" 
+    style="width:52px;padding:3px 6px;font-size:12px;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-base);color:var(--text-primary);margin-left:6px;text-align:center"
+    onkeydown="if(event.key==='Enter'){const v=parseInt(this.value);if(v>=1&&v<=${total})loadStocks(v,stockSearchKw);}"
+    title="输入页码后按 Enter 跳转">
+  <span style="font-size:12px;color:var(--text-muted)">页</span>`;
+  el.innerHTML = html;
+}
+
+function stockPage(d){loadStocks(Math.max(1,stockCurrentPage+d),stockSearchKw);}
+let _stockTimer;
+function searchStocks(kw){stockSearchKw=kw;clearTimeout(_stockTimer);_stockTimer=setTimeout(()=>loadStocks(1,kw),400);}
+async function triggerStockUpdate(){await api('/api/stocks/update',{method:'POST'});toast('股票更新任务已触发','info');document.getElementById('updateProgressWrap').style.display='';startProgressPolling();}
+function startProgressPolling(){if(progressEsSource)progressEsSource.close();progressEsSource=new EventSource('/api/stocks/update-progress');progressEsSource.onmessage=e=>{const d=JSON.parse(e.data);document.getElementById('progressMsg').textContent=d.message;document.getElementById('progressFill').style.width=d.percent+'%';document.getElementById('progressPct').textContent=d.percent+'%';if(d.done){progressEsSource.close();loadStockStats();loadStocks();toast(d.error?'更新失败: '+d.error:'股票数据更新完成',d.error?'error':'success');}};}
+
+// ══════════════════════════════════════════════════════
+//  数据管理
+// ══════════════════════════════════════════════════════
+async function loadDataMgmtConfig(){const cfg=(await api('/api/config')).data||{};if(cfg.data_retention_days)document.getElementById('data_retention_days').value=cfg.data_retention_days;setToggle('auto_clean',cfg.auto_clean!==false);loadHistoryStats();loadUsers();}
+function confirmClean(targets){const days=parseInt(document.getElementById('data_retention_days').value)||30;const names=targets.map(t=>({news:'新闻数据',matches:'匹配结果',stocks:'股票基础数据'})[t]).join('、');document.getElementById('confirmTitle').textContent='确认清除';document.getElementById('confirmBody').innerHTML=`将清除 <strong>${days} 天前</strong>的 <strong>${names}</strong>，此操作不可撤销。`;document.getElementById('confirmOkBtn').onclick=()=>{closeModal();doClean(targets,days);};document.getElementById('confirmModal').classList.add('open');}
+async function doClean(targets,days){try{await api('/api/data/clean',{method:'POST',body:JSON.stringify({days,targets})});toast('清除完成','success');loadStats();}catch(e){toast('清除失败: '+e.message,'error');}}
+function closeModal(){document.getElementById('confirmModal').classList.remove('open');}
+function exportData(){window.open(API+'/api/data/export','_blank');}
+
+function onMatchTypeChange(value) {
+  saveCfg('match_company_type', value);
+  highlightMatchType(value);
+}
+
+function highlightMatchType(value) {
+  ['leader','direct','chain','broad'].forEach(v => {
+    const el = document.getElementById('mtype_' + v);
+    if (!el) return;
+    if (v === value) {
+      el.style.borderColor = 'var(--blue-800)';
+      el.style.background  = 'var(--blue-100)';
+    } else {
+      el.style.borderColor = 'var(--border-default)';
+      el.style.background  = '';
+    }
+  });
+}
+
+function onFocusChange(value) {
+  saveCfg('analysis_focus', value);
+  highlightFocusOption(value);
+}
+
+function highlightFocusOption(value) {
+  ['stock','industry','macro','balanced'].forEach(v => {
+    const el = document.getElementById('focus_opt_' + v);
+    if (!el) return;
+    if (v === value) {
+      el.style.borderColor = 'var(--blue-800)';
+      el.style.background  = 'var(--blue-100)';
+    } else {
+      el.style.borderColor = 'var(--border-default)';
+      el.style.background  = '';
+    }
+  });
+}
+
+function onTushareToggle(enabled) {
+  saveCfg('tushare_enabled', enabled);
+  updateTushareStatus(enabled);
+}
+
+function updateTushareStatus(enabled) {
+  const el = document.getElementById('tushare_status_text');
+  if (!el) return;
+  if (enabled) {
+    el.innerHTML = '🟢 <strong>开启</strong> — 优先使用 Tushare（含行业分类）';
+    el.style.color = 'var(--green-700)';
+  } else {
+    el.innerHTML = '🔴 <strong>关闭</strong> — 使用新浪行情（免费，无行业分类）';
+    el.style.color = 'var(--text-muted)';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  历史数据
+// ══════════════════════════════════════════════════════
+let _histMode = null;  // 'news' | 'results'
+let _histSentiment = 'all';
+
+async function loadHistoryStats() {
+  const unit = document.getElementById('histUnit').value;
+  const value = parseInt(document.getElementById('histValue').value);
+  try {
+    const [nr, rr] = await Promise.all([
+      api(`/api/history/news?unit=${unit}&value=${value}&limit=1`),
+      api(`/api/history/results?unit=${unit}&value=${value}&limit=1`),
+    ]);
+    document.getElementById('hist-news-count').textContent = nr.total;
+    document.getElementById('hist-results-count').textContent = rr.total;
+  } catch(e) { console.error('历史统计加载失败', e); }
+}
+
+async function showHistoryNews() {
+  _histMode = 'news';
+  _histSentiment = 'all';
+  const unit = document.getElementById('histUnit').value;
+  const value = parseInt(document.getElementById('histValue').value);
+  const unitLabel = unit === 'day' ? `${value}天` : `${value}小时`;
+
+  document.getElementById('histListTitle').textContent = `历史新闻（${unitLabel}前）`;
+  document.getElementById('histFilterTabs').innerHTML = `
+    <button class="filter-tab active" onclick="setHistFilter('all',this)">全部</button>
+    <button class="filter-tab" onclick="setHistFilter('positive',this)">利好</button>
+    <button class="filter-tab" onclick="setHistFilter('negative',this)">利空</button>
+    <button class="filter-tab" onclick="setHistFilter('neutral',this)">中性</button>`;
+  document.getElementById('historyListWrap').style.display = '';
+  await loadHistoryList();
+}
+
+async function showHistoryResults() {
+  _histMode = 'results';
+  _histSentiment = 'all';
+  const unit = document.getElementById('histUnit').value;
+  const value = parseInt(document.getElementById('histValue').value);
+  const unitLabel = unit === 'day' ? `${value}天` : `${value}小时`;
+
+  document.getElementById('histListTitle').textContent = `历史匹配结果（${unitLabel}前）`;
+  document.getElementById('histFilterTabs').innerHTML = `
+    <button class="filter-tab active" onclick="setHistFilter('all',this)">全部</button>
+    <button class="filter-tab" onclick="setHistFilter('positive',this)">利好</button>
+    <button class="filter-tab" onclick="setHistFilter('negative',this)">利空</button>
+    <button class="filter-tab" onclick="setHistFilter('neutral',this)">中性</button>`;
+  document.getElementById('historyListWrap').style.display = '';
+  await loadHistoryList();
+}
+
+async function setHistFilter(sentiment, btn) {
+  document.querySelectorAll('#histFilterTabs .filter-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  _histSentiment = sentiment;
+  await loadHistoryList();
+}
+
+async function loadHistoryList() {
+  const list = document.getElementById('historyList');
+  list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)"><span class="loading"></span> 加载中...</div>';
+  const unit = document.getElementById('histUnit').value;
+  const value = parseInt(document.getElementById('histValue').value);
+  try {
+    if (_histMode === 'news') {
+      const r = await api(`/api/history/news?unit=${unit}&value=${value}&limit=500&sentiment=${_histSentiment}`);
+      if (!r.items.length) { list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">暂无历史新闻</div>'; return; }
+      list.innerHTML = r.items.map(n => `
+        <div class="news-item" onclick="selectNewsFromHistory(${n.id})">
+          <div class="news-item-header">
+            ${_matchedIds.has(n.id) ? '<div class="matched-dot" title="已匹配"></div>' : ''}
+            <span class="news-title">${esc(n.title)}</span>
+            <span class="badge-s ${sentClass(n.sentiment)}">${sentLabel(n.sentiment)}</span>
+          </div>
+          ${n.summary ? `<div class="news-summary">${esc(n.summary)}</div>` : '<div class="news-summary" style="color:var(--text-muted);font-style:italic">尚未分类</div>'}
+          <div class="news-meta">
+            <span class="news-source">${esc(n.source||'')} · ${fmtDatetime(n.created_at)}</span>
+            ${(n.industries||[]).slice(0,2).map(i=>`<span class="tag-pill">${esc(i)}</span>`).join('')}
+          </div>
+        </div>`).join('');
+    } else {
+      const r = await api(`/api/history/results?unit=${unit}&value=${value}&limit=500`);
+      const filtered = _histSentiment === 'all' ? r.items : r.items.filter(i=>i.match_sentiment===_histSentiment);
+      if (!filtered.length) { list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">暂无历史匹配结果</div>'; return; }
+      list.innerHTML = filtered.map(item => {
+        const si = item.match_sentiment || item.sentiment || 'neutral';
+        return `<div class="news-item" onclick="selectNewsFromHistory(${item.news_id})">
+          <div class="news-item-header">
+            <span class="news-title">${esc(item.title)}</span>
+            <span class="badge-s ${sentClass(si)}">${sentLabel(si)}</span>
+          </div>
+          ${item.summary ? `<div class="news-summary">${esc(item.summary)}</div>` : ''}
+          <div class="news-meta">
+            <span class="news-source">${fmtDatetime(item.created_at)}</span>
+            ${(item.matched_stocks||[]).slice(0,4).map(s=>`<span class="tag-pill" style="background:var(--blue-200);color:var(--blue-link)">${esc(s.name)}</span>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
+    }
+  } catch(e) {
+    list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted)">加载失败: ${esc(e.message)}</div>`;
+  }
+}
+
+async function selectNewsFromHistory(newsId) {
+  // 先缓存匹配结果（如果没有）
+  if (!_matchCache[newsId]) {
+    try {
+      const r = await api(`/api/news/${newsId}/matches`);
+      if (r.matched_stocks?.length) _matchCache[newsId] = r.matched_stocks;
+    } catch(e) {}
+  }
+  // 跳转到仪表盘并展示
+  navigate('dashboard');
+  _selectedNewsId = newsId;
+  showMatchResult(newsId);
+}
+
+function closeHistoryList() {
+  document.getElementById('historyListWrap').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════
+//  初始化
+// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+//  认证
+// ══════════════════════════════════════════════════════
+let _authToken = localStorage.getItem('astock_token') || '';
+let _authUser  = localStorage.getItem('astock_user')  || '';
+
+// 拦截所有 API 请求，自动附加 Token
+// window.fetch 오버라이드는 api() 에서 직접 토큰 주입하므로 패스스루만 유지
+// (서드파티 라이브러리 등 직접 fetch 호출 대응용)
+
+function showLoginOverlay() {
+  document.getElementById('loginOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('loginUsername').focus(), 100);
+}
+
+function hideLoginOverlay() {
+  document.getElementById('loginOverlay').classList.remove('show');
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl    = document.getElementById('loginError');
+  const btn      = document.getElementById('loginBtn');
+  if (!username || !password) { errEl.textContent = '请输入用户名和密码'; return; }
+  btn.disabled = true; btn.textContent = '登录中...'; errEl.textContent = '';
+  try {
+    const res = await _origFetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username, password}),
+    });
+    const d = await res.json();
+    if (!res.ok) { errEl.textContent = d.detail || '登录失败'; return; }
+    _authToken = d.token; _authUser = d.username;
+    localStorage.setItem('astock_token', _authToken);
+    localStorage.setItem('astock_user',  _authUser);
+    document.getElementById('navUsername').textContent = '👤 ' + _authUser;
+    hideLoginOverlay();
+    // 同步自动分类开关状态，决定「立即分类」按钮是否显示
+    api('/api/config').then(r => {
+      const autoClassify = (r.data||{}).auto_classify_enabled !== false;
+      updateClassifyBtnVisibility(autoClassify);
+    }).catch(()=>{});
+    loadStats(); loadNews();
+  } catch(e) {
+    errEl.textContent = '网络错误: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '登录';
+  }
+}
+
+function doLogout() {
+  _authToken = ''; _authUser = '';
+  localStorage.removeItem('astock_token');
+  localStorage.removeItem('astock_user');
+  document.getElementById('navUsername').textContent = '';
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginError').textContent = '';
+  showLoginOverlay();
+}
+
+async function checkAuth() {
+  if (!_authToken) { showLoginOverlay(); return false; }
+  try {
+    // 直接用拦截后的 fetch，Token 自动附加
+    const res = await fetch('/api/auth/me');
+    if (!res.ok) { showLoginOverlay(); return false; }
+    const d = await res.json();
+    _authUser = d.username;
+    document.getElementById('navUsername').textContent = '👤 ' + _authUser;
+    hideLoginOverlay();
+    // 同步「立即分类」按钮
+    api('/api/config').then(r => {
+      const autoClassify = (r.data||{}).auto_classify_enabled !== false;
+      updateClassifyBtnVisibility(autoClassify);
+    }).catch(()=>{});
+    return true;
+  } catch(e) {
+    showLoginOverlay(); return false;
+  }
+}
+
+// ── 账号管理 ──────────────────────────────────────────
+async function loadUsers() {
+  try {
+    const users = await api('/api/auth/users');
+    const tbody = document.getElementById('userTableBody');
+    const pwSel = document.getElementById('pwUsername');
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td style="font-weight:500">${esc(u.username)}</td>
+        <td><span class="tag-pill">${esc(u.role)}</span></td>
+        <td style="font-size:12px;color:var(--text-muted)">${(u.created_at||'').slice(0,10)}</td>
+        <td>${users.length>1?`<button class="btn btn-ghost btn-sm" style="color:var(--red-600)" onclick="doDeleteUser('${esc(u.username)}')">删除</button>`:''}</td>
+      </tr>`).join('');
+    pwSel.innerHTML = users.map(u=>`<option value="${esc(u.username)}">${esc(u.username)}</option>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function doChangePassword() {
+  const username = document.getElementById('pwUsername').value;
+  const np = document.getElementById('pwNew').value;
+  const cp = document.getElementById('pwConfirm').value;
+  if (!np) { toast('请输入新密码','error'); return; }
+  if (np !== cp) { toast('两次密码不一致','error'); return; }
+  if (np.length < 4) { toast('密码至少4位','error'); return; }
+  try {
+    await api('/api/auth/password', {method:'PUT', body:JSON.stringify({username, new_password:np})});
+    toast(`${username} 密码已修改`, 'success');
+    document.getElementById('pwNew').value = '';
+    document.getElementById('pwConfirm').value = '';
+    // 如果修改的是自己的密码，强制重新登录
+    if (username === _authUser) { setTimeout(doLogout, 1500); }
+  } catch(e) { toast('修改失败: '+e.message,'error'); }
+}
+
+async function doAddUser() {
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  if (!username || !password) { toast('请填写用户名和密码','error'); return; }
+  if (password.length < 4) { toast('密码至少4位','error'); return; }
+  try {
+    await api('/api/auth/users', {method:'POST', body:JSON.stringify({username, password})});
+    toast(`用户 ${username} 已添加`, 'success');
+    document.getElementById('newUsername').value = '';
+    document.getElementById('newPassword').value = '';
+    loadUsers();
+  } catch(e) { toast('添加失败: '+e.message,'error'); }
+}
+
+async function doDeleteUser(username) {
+  if (!confirm(`确认删除用户 "${username}"？此操作不可撤销。`)) return;
+  try {
+    await api(`/api/auth/users/${username}`, {method:'DELETE'});
+    toast(`用户 ${username} 已删除`, 'success');
+    loadUsers();
+  } catch(e) { toast('删除失败: '+e.message,'error'); }
+}
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  // 토큰이 있으면 검증 후 진입, 없으면 로그인 화면 표시
+  if (_authToken) {
+    const ok = await checkAuth();
+    if (ok) {
+      loadStats();
+      loadNews();
+    }
+  } else {
+    showLoginOverlay();
+  }
+  setInterval(()=>{ if(currentPage==='dashboard' && _authToken) loadStats(); }, 60000);
+});
+</script>
+</body>
+</html>

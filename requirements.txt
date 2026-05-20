@@ -1,0 +1,37 @@
+# Web framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+
+# Database
+aiosqlite==0.20.0
+
+# Scheduling
+apscheduler==3.10.4
+
+# News collection
+feedparser==6.0.11
+httpx==0.28.0
+
+# Stock data
+akshare==1.16.0
+tushare==1.4.19
+
+# LLM SDKs
+anthropic==0.40.0
+openai==1.57.0
+
+# Vector / ML
+scikit-learn==1.5.2
+numpy==1.26.4
+
+# Utilities
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-dotenv==1.0.1
+loguru==0.7.2
+
+# Debug
+debugpy==1.8.9
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4

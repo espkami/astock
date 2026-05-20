@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  astock:
+    build: .
+    container_name: astock_app
+    ports:
+      - "8000:8000"
+      - "5678:5678"
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      - astock_data:/app/data
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - PYTHONPATH=/app
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      # 初始管理员账号（首次启动时创建，之后可在页面修改）
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      # JWT 密钥（生产环境请修改）
+      - JWT_SECRET=${JWT_SECRET:-astock-secret-change-in-production}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  astock_data:
+    driver: local
