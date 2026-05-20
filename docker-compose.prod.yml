@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  astock:
+    image: ghcr.io/espkami/astock:latest
+    container_name: astock_app
+    ports:
+      - "8000:8000"
+    volumes:
+      - astock_data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      # 生产环境必改：JWT 签名密钥
+      - JWT_SECRET=${JWT_SECRET:-请修改为随机字符串}
+      # 初始管理员账号（首次启动生效，之后在页面修改）
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  astock_data:
+    driver: local
