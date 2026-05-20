@@ -9,8 +9,9 @@ services:
     volumes:
       - astock_data:/app/data
     environment:
+      - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      # 生产环境必改：JWT 签名密钥
+      # 生产环境必改：JWT 签名密钥（随机字符串，越长越好）
       - JWT_SECRET=${JWT_SECRET:-请修改为随机字符串}
       # 初始管理员账号（首次启动生效，之后在页面修改）
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
@@ -21,7 +22,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 20s
 
 volumes:
   astock_data:

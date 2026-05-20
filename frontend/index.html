@@ -2165,8 +2165,9 @@ async function loadLLMConfig() {
   const r=await api('/api/config/match-schedule').catch(()=>({data:{times:[]}}));
   renderMatchTimes(r.data?.times||[]);
 }
-function onProviderChange(provider,selectedModel){saveCfg('llm_provider',provider);const models=PROVIDER_MODELS[provider]||[];document.getElementById('modelBtns').innerHTML=models.map(m=>`<button class="model-btn${m===selectedModel?' active':''}" onclick="selectModel('${m}',this)">${m}</button>`).join('');document.getElementById('baseUrlRow').style.display=provider==='custom'?'':'none';}
-function selectModel(m,btn){document.querySelectorAll('.model-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.getElementById('llm_model').value=m;saveCfg('llm_model',m);}
+// 旧版单模型配置函数（已由多模型卡片列表取代）
+function onProviderChange() {}
+function selectModel() {}
 // ══ 多模型配置列表 ═══════════════════════════════════════════════════════════
 
 // PROVIDER_MODELS 已在顶部定义，此处补充 PROVIDER_LABELS

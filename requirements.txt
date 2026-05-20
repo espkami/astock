@@ -14,8 +14,19 @@ feedparser==6.0.11
 httpx==0.28.0
 
 # Stock data
-akshare>=1.16.72
-tushare==1.4.19
+# akshare 通过 Dockerfile --no-deps 单独安装（规避 py-mini-racer arm64 无 wheel 问题）
+# 以下是 akshare 的全部依赖，在此显式声明确保干净环境可用
+akracer==0.0.14
+beautifulsoup4==4.14.3
+curl_cffi==0.15.0
+decorator==5.2.1
+html5lib==1.1
+jsonpath==0.82.2
+lxml==6.1.0
+openpyxl==3.1.5
+tabulate==0.10.0
+xlrd==2.0.2
+tushare==1.4.29
 
 # LLM SDKs
 anthropic==0.40.0
@@ -23,7 +34,7 @@ openai==1.57.0
 
 # Vector / ML
 scikit-learn==1.5.2
-numpy==1.26.4
+numpy>=2.1.0,<3.0.0
 
 # Utilities
 pydantic==2.10.3
@@ -31,7 +42,9 @@ pydantic-settings==2.6.1
 python-dotenv==1.0.1
 loguru==0.7.2
 
-# Debug
-debugpy==1.8.9
+# Auth
 python-jose[cryptography]==3.3.0
-bcrypt>=4.0.0       # 直接使用 bcrypt
+bcrypt>=4.0.0
+
+# Debug (支持 DEBUG=1 模式)
+debugpy==1.8.9
