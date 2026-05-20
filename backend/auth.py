@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt as _bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -16,7 +16,7 @@ SECRET_KEY = os.environ.get("JWT_SECRET", "astock-secret-change-in-production-20
 ALGORITHM  = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
-pwd_ctx    = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt 直接调用，不再依赖 passlib
 bearer_scheme = HTTPBearer(auto_error=False)
 
 # 初始管理员账号（从环境变量读取，默认 admin/admin）
@@ -43,7 +43,7 @@ async def init_users():
         async with db.execute("SELECT COUNT(*) FROM users") as cur:
             count = (await cur.fetchone())[0]
         if count == 0:
-            hashed = pwd_ctx.hash(INIT_PASSWORD)
+            hashed = _hash_password(INIT_PASSWORD)
             await db.execute(
                 "INSERT INTO users(username, hashed_pw, role) VALUES(?,?,?)",
                 (INIT_USERNAME, hashed, "admin")
@@ -70,7 +70,7 @@ async def list_users() -> list[dict]:
 
 
 async def create_user(username: str, password: str, role: str = "admin") -> dict:
-    hashed = pwd_ctx.hash(password)
+    hashed = _hash_password(password)
     async with get_db() as db:
         try:
             await db.execute(
@@ -84,7 +84,7 @@ async def create_user(username: str, password: str, role: str = "admin") -> dict
 
 
 async def update_password(username: str, new_password: str) -> bool:
-    hashed = pwd_ctx.hash(new_password)
+    hashed = _hash_password(new_password)
     async with get_db() as db:
         await db.execute(
             "UPDATE users SET hashed_pw=? WHERE username=?", (hashed, username)
@@ -109,9 +109,13 @@ async def delete_user(username: str) -> bool:
 
 def verify_password(plain: str, hashed: str) -> bool:
     try:
-        return pwd_ctx.verify(plain, hashed)
+        return _bcrypt.checkpw(plain.encode(), hashed.encode())
     except Exception:
         return False
+
+
+def _hash_password(password: str) -> str:
+    return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
 
 
 def create_token(username: str) -> str:
