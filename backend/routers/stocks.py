@@ -48,9 +48,28 @@ async def trigger_update():
     return APIResponse(message="股票更新任务已触发")
 
 
+@router.post("/refill-profiles", response_model=APIResponse)
+async def trigger_refill_profiles():
+    """强制重新补全主营业务（清除兜底值，重新从 cninfo/LLM 拉取）"""
+    # 清除所有兜底值（llm_filled=0 且 <30字）
+    async with get_db() as db:
+        await db.execute(
+            "DELETE FROM stock_profile WHERE llm_filled=0 AND length(business_desc) < 30"
+        )
+        await db.commit()
+    asyncio.create_task(stock_service.update_stock_profiles(limit=9999))
+    return APIResponse(message="主营业务重新补全任务已触发")
+
+
 async def _run_full_update():
     await stock_service.update_stock_list()
     await stock_service.update_stock_profiles(limit=9999)
+
+
+@router.get("/update-progress-snapshot")
+async def update_progress_snapshot():
+    """进度快照（普通 JSON，供 SSE 断开后 fallback 轮询）"""
+    return APIResponse(data=stock_service.get_progress())
 
 
 @router.get("/update-progress")
@@ -73,7 +92,7 @@ async def update_progress():
                     break
             else:
                 idle_count = 0
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream",
                               headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

@@ -658,26 +658,7 @@
           <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span>
         </div>
       </div>
-      <!-- 热搜采集间隔 -->
-      <div class="form-row" style="margin-top:var(--space-3)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-          <label style="margin-bottom:0">⏱ 热搜采集间隔</label>
-          <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">完全免费</span>
-        </div>
-        <div class="slider-row">
-          <input type="range" min="300" max="7200" step="300" id="trending_interval" value="1800"
-            oninput="onIntervalInput('trending')"
-            onchange="saveCfg('trending_interval',parseInt(this.value))">
-          <span class="slider-val" id="trending_interval_val">30分</span>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-          <span style="font-size:11px;color:var(--text-muted);align-self:center">建议：</span>
-          <button class="suggest-btn" onclick="setInterval('trending',600)">10分钟<br><span>近实时</span></button>
-          <button class="suggest-btn suggest-btn-active" onclick="setInterval('trending',1800)">30分钟<br><span>推荐 ★</span></button>
-          <button class="suggest-btn" onclick="setInterval('trending',3600)">1小时<br><span>低负载</span></button>
-        </div>
-        <div id="trending_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:5px"></div>
-      </div>
+
     </div>
 
     <div class="config-section">
@@ -771,70 +752,92 @@
 
     <div class="config-section">
       <div class="config-section-title">⚙️ 采集间隔设置</div>
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-4)">各路源独立计时，互不影响。点击建议值快速设置，也可拖动滑块自定义。</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-4)">各路源独立计时，互不影响。点击快捷按钮一键设置，也可拖动滑块自定义。</p>
 
-      <!-- NewsAPI 间隔 -->
-      <div class="form-row">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-          <label style="margin-bottom:0">🔑 NewsAPI.ai 采集间隔</label>
-          <span class="tag-pill">消耗 API 配额</span>
-        </div>
-        <div class="slider-row">
-          <input type="range" min="300" max="14400" step="300" id="newsapi_interval" value="1800"
-            oninput="onIntervalInput('newsapi')"
-            onchange="saveCfg('newsapi_interval',parseInt(this.value))">
-          <span class="slider-val" id="newsapi_interval_val">30分</span>
-        </div>
-        <!-- 建议快捷标签 -->
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-          <span style="font-size:11px;color:var(--text-muted);align-self:center">建议：</span>
-          <button class="suggest-btn" onclick="setInterval('newsapi',3600)">1小时<br><span>省配额</span></button>
-          <button class="suggest-btn suggest-btn-active" onclick="setInterval('newsapi',7200)">2小时<br><span>推荐 ★</span></button>
-          <button class="suggest-btn" onclick="setInterval('newsapi',14400)">4小时<br><span>免费版</span></button>
-        </div>
-        <div id="newsapi_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:5px"></div>
-      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
 
-      <!-- RSS 间隔 -->
-      <div class="form-row">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-          <label style="margin-bottom:0">📡 RSS 采集间隔</label>
-          <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">完全免费</span>
+        <!-- NewsAPI 间隔 -->
+        <div style="background:var(--bg-subtle);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-4)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+            <span style="font-size:13px;font-weight:500">🔑 NewsAPI.ai</span>
+            <span class="tag-pill">消耗配额</span>
+          </div>
+          <div class="slider-row">
+            <input type="range" min="300" max="14400" step="300" id="newsapi_interval" value="1800"
+              oninput="onIntervalInput('newsapi')"
+              onchange="saveCfg('newsapi_interval',parseInt(this.value))">
+            <span class="slider-val" id="newsapi_interval_val">30分</span>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
+            <button class="suggest-btn" onclick="setInterval('newsapi',3600)">1小时<br><span>省配额</span></button>
+            <button class="suggest-btn suggest-btn-active" onclick="setInterval('newsapi',7200)">2小时<br><span>推荐★</span></button>
+            <button class="suggest-btn" onclick="setInterval('newsapi',14400)">4小时<br><span>免费版</span></button>
+          </div>
+          <div id="newsapi_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:14px"></div>
         </div>
-        <div class="slider-row">
-          <input type="range" min="60" max="3600" step="60" id="rss_interval" value="300"
-            oninput="onIntervalInput('rss')"
-            onchange="saveCfg('rss_interval',parseInt(this.value))">
-          <span class="slider-val" id="rss_interval_val">5分</span>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-          <span style="font-size:11px;color:var(--text-muted);align-self:center">建议：</span>
-          <button class="suggest-btn" onclick="setInterval('rss',300)">5分钟<br><span>近实时</span></button>
-          <button class="suggest-btn suggest-btn-active" onclick="setInterval('rss',1800)">30分钟<br><span>推荐 ★</span></button>
-          <button class="suggest-btn" onclick="setInterval('rss',3600)">1小时<br><span>低负载</span></button>
-        </div>
-        <div id="rss_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:5px"></div>
-      </div>
 
-      <!-- 大模型搜索间隔 -->
-      <div class="form-row">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-          <label style="margin-bottom:0">🤖 大模型搜索间隔</label>
-          <span class="tag-pill">消耗 LLM Token</span>
+        <!-- RSS 间隔 -->
+        <div style="background:var(--bg-subtle);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-4)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+            <span style="font-size:13px;font-weight:500">📡 RSS 订阅</span>
+            <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span>
+          </div>
+          <div class="slider-row">
+            <input type="range" min="60" max="3600" step="60" id="rss_interval" value="300"
+              oninput="onIntervalInput('rss')"
+              onchange="saveCfg('rss_interval',parseInt(this.value))">
+            <span class="slider-val" id="rss_interval_val">5分</span>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
+            <button class="suggest-btn" onclick="setInterval('rss',300)">5分钟<br><span>近实时</span></button>
+            <button class="suggest-btn suggest-btn-active" onclick="setInterval('rss',1800)">30分钟<br><span>推荐★</span></button>
+            <button class="suggest-btn" onclick="setInterval('rss',3600)">1小时<br><span>低负载</span></button>
+          </div>
+          <div id="rss_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:14px"></div>
         </div>
-        <div class="slider-row">
-          <input type="range" min="600" max="86400" step="600" id="llm_search_interval" value="3600"
-            oninput="onIntervalInput('llm_search')"
-            onchange="saveCfg('llm_search_interval',parseInt(this.value))">
-          <span class="slider-val" id="llm_search_interval_val">1小时</span>
+
+        <!-- 大模型搜索间隔 -->
+        <div style="background:var(--bg-subtle);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-4)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+            <span style="font-size:13px;font-weight:500">🤖 大模型搜索</span>
+            <span class="tag-pill">消耗 Token</span>
+          </div>
+          <div class="slider-row">
+            <input type="range" min="600" max="86400" step="600" id="llm_search_interval" value="3600"
+              oninput="onIntervalInput('llm_search')"
+              onchange="saveCfg('llm_search_interval',parseInt(this.value))">
+            <span class="slider-val" id="llm_search_interval_val">1小时</span>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
+            <button class="suggest-btn suggest-btn-active" onclick="setInterval('llm_search',3600)">1小时<br><span>推荐★</span></button>
+            <button class="suggest-btn" onclick="setInterval('llm_search',7200)">2小时<br><span>省Token</span></button>
+            <button class="suggest-btn" onclick="setInterval('llm_search',86400)">每天1次<br><span>最省</span></button>
+          </div>
+          <div id="llm_search_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:14px"></div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-          <span style="font-size:11px;color:var(--text-muted);align-self:center">建议：</span>
-          <button class="suggest-btn suggest-btn-active" onclick="setInterval('llm_search',3600)">1小时<br><span>推荐 ★</span></button>
-          <button class="suggest-btn" onclick="setInterval('llm_search',7200)">2小时<br><span>省Token</span></button>
-          <button class="suggest-btn" onclick="setInterval('llm_search',86400)">每天1次<br><span>最省</span></button>
+
+        <!-- 热搜采集间隔 -->
+        <div style="background:var(--bg-subtle);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-4)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+            <span style="font-size:13px;font-weight:500">🔥 热搜采集</span>
+            <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span>
+          </div>
+          <div class="slider-row">
+            <input type="range" min="1800" max="86400" step="1800" id="trending_interval" value="3600"
+              oninput="onIntervalInput('trending')"
+              onchange="saveCfg('trending_interval',parseInt(this.value))">
+            <span class="slider-val" id="trending_interval_val">1小时</span>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
+            <button class="suggest-btn" onclick="setInterval('trending',1800)">30分钟<br><span>高频</span></button>
+            <button class="suggest-btn suggest-btn-active" onclick="setInterval('trending',3600)">1小时<br><span>推荐★</span></button>
+            <button class="suggest-btn" onclick="setInterval('trending',14400)">4小时<br><span>低负载</span></button>
+            <button class="suggest-btn" onclick="setInterval('trending',43200)">12小时<br><span>每天2次</span></button>
+            <button class="suggest-btn" onclick="setInterval('trending',86400)">每天1次<br><span>最省</span></button>
+          </div>
+          <div id="trending_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:14px"></div>
         </div>
-        <div id="llm_search_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:5px"></div>
+
       </div>
     </div>
   </div>
@@ -1024,9 +1027,11 @@
       <div class="config-section-title">🔄 更新操作</div>
       <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)">
         <button class="btn btn-primary" onclick="triggerStockUpdate()">立即更新全量股票</button>
+        <button class="btn btn-secondary" onclick="triggerRefillProfiles()">重新补全主营业务</button>
         <button class="btn btn-secondary" onclick="loadStockStats(true)">刷新概览</button>
         <div style="font-size:11px;color:var(--text-muted);align-self:center">
-          更新分两步：① 拉取股票列表 → ② 补全全部主营业务（约 20~30 分钟，可查看进度条）
+          更新分两步：① 拉取股票列表 → ② 补全全部主营业务（约 20~30 分钟，可查看进度条）<br>
+          若主营业务补全不完整，可单独点「重新补全主营业务」重试。
         </div>
       </div>
       <div id="updateProgressWrap" style="display:none">
@@ -1268,7 +1273,7 @@ const INTERVAL_CFG = {
   rss:        { key:'rss_interval',        valId:'rss_interval_val',        hintId:'rss_interval_hint',
                 hints: {300:'每天288次，近实时但流量较高', 1800:'每天48次，推荐·兼顾时效与负载', 3600:'每天24次，低负载'} },
   trending:   { key:'trending_interval',    valId:'trending_interval_val',    hintId:'trending_interval_hint',
-                hints: {600:'每天144次，近实时捕捉热点', 1800:'每天48次，推荐·兼顾时效', 3600:'每天24次，低负载'} },
+                hints: {1800:'每天48次，高频捕捉热点', 3600:'每天24次，推荐·兼顾时效与负载', 14400:'每天6次，低负载', 43200:'每天2次，省资源', 86400:'每天1次，最省'} },
   llm_search: { key:'llm_search_interval', valId:'llm_search_interval_val', hintId:'llm_search_interval_hint',
                 hints: {3600:'每天24次，约消耗24K tokens', 7200:'每天12次，约消耗12K tokens', 86400:'每天1次，最省Token'} },
 };
@@ -2619,7 +2624,53 @@ function stockPage(d){loadStocks(Math.max(1,stockCurrentPage+d),stockSearchKw);}
 let _stockTimer;
 function searchStocks(kw){stockSearchKw=kw;clearTimeout(_stockTimer);_stockTimer=setTimeout(()=>loadStocks(1,kw),400);}
 async function triggerStockUpdate(){await api('/api/stocks/update',{method:'POST'});toast('股票更新任务已触发','info');document.getElementById('updateProgressWrap').style.display='';startProgressPolling();}
-function startProgressPolling(){if(progressEsSource)progressEsSource.close();progressEsSource=new EventSource('/api/stocks/update-progress');progressEsSource.onmessage=e=>{const d=JSON.parse(e.data);document.getElementById('progressMsg').textContent=d.message;document.getElementById('progressFill').style.width=d.percent+'%';document.getElementById('progressPct').textContent=d.percent+'%';if(d.done){progressEsSource.close();loadStockStats();loadStocks();toast(d.error?'更新失败: '+d.error:'股票数据更新完成',d.error?'error':'success');}};}
+async function triggerRefillProfiles(){
+  await api('/api/stocks/refill-profiles',{method:'POST'});
+  toast('主营业务重新补全已触发，请稍候...','info');
+  document.getElementById('updateProgressWrap').style.display='';
+  startProgressPolling();
+}
+function startProgressPolling(){
+  if(progressEsSource) progressEsSource.close();
+  progressEsSource = new EventSource('/api/stocks/update-progress');
+  progressEsSource.onmessage = e => {
+    const d = JSON.parse(e.data);
+    // 阶段标签
+    const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全主营业务', idle:''}[d.stage] || '';
+    const stageHint = stageLabel ? `<span style="font-size:11px;color:var(--text-muted);margin-left:6px">${stageLabel}</span>` : '';
+    document.getElementById('progressMsg').innerHTML = d.message + stageHint;
+    document.getElementById('progressFill').style.width = d.percent + '%';
+    document.getElementById('progressPct').textContent = d.percent + '%';
+    if(d.done && (d.stage === 'profiles' || d.stage === 'idle')){
+      progressEsSource.close();
+      loadStockStats();
+      loadStocks();
+      toast(d.error ? '更新失败: '+d.error : '✅ 股票数据更新完成（含主营业务）', d.error ? 'error' : 'success');
+    }
+  };
+  progressEsSource.onerror = () => {
+    // SSE 断开但可能还在跑 profiles，继续轮询
+    progressEsSource.close();
+    _pollProgressFallback();
+  };
+}
+function _pollProgressFallback(){
+  let timer = setInterval(async () => {
+    try {
+      const r = await api('/api/stocks/update-progress-snapshot');
+      const d = r.data || {};
+      const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全主营业务', idle:''}[d.stage] || '';
+      document.getElementById('progressMsg').textContent = d.message || '处理中...';
+      document.getElementById('progressFill').style.width = (d.percent||0) + '%';
+      document.getElementById('progressPct').textContent = (d.percent||0) + '%';
+      if(d.done && (d.stage === 'profiles' || d.stage === 'idle' || !d.stage)){
+        clearInterval(timer);
+        loadStockStats(); loadStocks();
+        toast('✅ 股票数据更新完成', 'success');
+      }
+    } catch(e){ clearInterval(timer); }
+  }, 1500);
+}
 
 // ══════════════════════════════════════════════════════
 //  数据管理
