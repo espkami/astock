@@ -58,12 +58,21 @@ async def update_progress():
     """SSE 进度流"""
     async def event_stream():
         import asyncio
+        idle_count = 0
         while True:
             progress = stock_service.get_progress()
             data = json.dumps(progress, ensure_ascii=False)
             yield f"data: {data}\n\n"
-            if progress.get("done"):
+            # 只有 profiles 阶段完成（或 idle 超时）才真正结束
+            if progress.get("done") and progress.get("stage") in ("profiles", "idle"):
                 break
+            # 如果 done=True 但 stage 是 stocks，继续等 profiles 开始（最多 5s）
+            if progress.get("done") and progress.get("stage") == "stocks":
+                idle_count += 1
+                if idle_count > 5:
+                    break
+            else:
+                idle_count = 0
             await asyncio.sleep(1)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream",

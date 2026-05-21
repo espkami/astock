@@ -180,7 +180,7 @@ async def update_stock_list() -> dict:
             await db.commit()
 
         _set_progress("stocks", len(unique), len(unique),
-                      f"✅ 股票列表更新完成，共 {len(unique)} 只", done=True)
+                      f"✅ 股票列表更新完成，共 {len(unique)} 只，正在补全主营业务...", done=False)
         logger.info(f"股票列表更新完成: {len(unique)} 只")
         return {"success": True, "count": len(unique)}
     except Exception as e:
@@ -195,7 +195,10 @@ async def update_stock_profiles(limit: int = 9999) -> dict:
         async with db.execute(
             """SELECT s.ts_code, s.name, s.industry FROM stocks s
                LEFT JOIN stock_profile sp ON s.ts_code = sp.ts_code
-               WHERE sp.ts_code IS NULL LIMIT ?""", (limit,)
+               WHERE sp.ts_code IS NULL
+                  OR sp.business_desc IS NULL
+                  OR sp.business_desc = ''
+               LIMIT ?""", (limit,)
         ) as cur:
             rows = await cur.fetchall()
 
@@ -233,7 +236,7 @@ async def update_stock_profiles(limit: int = 9999) -> dict:
                         )
                     await db.commit()
                 filled += 1
-                if idx % 50 == 0:
+                if idx % 20 == 0:
                     _set_progress("profiles", idx, len(rows), f"主营业务 {idx}/{len(rows)}（{filled} 成功）")
             except Exception as e:
                 logger.warning(f"股票 {row['ts_code']} 补全失败: {e}")
@@ -254,7 +257,7 @@ async def _get_stock_profile(ts_code, name, industry, client) -> tuple:
         import akshare as ak
         import asyncio as _asyncio
         code = ts_code.split(".")[0]
-        df = await _asyncio.to_thread(ak.stock_profile_cninfo, symbol=code)
+        df = await _asyncio.wait_for(_asyncio.to_thread(ak.stock_profile_cninfo, symbol=code), timeout=10)
         if df is not None and not df.empty:
             row = df.iloc[0]
             desc = str(row.get("主营业务", "") or "").strip()

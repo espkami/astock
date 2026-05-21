@@ -82,15 +82,17 @@ async def update_source_intervals(
     newsapi: int = None,
     rss: int = None,
     llm_search: int = None,
+    trending: int = None,
 ):
     """按路源独立更新采集间隔"""
     if not _scheduler.running:
         return
 
     source_map = {
-        "newsapi_collect": (newsapi, ["newsapi"]),
-        "rss_collect":     (rss,     ["rss"]),
-        "llm_collect":     (llm_search, ["llm"]),
+        "newsapi_collect":  (newsapi,    ["newsapi"]),
+        "rss_collect":      (rss,        ["rss"]),
+        "llm_collect":      (llm_search, ["llm"]),
+        "trending_collect": (trending,   ["trending"]),
     }
     for job_id, (interval, sources) in source_map.items():
         if interval is None:

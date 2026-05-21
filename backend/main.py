@@ -27,12 +27,21 @@ async def lifespan(app: FastAPI):
     from backend.services import scheduler as _sched_mod
     _sched_mod._MAIN_LOOP = _asyncio.get_running_loop()
     start_scheduler()
-    # 应用已保存的采集间隔
-    interval = await get_config("collect_interval", 300)
+    # 恢复各路源独立采集间隔
     try:
-        await update_collect_interval(int(interval))
-    except Exception:
-        pass
+        from backend.services.scheduler import update_source_intervals
+        newsapi_iv  = await get_config("newsapi_interval", 7200)
+        rss_iv      = await get_config("rss_interval", 1800)
+        llm_iv      = await get_config("llm_search_interval", 3600)
+        trending_iv = await get_config("trending_interval", 1800)
+        await update_source_intervals(
+            newsapi=int(newsapi_iv or 7200),
+            rss=int(rss_iv or 1800),
+            llm_search=int(llm_iv or 3600),
+            trending=int(trending_iv or 1800),
+        )
+    except Exception as e:
+        logger.warning(f"恢复采集间隔失败: {e}")
     # 恢复定时匹配设置
     match_times = await get_config("match_schedule_times", [])
     if match_times:

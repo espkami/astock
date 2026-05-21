@@ -11,11 +11,14 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      # 生产环境必改：JWT 签名密钥（随机字符串，越长越好）
       - JWT_SECRET=${JWT_SECRET:-请修改为随机字符串}
-      # 初始管理员账号（首次启动生效，之后在页面修改）
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+    # 显式指定 DNS，解决容器内无法解析外网域名的问题
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 114.114.114.114
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]

@@ -21,9 +21,10 @@ async def save_config(batch: ConfigBatch):
 
     # 动态应用各路源间隔
     interval_map = {
-        "newsapi_interval": "newsapi",
-        "rss_interval":     "rss",
+        "newsapi_interval":    "newsapi",
+        "rss_interval":        "rss",
         "llm_search_interval": "llm_search",
+        "trending_interval":   "trending",
     }
     for item in batch.items:
         if item.key in interval_map:

@@ -658,6 +658,26 @@
           <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span>
         </div>
       </div>
+      <!-- 热搜采集间隔 -->
+      <div class="form-row" style="margin-top:var(--space-3)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <label style="margin-bottom:0">⏱ 热搜采集间隔</label>
+          <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">完全免费</span>
+        </div>
+        <div class="slider-row">
+          <input type="range" min="300" max="7200" step="300" id="trending_interval" value="1800"
+            oninput="onIntervalInput('trending')"
+            onchange="saveCfg('trending_interval',parseInt(this.value))">
+          <span class="slider-val" id="trending_interval_val">30分</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <span style="font-size:11px;color:var(--text-muted);align-self:center">建议：</span>
+          <button class="suggest-btn" onclick="setInterval('trending',600)">10分钟<br><span>近实时</span></button>
+          <button class="suggest-btn suggest-btn-active" onclick="setInterval('trending',1800)">30分钟<br><span>推荐 ★</span></button>
+          <button class="suggest-btn" onclick="setInterval('trending',3600)">1小时<br><span>低负载</span></button>
+        </div>
+        <div id="trending_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:5px"></div>
+      </div>
     </div>
 
     <div class="config-section">
@@ -991,7 +1011,7 @@
       </div>
       <div class="form-row"><label>Tushare Token</label>
         <div class="input-row">
-          <input class="input" type="password" id="tushare_token" placeholder="填入 Token 后开启开关" oninput="saveCfg('tushare_token',this.value)">
+          <input class="input" type="password" id="tushare_token" placeholder="填入 Token 后开启开关" onblur="saveCfg('tushare_token',this.value)">
           <button class="btn btn-ghost btn-sm" onclick="togglePwd('tushare_token')">👁</button>
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
@@ -1004,7 +1024,7 @@
       <div class="config-section-title">🔄 更新操作</div>
       <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)">
         <button class="btn btn-primary" onclick="triggerStockUpdate()">立即更新全量股票</button>
-        <button class="btn btn-secondary" onclick="loadStockStats()">刷新概览</button>
+        <button class="btn btn-secondary" onclick="loadStockStats(true)">刷新概览</button>
         <div style="font-size:11px;color:var(--text-muted);align-self:center">
           更新分两步：① 拉取股票列表 → ② 补全全部主营业务（约 20~30 分钟，可查看进度条）
         </div>
@@ -1247,6 +1267,8 @@ const INTERVAL_CFG = {
                 hints: {3600:'每天12次，消耗约12次API配额', 7200:'每天12次，推荐·免费版每月约200次配额', 14400:'每天6次，适合免费版'} },
   rss:        { key:'rss_interval',        valId:'rss_interval_val',        hintId:'rss_interval_hint',
                 hints: {300:'每天288次，近实时但流量较高', 1800:'每天48次，推荐·兼顾时效与负载', 3600:'每天24次，低负载'} },
+  trending:   { key:'trending_interval',    valId:'trending_interval_val',    hintId:'trending_interval_hint',
+                hints: {600:'每天144次，近实时捕捉热点', 1800:'每天48次，推荐·兼顾时效', 3600:'每天24次，低负载'} },
   llm_search: { key:'llm_search_interval', valId:'llm_search_interval_val', hintId:'llm_search_interval_hint',
                 hints: {3600:'每天24次，约消耗24K tokens', 7200:'每天12次，约消耗12K tokens', 86400:'每天1次，最省Token'} },
 };
@@ -1451,7 +1473,7 @@ async function resetTokenUsage() {
   updateTokenBadge({input:0,output:0,calls:0});
 }
 
-function navigate(page) {
+async function navigate(page) {
   document.querySelectorAll('.page,.cfg-page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-link').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.dropdown-item').forEach(n=>n.classList.remove('active'));
@@ -1459,7 +1481,7 @@ function navigate(page) {
   document.querySelectorAll('.nav-link').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+page+"'")) n.classList.add('active'); });
   currentPage = page;
   if (page==='dashboard') { loadStats(); loadNews(); loadTrending(); }
-  if (page==='stocks') { loadStockStats(); loadStocks(); }
+  if (page==='stocks') { await loadStockStats(); loadStocks(); }
   if (page==='llm-config') loadLLMConfig();
   if (page==='news-config') loadNewsConfig();
   if (page==='data-mgmt') loadDataMgmtConfig();
@@ -2002,6 +2024,7 @@ async function loadNewsConfig() {
   setToggle('baidu_trending_enabled', cfg.baidu_trending_enabled !== false);
   setToggle('weibo_trending_enabled', cfg.weibo_trending_enabled !== false);
   setToggle('douyin_trending_enabled', cfg.douyin_trending_enabled !== false);
+  if (cfg.trending_interval) { const el=document.getElementById('trending_interval'); if(el){el.value=cfg.trending_interval;onIntervalInput('trending');} }
   // 自动分类开关（默认开启）
   const autoClassify = cfg.auto_classify_enabled !== false;
   setToggle('auto_classify_enabled', autoClassify);
@@ -2526,7 +2549,16 @@ async function removeMatchTime(t){
 // ══════════════════════════════════════════════════════
 //  股票数据
 // ══════════════════════════════════════════════════════
-async function loadStockStats(){const d=(await api('/api/stocks/stats')).data||{};document.getElementById('sk-total').textContent=d.total||0;document.getElementById('sk-coverage').textContent=(d.profile_coverage||0)+'%';document.getElementById('sk-coverage-sub').textContent=`${d.with_profile||0} / ${d.total||0} 只`;document.getElementById('sk-updated').textContent=d.last_updated?d.last_updated.slice(0,16):'从未更新';}
+async function loadStockStats(showToast=false){
+  try {
+    const d=(await api('/api/stocks/stats')).data||{};
+    document.getElementById('sk-total').textContent=d.total||0;
+    document.getElementById('sk-coverage').textContent=(d.profile_coverage||0)+'%';
+    document.getElementById('sk-coverage-sub').textContent=`${d.with_profile||0} / ${d.total||0} 只`;
+    document.getElementById('sk-updated').textContent=d.last_updated?d.last_updated.slice(0,16):'从未更新';
+    if(showToast) toast('概览已刷新','success');
+  } catch(e) { toast('刷新失败: '+e.message,'error'); }
+}
 async function loadStocks(page=1,kw=''){
   stockCurrentPage=page;
   const d=await api(`/api/stocks?page=${page}&page_size=50&keyword=${encodeURIComponent(kw)}`);
