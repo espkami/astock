@@ -333,8 +333,15 @@ async def _do_update_profiles(limit: int = 9999) -> dict:
 
 async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
     """公司简介 + 行业补全。
-    优先级：① AKShare(stock_zyjs_ths) → ② 巨潮(stock_profile_cninfo) → ③ LLM兜底
-    行业字段：AKShare 产品类型 → 巨潮 所属行业 → 原有行业值
+
+    问题根源与修复：
+    ① AKShare stock_zyjs_ths  → 同花顺主营介绍，文字描述质量好
+    ② 巨潮 stock_profile_cninfo → 主营业务(精简) + 机构简介(完整背景) + 所属行业(标准分类)
+       - 之前只取"主营业务"字段，7-80字，信息量不足
+       - 现在同时取"机构简介"补充完整背景，行业用巨潮标准分类
+    ③ LLM 兜底（所有数据接口失败时）
+
+    行业字段优先级：巨潮所属行业 > AKShare产品类型 > 原有行业值
     """
     import akshare as ak
     import asyncio as _asyncio
@@ -344,9 +351,9 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
     profile_source = await _gc("profile_source", "both")
     code_only = ts_code.split(".")[0]
     found_desc = None
-    found_ind  = industry or ""  # 默认保留原有行业
+    found_ind  = industry or ""
 
-    # ── ① AKShare stock_zyjs_ths（主营介绍，产品类型可作行业）──────────────
+    # ── ① AKShare stock_zyjs_ths（同花顺主营介绍）────────────────────────────
     if profile_source in ("eastmoney", "both"):
         try:
             df = await _asyncio.wait_for(
@@ -358,14 +365,13 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
                 prod = str(row.get("产品类型", "") or "").strip()
                 if desc and len(desc) > 5:
                     found_desc = desc
-                    # 产品类型作为行业补充（仅在原行业为空时使用）
                     if prod and not found_ind:
                         found_ind = prod.split("、")[0].strip()[:20]
         except Exception as e:
             logger.debug(f"AKShare zyjs_ths {ts_code} 失败: {e}")
 
-    # ── ② 巨潮 stock_profile_cninfo（主营业务文字 + 所属行业）───────────────
-    # 无论①是否成功，都尝试从巨潮补全行业字段（巨潮行业分类更标准）
+    # ── ② 巨潮 stock_profile_cninfo（主营业务 + 机构简介 + 标准行业分类）─────
+    # 无论①是否成功都调：①只给简介，②额外提供标准行业分类和机构背景
     if profile_source in ("cninfo", "both"):
         try:
             df2 = await _asyncio.wait_for(
@@ -373,20 +379,34 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
             )
             if df2 is not None and not df2.empty:
                 row2 = df2.iloc[0]
+
+                # 行业：巨潮所属行业是国家标准行业分类，比东方财富更准确
                 ind2 = str(row2.get("所属行业", "") or "").strip()
-                # 巨潮行业优先覆盖（更标准）
                 if ind2:
-                    found_ind = ind2
-                # 如果①没拿到简介，用巨潮的
+                    found_ind = ind2  # 巨潮行业优先覆盖
+
+                # 简介：主营业务 + 机构简介合并，提供更丰富的语义信息
                 if not found_desc:
-                    desc2 = str(row2.get("主营业务", "") or "").strip()
-                    if desc2 and len(desc2) > 5:
-                        found_desc = desc2
+                    main_biz = str(row2.get("主营业务", "") or "").strip()
+                    intro    = str(row2.get("机构简介", "") or "").strip()
+                    # 机构简介取前200字（含公司背景、核心业务等关键信息）
+                    intro = intro[:200] if intro else ""
+                    if main_biz and intro:
+                        found_desc = main_biz + " " + intro
+                    else:
+                        found_desc = main_biz or intro
+                else:
+                    # ①已有简介，用机构简介补充背景（追加，不替换）
+                    intro = str(row2.get("机构简介", "") or "").strip()[:150]
+                    if intro and len(found_desc) < 50:
+                        # 简介太短时用机构简介补充
+                        found_desc = found_desc + " " + intro
+
         except Exception as e:
             logger.debug(f"巨潮 {ts_code} 失败: {e}")
 
     # 有简介就返回
-    if found_desc:
+    if found_desc and len(found_desc) > 5:
         kws = list(dict.fromkeys(
             [w for w in _re.split(r"[、，；。 ]+", found_desc) if 2 <= len(w) <= 8]
         ))[:10]

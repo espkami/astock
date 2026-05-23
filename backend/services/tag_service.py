@@ -57,21 +57,22 @@ async def _fetch_em_mainbz(ts_code: str) -> str:
         if df is None or df.empty:
             return ""
 
-        # 取最新年报，按行业分类（覆盖最广）
+        # 取最新年报
         df_sorted = df.sort_values("报告日期", ascending=False)
         latest_date = df_sorted["报告日期"].iloc[0]
         latest = df_sorted[df_sorted["报告日期"] == latest_date]
 
-        # 优先按行业分类，无则按产品分类
-        for cat in ["按行业分类", "按产品分类"]:
+        NOISE = {"其他", "其他主营业务", "其他产品", "其他业务", "综合", "其他(补充)", "其它"}
+
+        # 优先按产品分类（具体产品名，如"动力电池系统"），再按行业分类（如"电气机械及器材制造业"）
+        # 按产品分类更适合做标签，行业分类是国民经济大类，粒度太粗
+        for cat in ["按产品分类", "按行业分类"]:
             items = latest[latest["分类类型"] == cat].sort_values("收入比例", ascending=False)
             if not items.empty:
-                NOISE = {"其他", "其他主营业务", "其他产品", "其他业务", "综合", "其他(补充)"}
                 lines = []
                 for _, row in items.head(8).iterrows():
                     name = str(row.get("主营构成", "")).strip()
                     ratio = float(row.get("收入比例", 0)) * 100
-                    # 去掉常见后缀
                     for suf in ["分部", "业务", "板块", "行业", "产业"]:
                         if name.endswith(suf) and len(name) > len(suf) + 1:
                             name = name[:-len(suf)]
@@ -85,38 +86,79 @@ async def _fetch_em_mainbz(ts_code: str) -> str:
         return ""
 
 
+# 行业词扩展映射：东方财富分类名 → 更通用的匹配词
+_INDUSTRY_EXPAND = {
+    "航空制造业": ["航空", "军工", "国防", "航空制造"],
+    "航空产品":   ["航空", "军工", "国防"],
+    "船舶制造":   ["船舶", "军工", "国防", "造船"],
+    "兵器制造":   ["军工", "国防", "兵器"],
+    "军工":       ["军工", "国防", "武器"],
+    "军事":       ["军工", "国防", "军事"],
+    "国防":       ["国防", "军工"],
+    "黄金":       ["黄金", "贵金属", "避险"],
+    "黄金行业":   ["黄金", "贵金属", "避险"],
+    "石油":       ["石油", "能源", "油气"],
+    "天然气":     ["天然气", "能源", "油气"],
+    "煤炭":       ["煤炭", "能源"],
+    "电力":       ["电力", "能源"],
+    "新能源":     ["新能源", "光伏", "储能"],
+    "光伏":       ["光伏", "新能源", "太阳能"],
+    "储能":       ["储能", "新能源", "电池"],
+    "半导体":     ["半导体", "芯片", "集成电路"],
+    "芯片":       ["芯片", "半导体", "集成电路"],
+    "人工智能":   ["人工智能", "AI", "大模型"],
+    "大模型":     ["大模型", "人工智能", "AI"],
+    "铜":         ["铜", "有色金属", "大宗商品"],
+    "铝":         ["铝", "有色金属", "大宗商品"],
+    "锂":         ["锂", "锂电池", "新能源"],
+    "钢铁":       ["钢铁", "黑色金属", "大宗商品"],
+    "化工":       ["化工", "化学品"],
+    "医药":       ["医药", "医疗", "制药"],
+    "生物药":     ["生物药", "医药", "制药"],
+}
+
 def _parse_em_tags(mainbz: str, industry: str) -> dict:
     """直接把东方财富主营构成解析为结构化标签（不调LLM）
     输入: "大米加工与销售分部(36%)；种植业分部(36%)；农资服务(21%)"
+    同时扩展行业词，确保通用关键词也能被匹配到。
     """
     import re
 
-    # 提取产品名（去掉占比、"分部"、"业务"等后缀）
     raw_items = [item.strip() for item in mainbz.split("；") if item.strip()]
 
-    NOISE_WORDS = {"其他", "其他主营业务", "其他产品", "其他业务", "综合", "合并抵销"}
+    NOISE_WORDS = {"其他", "其他主营业务", "其他产品", "其他业务", "综合", "合并抵销", "其他(补充)"}
     SUFFIX_STRIP = ["分部", "业务", "板块", "事业部", "行业", "产业"]
 
     products = []
     for item in raw_items:
-        # 去掉占比括号
         name = re.sub(r'[(]\d+%[)]', '', item).strip()
-        # 去掉常见后缀
         for suffix in SUFFIX_STRIP:
             if name.endswith(suffix) and len(name) > len(suffix) + 1:
                 name = name[:-len(suffix)].strip()
-        # 过滤噪音词和过长的行业描述
         if name and name not in NOISE_WORDS and len(name) <= 15:
             products.append(name)
 
-    # 去重保序
     products = list(dict.fromkeys(products))[:8]
 
-    # 细分行业：直接用行业+产品组合
-    sectors = [industry] if industry else []
+    # 行业词扩展：把东方财富分类名映射到通用词
+    # 使用精确匹配或前缀匹配，避免"制造业"误触发"航空制造"
+    def _match_key(text, key):
+        """精确匹配：text==key，或 text 以 key 开头（如"黄金行业"匹配"黄金"）"""
+        return text == key or text.startswith(key) or key == text
 
-    # all_tags 合并
-    all_tags = list(dict.fromkeys(products + sectors))
+    expanded = list(products)
+    for p in products:
+        for key, synonyms in _INDUSTRY_EXPAND.items():
+            if _match_key(p, key) or _match_key(key, p):
+                expanded.extend(synonyms)
+    # 也对 industry 字段做扩展
+    if industry:
+        for key, synonyms in _INDUSTRY_EXPAND.items():
+            if _match_key(industry, key) or _match_key(key, industry):
+                expanded.extend(synonyms)
+
+    sectors = [industry] if industry else []
+    all_tags = list(dict.fromkeys(expanded + sectors))[:15]
 
     return {
         "products":  products,

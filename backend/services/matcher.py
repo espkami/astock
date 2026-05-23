@@ -132,22 +132,26 @@ async def _match_one_news(
     # doc 文本：名称 + 描述，描述为空时重复名称增加权重
     doc_texts = []
     for c in candidates:
-        desc = c.get('business_desc') or ''
-        name = c.get('name', '')
+        desc     = c.get('business_desc') or ''
+        name     = c.get('name', '')
         industry = c.get('industry') or ''
-        # domains 是 JSON 字符串，需解析
-        try:
-            domains_list = json.loads(c.get('domains') or '[]')
-            domains = ' '.join(domains_list) if isinstance(domains_list, list) else ''
-        except Exception:
-            domains = ''
-        # all_tags 也加入，提升语义匹配质量
-        try:
-            tags_list = json.loads(c.get('all_tags') or '[]')
-            tags_str = ' '.join(tags_list[:6]) if isinstance(tags_list, list) else ''
-        except Exception:
-            tags_str = ''
-        text = f"{name} {name} {industry} {desc} {domains} {tags_str}".strip()
+
+        def _jl(field, limit=8):
+            try:
+                lst = json.loads(c.get(field) or '[]')
+                return ' '.join(lst[:limit]) if isinstance(lst, list) else ''
+            except Exception:
+                return ''
+
+        domains    = _jl('domains', 4)
+        all_tags   = _jl('all_tags', 8)      # 扩展后的通用词（军工/黄金/避险等）
+        products   = _jl('products', 6)      # 核心产品（动力电池/光刻机等）
+        techs      = _jl('techs', 4)         # 核心技术（IGBT/HBM等）
+        themes     = _jl('themes', 4)        # 热点主题（AI算力/新能源等）
+        chain_pos  = _jl('chain_pos', 2)     # 产业链位置（上游/中游/下游）
+
+        # 构建丰富的语义文本：名称×2 + 行业 + 简介 + 产品 + 技术 + 主题 + 标签
+        text = f"{name} {name} {industry} {desc} {products} {techs} {themes} {chain_pos} {domains} {all_tags}".strip()
         doc_texts.append(text if text else name)
 
     semantic_scores = [0.0] * len(candidates)
@@ -254,7 +258,10 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
                            COALESCE(sp.keywords,'[]') as kw_text,
                            COALESCE(st.all_tags,'[]') as all_tags,
                            COALESCE(st.products,'[]') as products,
-                           COALESCE(st.sectors,'[]') as sectors
+                           COALESCE(st.sectors,'[]') as sectors,
+                           COALESCE(st.techs,'[]') as techs,
+                           COALESCE(st.themes,'[]') as themes,
+                           COALESCE(st.chain_pos,'[]') as chain_pos
                     FROM stocks s
                     LEFT JOIN stock_profile sp ON s.ts_code=sp.ts_code
                     LEFT JOIN stock_tags st ON s.ts_code=st.ts_code
@@ -448,23 +455,42 @@ async def _llm_rerank(client, title: str, summary: str, candidates: list[dict], 
         resp = await client.chat([
             {"role": "system", "content": "你是 A 股投研助手，只返回 JSON 数组。"},
             {"role": "user", "content": prompt},
-        ], json_mode=False)
+        ], json_mode=False, timeout=90)
         text = resp.strip()
         if text.startswith("```"):
             text = text.split("```")[1]
             if text.startswith("json"):
                 text = text[4:]
-        results = json.loads(text)
+        raw = json.loads(text)
 
-        # 附加语义分数（从候选中查找）
-        code_to_semantic = {c["ts_code"]: c.get("semantic_score", 0.0) for c in candidates}
-        for r in results:
-            r["semantic_score"] = code_to_semantic.get(r["ts_code"], 0.0)
-            r["industry_score"] = 0.6
-            # 综合评分
-            r["score"] = round(
-                r["semantic_score"] * 0.4 + float(r.get("score", 0.5)) * 0.5 + 0.5 * 0.1, 4
-            )
+        # 兼容两种返回格式：
+        # 1. 对象数组 [{ts_code, name, score, reason, sentiment_impact}, ...]
+        # 2. 字符串数组 ["000001.SZ", "600000.SH", ...]（部分 LLM 简化返回）
+        code_to_candidate = {c["ts_code"]: c for c in candidates}
+        code_to_semantic  = {c["ts_code"]: c.get("semantic_score", 0.0) for c in candidates}
+        results = []
+        for item in raw:
+            if isinstance(item, str):
+                # 字符串格式：ts_code 直接是字符串
+                ts_code = item.strip()
+                cand = code_to_candidate.get(ts_code, {})
+                results.append({
+                    "ts_code": ts_code,
+                    "name": cand.get("name", ts_code),
+                    "score": 0.8,
+                    "reason": f"{cand.get('name', ts_code)}（{cand.get('industry','')}）：{(cand.get('business_desc') or '')[:40]}，与新闻相关",
+                    "sentiment_impact": sentiment,
+                    "semantic_score": code_to_semantic.get(ts_code, 0.0),
+                    "industry_score": 0.6,
+                })
+            elif isinstance(item, dict):
+                ts_code = item.get("ts_code", "")
+                item["semantic_score"] = code_to_semantic.get(ts_code, 0.0)
+                item["industry_score"] = 0.6
+                item["score"] = round(
+                    item["semantic_score"] * 0.4 + float(item.get("score", 0.5)) * 0.5 + 0.5 * 0.1, 4
+                )
+                results.append(item)
         return results[:top_k]
     except Exception as e:
         logger.warning(f"大模型精排失败: {e}")

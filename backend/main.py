@@ -338,7 +338,7 @@ async def match_news_now(news_id: int):
     import json as _json
     from backend.database import get_db
     from backend.services.llm_client import get_llm_client
-    from backend.services.news_processor import process_pending_news, _classify_one
+    from backend.services.news_processor import process_pending_news, _classify_one_fallback as _classify_one
     from backend.services.matcher import _match_one_news
     from backend.services.config_service import get_config
 
@@ -353,6 +353,8 @@ async def match_news_now(news_id: int):
         return {"success": False, "message": "新闻不存在"}
 
     client = await get_llm_client()
+    from backend.services.llm_client import get_embed_client
+    embed_client = await get_embed_client()
 
     # Step 1: 如果未分类，先分类
     if not row["summary"]:
@@ -386,6 +388,7 @@ async def match_news_now(news_id: int):
             sentiment=row["sentiment"] or "neutral",
             top_k=top_k,
             client=client,
+            embed_client=embed_client,
         )
         if result:
             async with get_db() as db:
