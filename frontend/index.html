@@ -1052,8 +1052,15 @@
       <!-- 第二层：公司简介来源 -->
       <div style="background:var(--bg-subtle);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-4)">
         <div style="font-size:13px;font-weight:600;margin-bottom:4px">🏭 公司简介来源</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">股票列表拉取后，补全「公司简介」列的文字描述（主营业务项目由东方财富固定提供，不受此配置影响）</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">股票列表拉取后，补全「公司简介」列的文字描述（主营业务项目标签由独立任务生成，不受此配置影响）</div>
         <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--border-strong)'" onmouseout="this.style.borderColor='var(--border-default)'">
+            <input type="radio" name="profile_source" value="eastmoney" onchange="saveCfg('profile_source','eastmoney')" style="margin-top:3px;flex-shrink:0">
+            <div>
+              <div style="font-size:13px;font-weight:500">AKShare <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">通过 AKShare 获取主营业务介绍，内容详细，覆盖全市场</div>
+            </div>
+          </label>
           <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--border-strong)'" onmouseout="this.style.borderColor='var(--border-default)'">
             <input type="radio" name="profile_source" value="cninfo" onchange="saveCfg('profile_source','cninfo')" style="margin-top:3px;flex-shrink:0">
             <div>
@@ -1064,8 +1071,8 @@
           <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--border-strong)'" onmouseout="this.style.borderColor='var(--border-default)'">
             <input type="radio" name="profile_source" value="both" onchange="saveCfg('profile_source','both')" style="margin-top:3px;flex-shrink:0">
             <div>
-              <div style="font-size:13px;font-weight:500">东方财富 + 巨潮资讯双源 <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span> <span class="tag-pill" style="background:var(--blue-100,#dbeafe);color:var(--blue-700,#1d4ed8)">推荐</span></div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">东方财富优先（主营产品构成），无数据时巨潮兜底，覆盖最全</div>
+              <div style="font-size:13px;font-weight:500">AKShare + 巨潮资讯双源 <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span> <span class="tag-pill" style="background:var(--blue-100,#dbeafe);color:var(--blue-700,#1d4ed8)">推荐</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">AKShare 优先，无数据时巨潮兜底，覆盖最全</div>
             </div>
           </label>
         </div>
@@ -3195,16 +3202,16 @@ function startProgressPolling(){
     // 如果一开始就收到 idle/done，说明是旧状态残留，忽略并继续等
     if(d.done && d.stage === 'idle' && !receivedRealProgress) return;
     receivedRealProgress = true;
-    const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全公司简介', idle:''}[d.stage] || '';
+    const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全公司简介', tags:'🏷️ 生成主营业务项目标签', idle:''}[d.stage] || '';
     const stageHint = stageLabel ? `<span style="font-size:11px;color:var(--text-muted);margin-left:6px">${stageLabel}</span>` : '';
     document.getElementById('progressMsg').innerHTML = d.message + stageHint;
     document.getElementById('progressFill').style.width = d.percent + '%';
     document.getElementById('progressPct').textContent = d.percent + '%';
-    if(d.done && (d.stage === 'profiles' || d.stage === 'idle')){
+    if(d.done && (d.stage === 'profiles' || d.stage === 'tags' || d.stage === 'idle')){
       progressEsSource.close();
       loadStockStats();
       loadStocks();
-      toast(d.error ? '更新失败: '+d.error : '✅ 股票数据更新完成（含主营业务）', d.error ? 'error' : 'success');
+      toast(d.error ? '更新失败: '+d.error : '✅ 股票数据更新完成（含公司简介和主营业务项目标签）', d.error ? 'error' : 'success');
     }
   };
   progressEsSource.onerror = () => {
@@ -3217,11 +3224,11 @@ function _pollProgressFallback(){
     try {
       const r = await api('/api/stocks/update-progress-snapshot');
       const d = r.data || {};
-      const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全公司简介', idle:''}[d.stage] || '';
+      const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全公司简介', tags:'🏷️ 生成主营业务项目标签', idle:''}[d.stage] || '';
       document.getElementById('progressMsg').textContent = d.message || '处理中...';
       document.getElementById('progressFill').style.width = (d.percent||0) + '%';
       document.getElementById('progressPct').textContent = (d.percent||0) + '%';
-      if(d.done && (d.stage === 'profiles' || d.stage === 'idle' || !d.stage)){
+      if(d.done && (d.stage === 'profiles' || d.stage === 'tags' || d.stage === 'idle' || !d.stage)){
         clearInterval(timer);
         loadStockStats(); loadStocks();
         toast('✅ 股票数据更新完成', 'success');

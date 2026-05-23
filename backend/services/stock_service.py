@@ -41,8 +41,9 @@ SINA_NODES = [
 SINA_URL = "http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData"
 
 
-async def _fetch_node(client: httpx.AsyncClient, node: str, market: str) -> list[dict]:
-    """分页拉取单个板块，带重试"""
+async def _fetch_node(client: httpx.AsyncClient, node: str, market: str,
+                      progress_cb=None) -> list[dict]:
+    """分页拉取单个板块，带重试。progress_cb(page, count) 每页回调更新进度。"""
     stocks = []
     page = 1
     consecutive_empty = 0
@@ -67,22 +68,15 @@ async def _fetch_node(client: httpx.AsyncClient, node: str, market: str) -> list
                 for item in data:
                     symbol = item.get("symbol", "")
                     code   = item.get("code", "")
-                    # 按代码前缀判断交易所和板块
                     if symbol.startswith("sh"):
                         ts_code = f"{code}.SH"
-                        if code.startswith("688"):
-                            mkt = "科创板"
-                        else:
-                            mkt = "沪主板"
+                        mkt = "科创板" if code.startswith("688") else "沪主板"
                     elif symbol.startswith("bj"):
                         ts_code = f"{code}.BJ"
                         mkt = "北交所"
                     else:
                         ts_code = f"{code}.SZ"
-                        if code.startswith("3"):
-                            mkt = "创业板"
-                        else:
-                            mkt = "深主板"
+                        mkt = "创业板" if code.startswith("3") else "深主板"
                     stocks.append({
                         "ts_code": ts_code,
                         "name":    item.get("name", ""),
@@ -91,6 +85,9 @@ async def _fetch_node(client: httpx.AsyncClient, node: str, market: str) -> list
                         "list_date": "",
                         "mktcap":  item.get("mktcap", 0),
                     })
+                # 每页完成后回调更新进度
+                if progress_cb:
+                    progress_cb(page, len(stocks))
                 if len(data) < 100:
                     return stocks
                 page += 1
@@ -171,6 +168,7 @@ async def _do_update_stock_list() -> dict:
             logger.info(f"Tushare 获取 {len(all_stocks)} 只股票（含行业分类）")
         except Exception as e:
             logger.warning(f"Tushare 失败，切换新浪接口: {e}")
+            _set_progress("stocks", 0, 100, f"Tushare 不可用，切换新浪接口...")
             all_stocks = []
 
     # ── 兜底：新浪行情 ─────────────────────────────────────────────────────────
@@ -179,11 +177,20 @@ async def _do_update_stock_list() -> dict:
         try:
             async with httpx.AsyncClient() as client:
                 for i, (node, market) in enumerate(SINA_NODES):
-                    _set_progress("stocks", i, 4, f"正在获取{market}列表...")
+                    _set_progress("stocks", 0, 100, f"正在拉取{market}股票列表（第1页）...")
+
+                    def make_cb(mkt):
+                        def cb(page, count):
+                            # 新浪全市场约56页，用页数估算进度
+                            est_total = max(page * 100, count + 100)
+                            _set_progress("stocks", count, est_total,
+                                          f"拉取{mkt}列表 第{page}页，已获取 {count} 只...")
+                        return cb
+
                     try:
                         stocks = await asyncio.wait_for(
-                            _fetch_node(client, node, market),
-                            timeout=120  # 整个节点最多等 2 分钟
+                            _fetch_node(client, node, market, progress_cb=make_cb(market)),
+                            timeout=120
                         )
                     except asyncio.TimeoutError:
                         logger.warning(f"新浪 {market} 节点超时（120s），跳过")
@@ -254,6 +261,7 @@ async def _do_update_profiles(limit: int = 9999) -> dict:
                   OR sp.business_desc IS NULL
                   OR sp.business_desc = ''
                   OR (sp.llm_filled = 0 AND length(sp.business_desc) < 5)
+                  OR sp.llm_filled = 1
                LIMIT ?""", (limit,)
         ) as cur:
             rows = await cur.fetchall()
@@ -324,12 +332,9 @@ async def _do_update_profiles(limit: int = 9999) -> dict:
 
 
 async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
-    """公司简介补全：优先数据接口，不走 LLM。
-    优先级：① 东方财富主营构成 → ② 巨潮公司简介 → ③ 返回 None（跳过）
-    profile_source 配置：
-      eastmoney → 只走东方财富
-      cninfo    → 只走巨潮
-      both      → 东方财富优先，失败时巨潮兜底
+    """公司简介 + 行业补全。
+    优先级：① AKShare(stock_zyjs_ths) → ② 巨潮(stock_profile_cninfo) → ③ LLM兜底
+    行业字段：AKShare 产品类型 → 巨潮 所属行业 → 原有行业值
     """
     import akshare as ak
     import asyncio as _asyncio
@@ -338,57 +343,56 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
 
     profile_source = await _gc("profile_source", "both")
     code_only = ts_code.split(".")[0]
-    em_code   = ts_code.split(".")[1] + code_only if "." in ts_code else ts_code
-    NOISE = {"其他", "其他主营业务", "其他产品", "其他业务", "综合", "其他(补充)"}
+    found_desc = None
+    found_ind  = industry or ""  # 默认保留原有行业
 
-    # ── ① 东方财富主营构成 ────────────────────────────────────────────────
+    # ── ① AKShare stock_zyjs_ths（主营介绍，产品类型可作行业）──────────────
     if profile_source in ("eastmoney", "both"):
         try:
             df = await _asyncio.wait_for(
-                _asyncio.to_thread(ak.stock_zygc_em, symbol=em_code), timeout=12
+                _asyncio.to_thread(ak.stock_zyjs_ths, symbol=code_only), timeout=12
             )
             if df is not None and not df.empty:
-                df_s = df.sort_values("报告日期", ascending=False)
-                latest_date = df_s["报告日期"].iloc[0]
-                latest = df_s[df_s["报告日期"] == latest_date]
-                for cat in ["按行业分类", "按产品分类"]:
-                    items = latest[latest["分类类型"] == cat].sort_values("收入比例", ascending=False)
-                    if not items.empty:
-                        parts_list = []
-                        for _, row in items.head(6).iterrows():
-                            n = str(row.get("主营构成", "")).strip()
-                            for suf in ["分部", "业务", "板块", "行业", "产业"]:
-                                if n.endswith(suf) and len(n) > len(suf) + 1:
-                                    n = n[:-len(suf)]
-                            if n and n not in NOISE and len(n) <= 15:
-                                parts_list.append(n)
-                        if parts_list:
-                            desc = "；".join(parts_list)
-                            kws  = list(dict.fromkeys(parts_list))[:8]
-                            return desc, [industry] if industry else [], kws, False, industry or ""
+                row  = df.iloc[0]
+                desc = str(row.get("主营业务", "") or "").strip()
+                prod = str(row.get("产品类型", "") or "").strip()
+                if desc and len(desc) > 5:
+                    found_desc = desc
+                    # 产品类型作为行业补充（仅在原行业为空时使用）
+                    if prod and not found_ind:
+                        found_ind = prod.split("、")[0].strip()[:20]
         except Exception as e:
-            logger.debug(f"东方财富主营构成 {ts_code} 失败: {e}")
+            logger.debug(f"AKShare zyjs_ths {ts_code} 失败: {e}")
 
-    # ── ② 巨潮公司简介 ───────────────────────────────────────────────────
+    # ── ② 巨潮 stock_profile_cninfo（主营业务文字 + 所属行业）───────────────
+    # 无论①是否成功，都尝试从巨潮补全行业字段（巨潮行业分类更标准）
     if profile_source in ("cninfo", "both"):
         try:
             df2 = await _asyncio.wait_for(
                 _asyncio.to_thread(ak.stock_profile_cninfo, symbol=code_only), timeout=12
             )
             if df2 is not None and not df2.empty:
-                row  = df2.iloc[0]
-                desc = str(row.get("主营业务", "") or "").strip()
-                ind  = str(row.get("所属行业", "") or industry or "").strip()
-                if desc and len(desc) > 5:
-                    kws = list(dict.fromkeys(
-                        [w for w in _re.split(r"[、，；。 ]+", desc) if 2 <= len(w) <= 8]
-                    ))[:10]
-                    return desc, [ind] if ind else [], kws, False, ind
+                row2 = df2.iloc[0]
+                ind2 = str(row2.get("所属行业", "") or "").strip()
+                # 巨潮行业优先覆盖（更标准）
+                if ind2:
+                    found_ind = ind2
+                # 如果①没拿到简介，用巨潮的
+                if not found_desc:
+                    desc2 = str(row2.get("主营业务", "") or "").strip()
+                    if desc2 and len(desc2) > 5:
+                        found_desc = desc2
         except Exception as e:
             logger.debug(f"巨潮 {ts_code} 失败: {e}")
 
-    # ── ③ LLM 兜底（仅在所有数据接口都失败时介入）────────────────────────
-    # 重新获取 client，避免函数签名变动
+    # 有简介就返回
+    if found_desc:
+        kws = list(dict.fromkeys(
+            [w for w in _re.split(r"[、，；。 ]+", found_desc) if 2 <= len(w) <= 8]
+        ))[:10]
+        return found_desc, [found_ind] if found_ind else [], kws, False, found_ind
+
+    # ── ③ LLM 兜底（仅在所有数据接口全部失败时）────────────────────────────
     try:
         from backend.services.llm_client import get_llm_client as _get_llm
         _client = await _get_llm()
@@ -396,7 +400,7 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
         _client = None
 
     if _client:
-        prompt = (f'请为A股上市公司"{name}"（行业：{industry or "未知"}）提供简短主营业务描述。'
+        prompt = (f'请为A股上市公司"{name}"（行业：{found_ind or "未知"}）提供简短主营业务描述。'
                   f'返回JSON（不加markdown）：'
                   f'{{"business_desc":"主营业务（80字内）","domains":["领域1","领域2"],"keywords":["关键词1","关键词2","关键词3"]}}')
         try:
@@ -405,11 +409,10 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
             data = json.loads(text)
             desc = data.get("business_desc", "")
             if desc:
-                return desc, data.get("domains", []), data.get("keywords", []), True, industry or ""
+                return desc, data.get("domains", []), data.get("keywords", []), True, found_ind
         except Exception as e:
             logger.debug(f"LLM兜底 {name} 失败: {e}")
 
-    # 全部来源失败，跳过
     return None, None, None, None, None
 
 
