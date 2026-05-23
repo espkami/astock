@@ -71,17 +71,27 @@ async def trigger_refill_profiles():
 
 
 async def _run_full_update():
+    # ① 拉股票列表
     await stock_service.update_stock_list()
+    # ② 补全公司简介（顺带写行业）
     await stock_service.update_stock_profiles(limit=9999)
-    # 简介补全完成后自动生成主营业务项目标签，进度写入主进度流
+    # ③ 生成主营业务项目标签
     from backend.services.tag_service import generate_all_tags, get_tag_progress
     stock_service._set_progress("tags", 0, 1, "🏷️ 准备生成主营业务项目标签...", done=False)
     await generate_all_tags(force=False)
-    # 同步最终标签进度到主进度流
     tp = get_tag_progress()
     stock_service._set_progress(
         "tags", tp.get("current", 0), tp.get("total", 1),
-        tp.get("message", "标签生成完成"), done=True
+        tp.get("message", "主营业务项目标签生成完成"), done=False
+    )
+    # ④ 生成概念/行业板块标签
+    from backend.services.board_tag_service import generate_board_tags, get_board_progress
+    stock_service._set_progress("board_tags", 0, 1, "🏛️ 准备生成概念/行业板块标签...", done=False)
+    await generate_board_tags()
+    bp = get_board_progress()
+    stock_service._set_progress(
+        "board_tags", bp.get("current", 0), bp.get("total", 1),
+        bp.get("message", "板块标签生成完成"), done=True
     )
 
 

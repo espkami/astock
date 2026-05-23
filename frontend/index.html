@@ -3202,16 +3202,16 @@ function startProgressPolling(){
     // 如果一开始就收到 idle/done，说明是旧状态残留，忽略并继续等
     if(d.done && d.stage === 'idle' && !receivedRealProgress) return;
     receivedRealProgress = true;
-    const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全公司简介', tags:'🏷️ 生成主营业务项目标签', idle:''}[d.stage] || '';
+    const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全公司简介', tags:'🏷️ 生成主营业务项目标签', board_tags:'🏛️ 生成概念/行业板块标签', idle:''}[d.stage] || '';
     const stageHint = stageLabel ? `<span style="font-size:11px;color:var(--text-muted);margin-left:6px">${stageLabel}</span>` : '';
     document.getElementById('progressMsg').innerHTML = d.message + stageHint;
     document.getElementById('progressFill').style.width = d.percent + '%';
     document.getElementById('progressPct').textContent = d.percent + '%';
-    if(d.done && (d.stage === 'profiles' || d.stage === 'tags' || d.stage === 'idle')){
+    if(d.done && (d.stage === 'profiles' || d.stage === 'tags' || d.stage === 'board_tags' || d.stage === 'idle')){
       progressEsSource.close();
       loadStockStats();
       loadStocks();
-      toast(d.error ? '更新失败: '+d.error : '✅ 股票数据更新完成（含公司简介和主营业务项目标签）', d.error ? 'error' : 'success');
+      toast(d.error ? '更新失败: '+d.error : '✅ 股票数据更新完成（含公司简介、主营业务项目标签和板块标签）', d.error ? 'error' : 'success');
     }
   };
   progressEsSource.onerror = () => {
@@ -3224,11 +3224,11 @@ function _pollProgressFallback(){
     try {
       const r = await api('/api/stocks/update-progress-snapshot');
       const d = r.data || {};
-      const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全公司简介', tags:'🏷️ 生成主营业务项目标签', idle:''}[d.stage] || '';
+      const stageLabel = {stocks:'📋 拉取股票列表', profiles:'🏭 补全公司简介', tags:'🏷️ 生成主营业务项目标签', board_tags:'🏛️ 生成概念/行业板块标签', idle:''}[d.stage] || '';
       document.getElementById('progressMsg').textContent = d.message || '处理中...';
       document.getElementById('progressFill').style.width = (d.percent||0) + '%';
       document.getElementById('progressPct').textContent = (d.percent||0) + '%';
-      if(d.done && (d.stage === 'profiles' || d.stage === 'tags' || d.stage === 'idle' || !d.stage)){
+      if(d.done && (d.stage === 'profiles' || d.stage === 'tags' || d.stage === 'board_tags' || d.stage === 'idle' || !d.stage)){
         clearInterval(timer);
         loadStockStats(); loadStocks();
         toast('✅ 股票数据更新完成', 'success');

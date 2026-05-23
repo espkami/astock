@@ -134,8 +134,20 @@ async def _match_one_news(
     for c in candidates:
         desc = c.get('business_desc') or ''
         name = c.get('name', '')
-        domains = c.get('domains') or ''
-        text = f"{name} {name} {desc} {domains}".strip()
+        industry = c.get('industry') or ''
+        # domains 是 JSON 字符串，需解析
+        try:
+            domains_list = json.loads(c.get('domains') or '[]')
+            domains = ' '.join(domains_list) if isinstance(domains_list, list) else ''
+        except Exception:
+            domains = ''
+        # all_tags 也加入，提升语义匹配质量
+        try:
+            tags_list = json.loads(c.get('all_tags') or '[]')
+            tags_str = ' '.join(tags_list[:6]) if isinstance(tags_list, list) else ''
+        except Exception:
+            tags_str = ''
+        text = f"{name} {name} {industry} {desc} {domains} {tags_str}".strip()
         doc_texts.append(text if text else name)
 
     semantic_scores = [0.0] * len(candidates)
@@ -289,8 +301,6 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
         if results:
             logger.debug(f"标签匹配命中 {len(results)} 只（主营+板块）: {search_terms}")
 
-    results = []
-
     # 扩展同义词：确保关键行业词都能覆盖
     EXPAND_MAP = {
         "半导体": ["半导体", "芯片", "集成电路", "晶圆", "代工", "封测"],
@@ -310,6 +320,7 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
     search_terms = list(dict.fromkeys(expanded))  # 去重保序
 
     # ── 阶段1：股票名称匹配（不依赖 profile）──
+    existing_codes = {r['ts_code'] for r in results}  # 已有标签命中的股票
     if search_terms:
         name_conds = " OR ".join(["s.name LIKE ?" for _ in search_terms])
         params_name = [f"%{t}%" for t in search_terms]
@@ -326,10 +337,11 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
             ) as cur:
                 rows = await cur.fetchall()
         for r in rows:
-            if r["ts_code"] not in tag_hit_codes:
+            if r["ts_code"] not in existing_codes:
                 d = dict(r)
                 d["tag_score"] = 0.5
                 results.append(d)
+                existing_codes.add(r["ts_code"])
 
     # ── 阶段2：profile 描述 + 行业匹配 ──
     if search_terms:
@@ -352,12 +364,12 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
             ) as cur:
                 rows = await cur.fetchall()
         # 去重合并
-        existing = {r['ts_code'] for r in results}
         for r in rows:
-            if r['ts_code'] not in existing:
+            if r['ts_code'] not in existing_codes:
                 d = dict(r)
                 d["tag_score"] = 0.3
                 results.append(d)
+                existing_codes.add(r['ts_code'])
 
     # ── 兜底：候选不足 20 只时，补充随机股票供语义排序 ──
     if len(results) < 20:
@@ -387,7 +399,7 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
 async def _llm_rerank(client, title: str, summary: str, candidates: list[dict], top_k: int, sentiment: str) -> list[dict]:
     """大模型精排"""
     stock_list = "\n".join([
-        f"{i+1}. {c['ts_code']} {c['name']}（{c.get('industry','')}）- {c.get('business_desc','')[:80]}"
+        f"{i+1}. {c['ts_code']} {c['name']}（{c.get('industry','')}）- {c.get('business_desc','')[:120]}"
         for i, c in enumerate(candidates)
     ])
     # 根据企业类型偏好调整 prompt
