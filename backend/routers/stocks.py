@@ -36,21 +36,30 @@ async def list_stocks(
     return {"total": total, "page": page, "page_size": page_size, "items": items}
 
 
+
 @router.get("/stats")
 async def stock_stats():
     stats = await stock_service.get_stock_stats()
     return APIResponse(data=stats)
 
 
+
 @router.post("/update", response_model=APIResponse)
 async def trigger_update():
+    if stock_service._stock_list_running:
+        return APIResponse(message="股票列表更新已在运行中，请等待完成")
+    if stock_service._profiles_running:
+        return APIResponse(message="主营业务补全已在运行中，请等待完成后再触发全量更新")
     asyncio.create_task(_run_full_update())
     return APIResponse(message="股票更新任务已触发")
+
 
 
 @router.post("/refill-profiles", response_model=APIResponse)
 async def trigger_refill_profiles():
     """强制重新补全主营业务（清除兜底值，重新从 cninfo/LLM 拉取）"""
+    if stock_service._profiles_running:
+        return APIResponse(message="补全任务已在运行中，请等待完成后再试")
     # 清除所有兜底值（llm_filled=0 且 <30字）
     async with get_db() as db:
         await db.execute(
@@ -66,10 +75,77 @@ async def _run_full_update():
     await stock_service.update_stock_profiles(limit=9999)
 
 
+
 @router.get("/update-progress-snapshot")
 async def update_progress_snapshot():
     """进度快照（普通 JSON，供 SSE 断开后 fallback 轮询）"""
     return APIResponse(data=stock_service.get_progress())
+
+
+
+@router.post("/generate-tags", response_model=APIResponse)
+async def trigger_generate_tags(force: bool = False):
+    """触发批量生成股票标签"""
+    from backend.services.tag_service import generate_all_tags
+    asyncio.create_task(generate_all_tags(force=force))
+    return APIResponse(message="标签生成任务已触发")
+
+
+
+@router.get("/tag-progress-snapshot")
+async def tag_progress_snapshot():
+    """标签生成进度快照"""
+    from backend.services.tag_service import get_tag_progress
+    return APIResponse(data=get_tag_progress())
+
+
+
+@router.get("/tag-progress")
+async def tag_progress_sse():
+    """标签生成进度 SSE 流"""
+    from backend.services.tag_service import get_tag_progress
+    async def event_stream():
+        while True:
+            progress = get_tag_progress()
+            yield f"data: {json.dumps(progress, ensure_ascii=False)}\n\n"
+            if progress.get("done"):
+                break
+            await asyncio.sleep(0.5)
+    return StreamingResponse(event_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+
+@router.post("/generate-board-tags", response_model=APIResponse)
+async def trigger_generate_board_tags():
+    """触发批量生成板块标签（概念/行业板块 → 成分股映射）"""
+    from backend.services.board_tag_service import generate_board_tags
+    asyncio.create_task(generate_board_tags())
+    return APIResponse(message="板块标签生成任务已触发")
+
+
+
+@router.get("/board-tag-progress")
+async def board_tag_progress_sse():
+    """板块标签生成进度 SSE"""
+    from backend.services.board_tag_service import get_board_progress
+    async def event_stream():
+        while True:
+            progress = get_board_progress()
+            yield f"data: {json.dumps(progress, ensure_ascii=False)}\n\n"
+            if progress.get("done"):
+                break
+            await asyncio.sleep(0.5)
+    return StreamingResponse(event_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+
+@router.get("/board-tag-progress-snapshot")
+async def board_tag_progress_snapshot():
+    from backend.services.board_tag_service import get_board_progress
+    return APIResponse(data=get_board_progress())
+
 
 
 @router.get("/update-progress")
@@ -96,3 +172,87 @@ async def update_progress():
 
     return StreamingResponse(event_stream(), media_type="text/event-stream",
                               headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.get("/{ts_code}/mainbz")
+async def get_stock_mainbz(ts_code: str):
+    """获取单只股票主营产品构成+占比（AKShare 东方财富）"""
+    import asyncio as _asyncio
+    try:
+        import akshare as ak
+        parts = ts_code.split(".")
+        em_code = parts[1] + parts[0] if len(parts) == 2 else ts_code
+        df = await _asyncio.wait_for(
+            _asyncio.to_thread(ak.stock_zygc_em, symbol=em_code),
+            timeout=12
+        )
+        if df is None or df.empty:
+            return APIResponse(data={"items": [], "source": "无数据"})
+
+        df_s = df.sort_values("报告日期", ascending=False)
+        latest_date = str(df_s["报告日期"].iloc[0])[:10]
+
+        # 按行业分类优先，无则按产品分类
+        result = {}
+        for cat in ["按行业分类", "按产品分类", "按地区分类"]:
+            items = df_s[
+                (df_s["报告日期"].astype(str).str[:10] == latest_date) &
+                (df_s["分类类型"] == cat)
+            ].sort_values("收入比例", ascending=False)
+            if not items.empty:
+                result[cat] = [
+                    {
+                        "name":  str(row.get("主营构成", "")),
+                        "ratio": round(float(row.get("收入比例", 0)) * 100, 1),
+                        "income": float(row.get("主营收入", 0) or 0),
+                    }
+                    for _, row in items.iterrows()
+                ]
+
+        return APIResponse(data={
+            "report_date": latest_date,
+            "categories": result,
+            "source": "东方财富(AKShare)"
+        })
+    except Exception as e:
+        return APIResponse(data={"items": [], "source": f"获取失败: {str(e)[:50]}"})
+
+
+
+@router.get("/{ts_code}/tags")
+async def get_stock_tags_api(ts_code: str):
+    """获取单只股票标签"""
+    from backend.services.tag_service import get_stock_tags
+    tags = await get_stock_tags(ts_code)
+    return APIResponse(data=tags)
+
+
+
+@router.put("/{ts_code}/tags")
+async def update_stock_tags_api(ts_code: str, body: dict):
+    """手动更新单只股票标签"""
+    import json as _json
+    from backend.services.tag_service import init_tags_table
+    await init_tags_table()
+    all_tags = list(dict.fromkeys(
+        body.get("products", []) + body.get("techs", []) +
+        body.get("sectors", []) + body.get("themes", [])
+    ))
+    async with get_db() as db:
+        await db.execute("""
+            INSERT OR REPLACE INTO stock_tags
+            (ts_code, products, techs, sectors, chain_pos, themes, all_tags, updated_at)
+            VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+        """, (
+            ts_code,
+            _json.dumps(body.get("products", []),  ensure_ascii=False),
+            _json.dumps(body.get("techs", []),     ensure_ascii=False),
+            _json.dumps(body.get("sectors", []),   ensure_ascii=False),
+            _json.dumps(body.get("chain_pos", []), ensure_ascii=False),
+            _json.dumps(body.get("themes", []),    ensure_ascii=False),
+            _json.dumps(all_tags,                  ensure_ascii=False),
+        ))
+        await db.commit()
+    return APIResponse(message="标签已更新")
+
+

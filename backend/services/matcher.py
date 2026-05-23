@@ -153,11 +153,15 @@ async def _match_one_news(
         logger.debug("无可用 Embedding 模型，使用 TF-IDF")
         semantic_scores = _tfidf_similarity(query_text, doc_texts)
 
-    # 附加语义分数，取 top_k*2 进精排
+    # 综合评分：tag_score（标签命中）+ semantic_score（语义）
     for i, c in enumerate(candidates):
         c["semantic_score"] = semantic_scores[i]
-    candidates.sort(key=lambda x: x["semantic_score"], reverse=True)
-    top_candidates = candidates[:top_k * 2]
+        tag_s = c.get("tag_score", 0.0)
+        # 标签命中权重 40%，语义权重 60%（有 Embedding 时）
+        # 标签命中的股票即使语义分稍低也能进入精排
+        c["combined_score"] = tag_s * 0.4 + semantic_scores[i] * 0.6
+    candidates.sort(key=lambda x: x["combined_score"], reverse=True)
+    top_candidates = candidates[:top_k * 3]  # 标签体系下扩大精排候选
 
     # ── 阶段三：大模型精排 ────────────────────────────────────────────────────
     if client and top_candidates:
@@ -209,14 +213,81 @@ _GENERIC_TERMS = {
 }
 
 async def _industry_filter(industries: list[str], keywords: list[str]) -> list[dict]:
-    """候选集筛选：
-    优先级1 — 股票名称精确包含关键词（最相关）
-    优先级2 — stock_profile 关键词/描述匹配（有 profile 时）
+    """候选集筛选（优先级从高到低）：
+    优先级0 — 股票标签精确匹配（最精准，直接命中产品/技术标签）
+    优先级1 — 股票名称精确包含关键词
+    优先级2 — stock_profile 关键词/描述匹配
     兜底   — 返回随机 150 只股票供语义排序
     """
     # 过滤掉通用词，只保留有区分度的词
     raw_terms = list(set(industries + keywords))
     search_terms = [t for t in raw_terms if t not in _GENERIC_TERMS and len(t) >= 2]
+
+    results = []
+    tag_hit_codes = set()  # 标签命中的股票，标记为高优先级
+
+    # ── 优先级0：股票标签精确匹配（stock_tags + stock_board_tags 双路）──────
+    if search_terms:
+        tag_conds = " OR ".join(["st.all_tags LIKE ?" for _ in search_terms])
+        board_conds = " OR ".join(["sbt.all_board_tags LIKE ?" for _ in search_terms])
+        tag_params = [f'%"{t}"%' for t in search_terms]
+
+        # 0a. 主营标签匹配（products/sectors）
+        async with get_db() as db:
+            async with db.execute(
+                f"""SELECT s.ts_code, s.name, COALESCE(s.industry,'') as industry,
+                           COALESCE(s.market,'') as market,
+                           COALESCE(sp.business_desc,'') as business_desc,
+                           COALESCE(sp.domains,'[]') as domains,
+                           COALESCE(sp.keywords,'[]') as kw_text,
+                           COALESCE(st.all_tags,'[]') as all_tags,
+                           COALESCE(st.products,'[]') as products,
+                           COALESCE(st.sectors,'[]') as sectors
+                    FROM stocks s
+                    LEFT JOIN stock_profile sp ON s.ts_code=sp.ts_code
+                    LEFT JOIN stock_tags st ON s.ts_code=st.ts_code
+                    WHERE {tag_conds} LIMIT 200""",
+                tag_params
+            ) as cur:
+                rows = await cur.fetchall()
+        for r in rows:
+            d = dict(r)
+            d["tag_score"] = 2.0
+            results.append(d)
+            tag_hit_codes.add(r["ts_code"])
+
+        # 0b. 板块标签匹配（概念/行业板块名）
+        async with get_db() as db:
+            async with db.execute(
+                f"""SELECT s.ts_code, s.name, COALESCE(s.industry,'') as industry,
+                           COALESCE(s.market,'') as market,
+                           COALESCE(sp.business_desc,'') as business_desc,
+                           COALESCE(sp.domains,'[]') as domains,
+                           COALESCE(sp.keywords,'[]') as kw_text
+                    FROM stocks s
+                    LEFT JOIN stock_profile sp ON s.ts_code=sp.ts_code
+                    JOIN stock_board_tags sbt ON s.ts_code=sbt.ts_code
+                    WHERE {board_conds} LIMIT 200""",
+                tag_params
+            ) as cur:
+                board_rows = await cur.fetchall()
+        existing = {r["ts_code"] for r in results}
+        for r in board_rows:
+            if r["ts_code"] not in existing:
+                d = dict(r)
+                d["tag_score"] = 1.8  # 板块标签略低于主营标签
+                d["all_tags"] = "[]"
+                results.append(d)
+                tag_hit_codes.add(r["ts_code"])
+            else:
+                # 已在主营标签里，提升分数（双重命中）
+                for res in results:
+                    if res["ts_code"] == r["ts_code"]:
+                        res["tag_score"] = min(res["tag_score"] + 0.5, 3.0)
+                        break
+
+        if results:
+            logger.debug(f"标签匹配命中 {len(results)} 只（主营+板块）: {search_terms}")
 
     results = []
 
@@ -254,7 +325,11 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
                 params_name
             ) as cur:
                 rows = await cur.fetchall()
-        results.extend([dict(r) for r in rows])
+        for r in rows:
+            if r["ts_code"] not in tag_hit_codes:
+                d = dict(r)
+                d["tag_score"] = 0.5
+                results.append(d)
 
     # ── 阶段2：profile 描述 + 行业匹配 ──
     if search_terms:
@@ -278,7 +353,11 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
                 rows = await cur.fetchall()
         # 去重合并
         existing = {r['ts_code'] for r in results}
-        results.extend([dict(r) for r in rows if r['ts_code'] not in existing])
+        for r in rows:
+            if r['ts_code'] not in existing:
+                d = dict(r)
+                d["tag_score"] = 0.3
+                results.append(d)
 
     # ── 兜底：候选不足 20 只时，补充随机股票供语义排序 ──
     if len(results) < 20:
@@ -294,8 +373,14 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
             ) as cur:
                 rows = await cur.fetchall()
         existing = {r['ts_code'] for r in results}
-        results.extend([dict(r) for r in rows if r['ts_code'] not in existing])
+        for r in rows:
+            if r['ts_code'] not in existing:
+                d = dict(r)
+                d["tag_score"] = 0.0
+                results.append(d)
 
+    # 按 tag_score 排序：标签命中的优先进入候选池
+    results.sort(key=lambda x: x.get("tag_score", 0), reverse=True)
     return results[:300]
 
 
@@ -328,13 +413,19 @@ async def _llm_rerank(client, title: str, summary: str, candidates: list[dict], 
 
 {type_hint}
 
+判断标准（严格遵守）：
+- 必须找到候选股票主营业务与新闻**核心产品/事件**的直接关联，不能仅凭行业大类匹配
+- 例如：新闻涉及"大米"→ 必须主营水稻种植或大米加工，不能选泛"农业"或"食品"公司
+- 例如：新闻涉及"芯片"→ 必须主营芯片设计/制造，不能选泛"电子"公司
+- 若候选中无直接匹配，返回 []，不要强行凑数
+
 请返回严格 JSON 数组（不加 markdown 代码块），每条包含：
 [
   {{
     "ts_code": "股票代码",
     "name": "股票名称",
     "score": 0.95,
-    "reason": "一句话匹配理由（不超过50字，说明为何是龙头/直接相关/产业链）",
+    "reason": "一句话匹配理由（说明主营业务与新闻核心产品/事件的直接关联，不超过50字）",
     "sentiment_impact": "positive 或 negative 或 neutral"
   }}
 ]

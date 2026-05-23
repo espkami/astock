@@ -25,6 +25,8 @@ async def clean_data(req: CleanRequest):
             )
             deleted["matches"] = cur.rowcount
         if "stocks" in req.targets:
+            await db.execute("DELETE FROM stock_tags")        # 主营标签
+            await db.execute("DELETE FROM stock_board_tags")  # 板块标签
             await db.execute("DELETE FROM stock_profile")
             await db.execute("DELETE FROM stocks")
             deleted["stocks"] = True

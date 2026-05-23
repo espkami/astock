@@ -126,32 +126,43 @@ class LLMClient:
             return data["choices"][0]["message"]["content"]
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """获取文本嵌入向量，失败时返回空列表（触发 TF-IDF fallback）"""
+        """获取文本嵌入向量，自动分批（避免超出接口单次上限），失败时返回空列表"""
         try:
-            if self.provider == "openai":
-                return await self._embed_openai(texts)
+            if self.provider == "openai" or self.provider in ("gitee", "custom", ""):
+                return await self._embed_openai_batched(texts)
             elif self.provider == "qwen":
                 return await self._embed_qwen(texts)
             else:
-                return []
+                return await self._embed_openai_batched(texts)
         except Exception as e:
             logger.warning(f"Embedding 失败，将使用 TF-IDF: {e}")
             return []
 
+    async def _embed_openai_batched(self, texts: list[str], batch_size: int = 24) -> list[list[float]]:
+        """分批调用 OpenAI 兼容 Embedding 接口（Gitee 上限 24 条/批）"""
+        import httpx, asyncio as _asyncio
+        all_vecs = []
+        async with httpx.AsyncClient(timeout=60) as client:
+            for i in range(0, len(texts), batch_size):
+                batch = texts[i:i+batch_size]
+                resp = await client.post(
+                    f"{self.base_url}/embeddings",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "X-Failover-Enabled": "true",
+                    },
+                    json={"model": self.model or "text-embedding-3-small", "input": batch},
+                )
+                resp.raise_for_status()
+                data = resp.json()["data"]
+                data.sort(key=lambda x: x["index"])
+                all_vecs.extend([d["embedding"] for d in data])
+                if i + batch_size < len(texts):
+                    await _asyncio.sleep(0.2)
+        return all_vecs
+
     async def _embed_openai(self, texts: list[str]) -> list[list[float]]:
-        import httpx
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                f"{self.base_url}/embeddings",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "X-Failover-Enabled": "true",
-                },
-                json={"model": self.model or "text-embedding-3-small", "input": texts},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            return [item["embedding"] for item in data["data"]]
+        return await self._embed_openai_batched(texts)
 
     async def _embed_qwen(self, texts: list[str]) -> list[list[float]]:
         import httpx

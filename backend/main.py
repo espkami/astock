@@ -23,6 +23,10 @@ async def lifespan(app: FastAPI):
     await init_db()
     from backend.auth import init_users
     await init_users()
+    from backend.services.tag_service import init_tags_table
+    await init_tags_table()
+    from backend.services.board_tag_service import init_board_tags_table
+    await init_board_tags_table()
     # 保存 event loop 供 scheduler 线程使用
     from backend.services import scheduler as _sched_mod
     _sched_mod._MAIN_LOOP = _asyncio.get_running_loop()

@@ -14,6 +14,7 @@ _progress = {
     "stage": "idle", "current": 0, "total": 0,
     "percent": 0.0, "message": "空闲", "done": True, "error": None
 }
+_profiles_running = False  # 防止 profiles 任务重复启动
 
 
 def get_progress() -> dict:
@@ -30,11 +31,11 @@ def _set_progress(stage, current, total, message, done=False, error=None):
 
 # ─── 新浪接口拉取 ──────────────────────────────────────────────────────────────
 
+# 新浪接口说明：
+# hs_a 节点现已返回全市场所有A股（沪/深/北），无需再拉其他节点
+# sz_a/kcb/cyb 已包含在 hs_a 内，重复拉取会导致股票数量虚高
 SINA_NODES = [
-    ("hs_a", "沪主板"),
-    ("sz_a", "深主板"),
-    ("kcb",  "科创板"),
-    ("cyb",  "创业板"),
+    ("hs_a", "全市场"),
 ]
 
 SINA_URL = "http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData"
@@ -45,13 +46,14 @@ async def _fetch_node(client: httpx.AsyncClient, node: str, market: str) -> list
     stocks = []
     page = 1
     consecutive_empty = 0
+    _timeout = httpx.Timeout(connect=8.0, read=12.0, write=5.0, pool=5.0)
     while True:
         for attempt in range(3):
             try:
                 r = await client.get(SINA_URL, params={
                     "page": page, "num": 100, "sort": "symbol",
                     "asc": 1, "node": node, "_s_r_a": "page"
-                }, timeout=12)
+                }, timeout=_timeout)
                 if not r.text.strip():
                     consecutive_empty += 1
                     if consecutive_empty >= 2:
@@ -65,15 +67,26 @@ async def _fetch_node(client: httpx.AsyncClient, node: str, market: str) -> list
                 for item in data:
                     symbol = item.get("symbol", "")
                     code   = item.get("code", "")
-                    # 转换为标准 ts_code
-                    if symbol.startswith("sh") or symbol.startswith("bj"):
+                    # 按代码前缀判断交易所和板块
+                    if symbol.startswith("sh"):
                         ts_code = f"{code}.SH"
+                        if code.startswith("688"):
+                            mkt = "科创板"
+                        else:
+                            mkt = "沪主板"
+                    elif symbol.startswith("bj"):
+                        ts_code = f"{code}.BJ"
+                        mkt = "北交所"
                     else:
                         ts_code = f"{code}.SZ"
+                        if code.startswith("3"):
+                            mkt = "创业板"
+                        else:
+                            mkt = "深主板"
                     stocks.append({
                         "ts_code": ts_code,
                         "name":    item.get("name", ""),
-                        "market":  market,
+                        "market":  mkt,
                         "industry": "",
                         "list_date": "",
                         "mktcap":  item.get("mktcap", 0),
@@ -95,26 +108,48 @@ async def _fetch_node(client: httpx.AsyncClient, node: str, market: str) -> list
     return stocks
 
 
+_stock_list_running = False  # 防止 update_stock_list 重复启动
+
 async def update_stock_list() -> dict:
     """更新 A 股全量股票列表
     优先级：Tushare（有 Token，含行业分类）→ 新浪行情（免费兜底）
     """
+    global _stock_list_running
+    if _stock_list_running:
+        logger.warning("update_stock_list 已在运行，跳过重复启动")
+        return {"success": False, "error": "任务已在运行"}
+    _stock_list_running = True
+    try:
+        return await _do_update_stock_list()
+    finally:
+        _stock_list_running = False
+
+
+async def _do_update_stock_list() -> dict:
     _set_progress("stocks", 0, 1, "正在获取股票列表...")
     all_stocks = []
 
     # ── 优先：Tushare（需开关开启且有 Token）──────────────────────────────────
     tushare_token   = await get_config("tushare_token")
-    tushare_enabled = await get_config("tushare_enabled", False)
+    stock_list_source = await get_config("stock_list_source", "")
+    # 兼容旧字段：stock_list_source 未设置时，读 tushare_enabled 旧字段
+    if not stock_list_source:
+        old_enabled = await get_config("tushare_enabled", False)
+        stock_list_source = "tushare" if (old_enabled == True or old_enabled == "true") else "sina"
+    tushare_enabled = (stock_list_source == "tushare") and bool(tushare_token)
     if tushare_enabled and tushare_token:
         try:
             import tushare as ts
             ts.set_token(tushare_token)
             pro = ts.pro_api()
             _set_progress("stocks", 0, 1, "Tushare 获取中（含行业分类）...")
-            df = await asyncio.to_thread(
-                pro.stock_basic,
-                exchange="", list_status="L",
-                fields="ts_code,name,market,industry,list_date"
+            df = await asyncio.wait_for(
+                asyncio.to_thread(
+                    pro.stock_basic,
+                    exchange="", list_status="L",
+                    fields="ts_code,name,market,industry,list_date"
+                ),
+                timeout=60
             )
             for _, row in df.iterrows():
                 mkt = str(row.get("market", "") or "")
@@ -145,7 +180,14 @@ async def update_stock_list() -> dict:
             async with httpx.AsyncClient() as client:
                 for i, (node, market) in enumerate(SINA_NODES):
                     _set_progress("stocks", i, 4, f"正在获取{market}列表...")
-                    stocks = await _fetch_node(client, node, market)
+                    try:
+                        stocks = await asyncio.wait_for(
+                            _fetch_node(client, node, market),
+                            timeout=120  # 整个节点最多等 2 分钟
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning(f"新浪 {market} 节点超时（120s），跳过")
+                        stocks = []
                     all_stocks.extend(stocks)
                     logger.info(f"{market}: {len(stocks)} 只（新浪）")
         except Exception as e:
@@ -191,6 +233,19 @@ async def update_stock_list() -> dict:
 
 async def update_stock_profiles(limit: int = 9999) -> dict:
     """为股票批量补全主营业务（10并发，后台持续运行）"""
+    global _profiles_running
+    if _profiles_running:
+        logger.warning("update_stock_profiles 已在运行，跳过重复启动")
+        return {"success": False, "error": "任务已在运行"}
+    _profiles_running = True
+    try:
+        return await _do_update_profiles(limit)
+    finally:
+        _profiles_running = False
+
+
+async def _do_update_profiles(limit: int = 9999) -> dict:
+    """实际执行补全逻辑"""
     async with get_db() as db:
         async with db.execute(
             """SELECT s.ts_code, s.name, s.industry FROM stocks s
@@ -198,7 +253,7 @@ async def update_stock_profiles(limit: int = 9999) -> dict:
                WHERE sp.ts_code IS NULL
                   OR sp.business_desc IS NULL
                   OR sp.business_desc = ''
-                  OR (sp.llm_filled = 0 AND length(sp.business_desc) < 30)
+                  OR (sp.llm_filled = 0 AND length(sp.business_desc) < 5)
                LIMIT ?""", (limit,)
         ) as cur:
             rows = await cur.fetchall()
@@ -209,14 +264,13 @@ async def update_stock_profiles(limit: int = 9999) -> dict:
 
     total = len(rows)
     _set_progress("profiles", 0, total, f"准备补全 {total} 只股票主营业务...")
-    client = await get_llm_client()
 
     filled = 0
     failed = 0
     done_count = 0
     lock = asyncio.Lock()
 
-    CONCURRENCY = 10
+    CONCURRENCY = 5  # 纯数据接口，无需限速
     sem = asyncio.Semaphore(CONCURRENCY)
 
     async def _process_one(row):
@@ -224,7 +278,7 @@ async def update_stock_profiles(limit: int = 9999) -> dict:
         async with sem:
             try:
                 desc, domains, keywords, llm_filled, ind = await _get_stock_profile(
-                    row["ts_code"], row["name"], row["industry"], client
+                    row["ts_code"], row["name"], row["industry"]
                 )
                 if desc is not None:
                     async with get_db() as db:
@@ -255,7 +309,7 @@ async def update_stock_profiles(limit: int = 9999) -> dict:
             finally:
                 async with lock:
                     done_count += 1
-                    if done_count % 50 == 0 or done_count == total:
+                    if done_count % 10 == 0 or done_count == total:
                         _set_progress("profiles", done_count, total,
                                       f"补全中 {done_count}/{total}（✅{filled} ❌{failed}）")
             # 每个任务间隔 0.1s，避免 cninfo 瞬间并发过高
@@ -269,41 +323,93 @@ async def update_stock_profiles(limit: int = 9999) -> dict:
     return {"success": True, "count": filled}
 
 
-async def _get_stock_profile(ts_code, name, industry, client) -> tuple:
-    """优先 stock_profile_cninfo，失败则大模型补全"""
-    try:
-        import akshare as ak
-        import asyncio as _asyncio
-        code = ts_code.split(".")[0]
-        df = await _asyncio.wait_for(_asyncio.to_thread(ak.stock_profile_cninfo, symbol=code), timeout=10)
-        if df is not None and not df.empty:
-            row = df.iloc[0]
-            desc = str(row.get("主营业务", "") or "").strip()
-            ind  = str(row.get("所属行业", "") or industry or "").strip()
-            if desc and len(desc) > 10:
-                # 关键词：从主营业务文本提取
-                import re as _re
-                kws = list(dict.fromkeys(
-                    [w for w in _re.split(r'[、，；。、 ]+', desc) if 2 <= len(w) <= 8]
-                ))[:10]
-                return desc, [ind] if ind else [], kws, False, ind
-    except Exception as e:
-        logger.debug(f"cninfo {ts_code} 失败: {e}")
+async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
+    """公司简介补全：优先数据接口，不走 LLM。
+    优先级：① 东方财富主营构成 → ② 巨潮公司简介 → ③ 返回 None（跳过）
+    profile_source 配置：
+      eastmoney → 只走东方财富
+      cninfo    → 只走巨潮
+      both      → 东方财富优先，失败时巨潮兜底
+    """
+    import akshare as ak
+    import asyncio as _asyncio
+    import re as _re
+    from backend.services.config_service import get_config as _gc
 
-    # 大模型补全
-    if client:
+    profile_source = await _gc("profile_source", "both")
+    code_only = ts_code.split(".")[0]
+    em_code   = ts_code.split(".")[1] + code_only if "." in ts_code else ts_code
+    NOISE = {"其他", "其他主营业务", "其他产品", "其他业务", "综合", "其他(补充)"}
+
+    # ── ① 东方财富主营构成 ────────────────────────────────────────────────
+    if profile_source in ("eastmoney", "both"):
+        try:
+            df = await _asyncio.wait_for(
+                _asyncio.to_thread(ak.stock_zygc_em, symbol=em_code), timeout=12
+            )
+            if df is not None and not df.empty:
+                df_s = df.sort_values("报告日期", ascending=False)
+                latest_date = df_s["报告日期"].iloc[0]
+                latest = df_s[df_s["报告日期"] == latest_date]
+                for cat in ["按行业分类", "按产品分类"]:
+                    items = latest[latest["分类类型"] == cat].sort_values("收入比例", ascending=False)
+                    if not items.empty:
+                        parts_list = []
+                        for _, row in items.head(6).iterrows():
+                            n = str(row.get("主营构成", "")).strip()
+                            for suf in ["分部", "业务", "板块", "行业", "产业"]:
+                                if n.endswith(suf) and len(n) > len(suf) + 1:
+                                    n = n[:-len(suf)]
+                            if n and n not in NOISE and len(n) <= 15:
+                                parts_list.append(n)
+                        if parts_list:
+                            desc = "；".join(parts_list)
+                            kws  = list(dict.fromkeys(parts_list))[:8]
+                            return desc, [industry] if industry else [], kws, False, industry or ""
+        except Exception as e:
+            logger.debug(f"东方财富主营构成 {ts_code} 失败: {e}")
+
+    # ── ② 巨潮公司简介 ───────────────────────────────────────────────────
+    if profile_source in ("cninfo", "both"):
+        try:
+            df2 = await _asyncio.wait_for(
+                _asyncio.to_thread(ak.stock_profile_cninfo, symbol=code_only), timeout=12
+            )
+            if df2 is not None and not df2.empty:
+                row  = df2.iloc[0]
+                desc = str(row.get("主营业务", "") or "").strip()
+                ind  = str(row.get("所属行业", "") or industry or "").strip()
+                if desc and len(desc) > 5:
+                    kws = list(dict.fromkeys(
+                        [w for w in _re.split(r"[、，；。 ]+", desc) if 2 <= len(w) <= 8]
+                    ))[:10]
+                    return desc, [ind] if ind else [], kws, False, ind
+        except Exception as e:
+            logger.debug(f"巨潮 {ts_code} 失败: {e}")
+
+    # ── ③ LLM 兜底（仅在所有数据接口都失败时介入）────────────────────────
+    # 重新获取 client，避免函数签名变动
+    try:
+        from backend.services.llm_client import get_llm_client as _get_llm
+        _client = await _get_llm()
+    except Exception:
+        _client = None
+
+    if _client:
         prompt = (f'请为A股上市公司"{name}"（行业：{industry or "未知"}）提供简短主营业务描述。'
                   f'返回JSON（不加markdown）：'
                   f'{{"business_desc":"主营业务（80字内）","domains":["领域1","领域2"],"keywords":["关键词1","关键词2","关键词3"]}}')
         try:
-            resp = await client.chat([{"role": "user", "content": prompt}])
-            text = resp.strip().lstrip("```json").lstrip("```").rstrip("```")
+            resp = await _client.chat([{"role": "user", "content": prompt}])
+            text = resp.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
             data = json.loads(text)
-            return data.get("business_desc",""), data.get("domains",[]), data.get("keywords",[]), True, industry or ""
+            desc = data.get("business_desc", "")
+            if desc:
+                return desc, data.get("domains", []), data.get("keywords", []), True, industry or ""
         except Exception as e:
-            logger.debug(f"大模型补全 {name} 失败: {e}")
+            logger.debug(f"LLM兜底 {name} 失败: {e}")
 
-    # 不写入兜底值，返回 None 让调用方跳过，下次更新时可以重试
+    # 全部来源失败，跳过
     return None, None, None, None, None
 
 
