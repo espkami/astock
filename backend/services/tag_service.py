@@ -211,7 +211,7 @@ async def generate_all_tags(force: bool = False) -> dict:
             async with db.execute("""
                 SELECT s.ts_code, s.name, s.industry, COALESCE(sp.business_desc,'') as business_desc
                 FROM stocks s LEFT JOIN stock_profile sp ON s.ts_code=sp.ts_code
-                WHERE sp.business_desc IS NOT NULL AND length(sp.business_desc) > 10
+                WHERE sp.business_desc IS NOT NULL AND length(sp.business_desc) >= 5
             """) as cur:
                 rows = await cur.fetchall()
         else:
@@ -223,7 +223,7 @@ async def generate_all_tags(force: bool = False) -> dict:
                 LEFT JOIN stock_tags st ON s.ts_code=st.ts_code
                 WHERE st.ts_code IS NULL
                   AND sp.business_desc IS NOT NULL
-                  AND length(sp.business_desc) > 10
+                  AND length(sp.business_desc) >= 5
             """) as cur:
                 rows = await cur.fetchall()
 

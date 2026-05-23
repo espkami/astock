@@ -3132,7 +3132,7 @@ async function regenOneTag(el) {
 async function triggerGenerateBoardTags() {
   if (!confirm('将从同花顺/东方财富拉取所有概念板块和行业板块成分股，建立板块→股票映射。\n约需 30-60 分钟，确认开始？')) return;
   await api('/api/stocks/generate-board-tags', {method:'POST'});
-  toast('概念/行业板块标签生成已触发，请稍候...', 'info');
+  toast('概念/行业板块标签生成已触发，需要能访问东方财富/同花顺，耗时约30-60分钟...', 'info');
   document.getElementById('updateProgressWrap').style.display = '';
   // 复用进度条，轮询板块标签进度
   let es = new EventSource('/api/stocks/board-tag-progress');
@@ -3143,7 +3143,7 @@ async function triggerGenerateBoardTags() {
     document.getElementById('progressPct').textContent = (d.percent||0) + '%';
     if (d.done) {
       es.close();
-      toast(d.error ? '概念/行业板块标签生成失败: '+d.error : '✅ 概念/行业板块标签生成完成', d.error?'error':'success');
+      toast(d.error ? '板块标签生成失败（请检查服务器能否访问东方财富/同花顺）: '+d.error : '✅ 概念/行业板块标签生成完成', d.error?'error':'success');
     }
   };
   es.onerror = () => es.close();
