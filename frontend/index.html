@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A股新闻·龙头股匹配</title>
+  <title>A股新闻·龙头股匹配 v20260523</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -867,46 +867,12 @@
     <div class="config-section">
       <div class="config-section-title">🔢 Embedding 专用模型</div>
       <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">
-        用于新闻与股票的<strong>语义向量匹配</strong>，与分析匹配模型独立配置。<br>
-        仅支持 <strong>OpenAI</strong>（text-embedding-3-small，免费额度够用）和 <strong>Qwen</strong>（text-embedding-v3，免费）。<br>
-        <strong>留空则自动从分析匹配模型中寻找可用的 OpenAI/Qwen 配置；若均无则降级为 TF-IDF。</strong>
+        用于新闻与股票的<strong>语义向量匹配</strong>，与分析匹配模型独立配置。可添加多个模型轮询。<br>
+        支持 OpenAI / Qwen / Gitee AI / Ollama / 自定义兼容接口。<br>
+        <strong>留空则自动从分析匹配模型中寻找可用配置；若均无则降级为 TF-IDF。</strong>
       </p>
-      <div class="form-row"><label>Provider</label>
-        <select class="input" id="embed_provider" onchange="onEmbedProviderChange(this.value)" style="max-width:180px">
-          <option value="">-- 留空自动 --</option>
-          <option value="openai">OpenAI</option>
-          <option value="qwen">Qwen（通义千问）</option>
-          <option value="gitee">Gitee AI（模力方舟）</option>
-          <option value="ollama">Ollama（本地部署）</option>
-          <option value="custom">自定义（兼容 OpenAI 格式）</option>
-        </select>
-      </div>
-      <div class="form-row"><label>API Key</label>
-        <div class="input-row">
-          <input class="input" type="password" id="embed_api_key" placeholder="填入 API Key"
-            oninput="saveCfg('embed_api_key',this.value)" autocomplete="off">
-          <button class="btn btn-ghost btn-sm" onclick="togglePwd('embed_api_key')">👁</button>
-        </div>
-      </div>
-      <div class="form-row"><label>Embedding 模型</label>
-        <div class="input-row">
-          <input class="input" type="text" id="embed_model" placeholder="自动填入，可手动修改"
-            oninput="saveCfg('embed_model',this.value)">
-        </div>
-        <div id="embed_model_hint" style="font-size:11px;color:var(--text-muted);margin-top:4px"></div>
-      </div>
-      <div class="form-row">
-        <label id="embed_base_url_label">Base URL <span style="font-weight:400;color:var(--text-muted)">（可选，中转用）</span></label>
-        <input class="input" type="text" id="embed_base_url" placeholder="留空使用默认"
-          oninput="saveCfg('embed_base_url',this.value)">
-        <div id="embed_base_url_hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;display:none">
-          自定义/Ollama 模式下填入接口地址（含端口），例如：<code>http://localhost:11434/v1</code> 或 <code>https://your-api.com/v1</code>
-        </div>
-      </div>
-      <div style="display:flex;gap:var(--space-2);margin-top:var(--space-2)">
-        <button class="btn btn-secondary btn-sm" onclick="testEmbedModel()">测试连接</button>
-        <span id="embed_test_result" style="font-size:12px;align-self:center"></span>
-      </div>
+      <div id="embedModelList" style="display:flex;flex-direction:column;gap:var(--space-3);margin-bottom:var(--space-3)"></div>
+      <button class="btn btn-ghost btn-sm" onclick="addEmbedModel()">+ 添加 Embedding 模型配置</button>
     </div>
 
     <div class="config-section">
@@ -2207,6 +2173,26 @@ const EMBED_MODELS = {
   custom:  { model: '',                        hint: '请填入模型名称（如 embedding-3 / bge-m3 等），并填写 Base URL' },
 };
 
+function saveEmbedConfig() {
+  const provider = document.getElementById('embed_provider')?.value || '';
+  const api_key  = document.getElementById('embed_api_key')?.value  || '';
+  const model    = document.getElementById('embed_model')?.value    || '';
+  const base_url = document.getElementById('embed_base_url')?.value || '';
+  const resultEl = document.getElementById('embed_test_result');
+  api('/api/config', { method:'POST', body: JSON.stringify({ items: [
+    { key: 'embed_provider', value: provider },
+    { key: 'embed_api_key',  value: api_key  },
+    { key: 'embed_model',    value: model    },
+    { key: 'embed_base_url', value: base_url },
+  ]})}).then(() => {
+    if (resultEl) { resultEl.textContent = '✅ 已保存'; resultEl.style.color = 'var(--green-700)'; }
+    toast('Embedding 配置已保存', 'success');
+    setTimeout(() => { if(resultEl) resultEl.textContent = ''; }, 3000);
+  }).catch(e => {
+    toast('保存失败: ' + e.message, 'error');
+  });
+}
+
 function _loadEmbedConfig(cfg) {
   // 1. 先设置 provider（不触发 onEmbedProviderChange）
   const pEl = document.getElementById('embed_provider');
@@ -2295,6 +2281,20 @@ async function testEmbedModel() {
 
 async function loadLLMConfig() {
   const cfg=(await api('/api/config')).data||{};
+  // 加载 Embedding 专用模型列表
+  const embedModels = cfg.embed_models || [];
+  if (!embedModels.length && cfg.embed_provider) {
+    window._embedModels = [{
+      provider: cfg.embed_provider,
+      model:    cfg.embed_model    || '',
+      api_key:  cfg.embed_api_key  || '',
+      base_url: cfg.embed_base_url || '',
+      enabled:  true,
+    }];
+  } else {
+    window._embedModels = embedModels;
+  }
+  renderEmbedModelList(window._embedModels);
   // 多模型列表
   let llmModels = cfg.llm_models || [];
   if (!llmModels.length && cfg.llm_provider) {
@@ -2333,16 +2333,143 @@ async function loadLLMConfig() {
   window._searchLlmModels = searchModels;
   renderSearchLlmModelList(searchModels);
 
-  // 加载 Embedding 专用模型配置
-  // ── Embedding 专用模型回填 ──────────────────────────────────────────────
-  _loadEmbedConfig(cfg);
-
   const r=await api('/api/config/match-schedule').catch(()=>({data:{times:[]}}));
   renderMatchTimes(r.data?.times||[]);
 }
 // 旧版单模型配置函数（已由多模型卡片列表取代）
 function onProviderChange() {}
 function selectModel() {}
+
+// ══ Embedding 专用模型（卡片列表模式，与分析匹配模型相同）══════════════════
+
+const EMBED_PROVIDER_LABELS = {
+  openai: 'OpenAI',
+  qwen:   'Qwen（通义千问）',
+  gitee:  'Gitee AI（模力方舟）',
+  ollama: 'Ollama（本地）',
+  custom: '自定义',
+};
+
+const EMBED_PROVIDER_MODELS = {
+  openai: ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002'],
+  qwen:   ['text-embedding-v3', 'text-embedding-v4'],
+  gitee:  ['Qwen3-Embedding-4B', 'Qwen3-Embedding-8B'],
+  ollama: ['nomic-embed-text', 'mxbai-embed-large', 'bge-m3'],
+  custom: [],
+};
+
+const EMBED_PROVIDER_URLS = {
+  openai: '',
+  qwen:   'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  gitee:  'https://ai.gitee.com/v1',
+  ollama: 'http://localhost:11434/v1',
+  custom: '',
+};
+
+async function getEmbedModels() {
+  const cfg = (await api('/api/config')).data || {};
+  let models = cfg.embed_models || [];
+  if (!models.length && cfg.embed_provider) {
+    models = [{provider:cfg.embed_provider, model:cfg.embed_model||'',
+               api_key:cfg.embed_api_key||'', base_url:cfg.embed_base_url||'', enabled:true}];
+  }
+  return models;
+}
+
+async function saveEmbedModels(models) {
+  window._embedModels = models;
+  const first = models.find(m => m.enabled !== false) || models[0] || {};
+  await api('/api/config', {method:'POST', body: JSON.stringify({items:[
+    {key:'embed_models',   value: models},
+    {key:'embed_provider', value: first.provider||''},
+    {key:'embed_model',    value: first.model||''},
+    {key:'embed_api_key',  value: first.api_key||''},
+    {key:'embed_base_url', value: first.base_url||''},
+  ]})});
+  renderEmbedModelList(models);
+}
+
+function renderEmbedModelList(models) {
+  const el = document.getElementById('embedModelList');
+  if (!el) return;
+  if (!models || !models.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:var(--space-3);border:1px dashed var(--border-default);border-radius:var(--radius-md);text-align:center">暂无配置，留空则自动使用分析匹配模型中的 OpenAI/Qwen 配置</div>';
+    return;
+  }
+  el.innerHTML = models.map((m, i) => {
+    const provOpts = [['','请选择'],...Object.entries(EMBED_PROVIDER_LABELS)].map(([v,l]) =>
+      '<option value="'+v+'" '+(m.provider===v?'selected':'')+'>'+l+'</option>').join('');
+    const modelOpts = (EMBED_PROVIDER_MODELS[m.provider]||[]).map(mo =>
+      '<option value="'+mo+'" '+(m.model===mo?'selected':'')+'>'+mo+'</option>').join('');
+    const needBase = m.provider === 'custom' || m.provider === 'ollama';
+    const activeIdx = models.findIndex(x => x.enabled !== false);
+    const isActive = i === activeIdx;
+    const defUrl = EMBED_PROVIDER_URLS[m.provider] || 'https://...';
+    return '<div class="llm-model-card">'
+      + '<div class="llm-model-card-header">'
+      + '<label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" '+(m.enabled!==false?'checked':'')+' onchange="updateEmbedModel('+i+',\'enabled\',this.checked)"><span class="toggle-slider"></span></label>'
+      + '<span style="font-size:13px;font-weight:600;flex:1">'+(EMBED_PROVIDER_LABELS[m.provider]||m.provider||'未配置')+'</span>'
+      + '<span class="llm-model-badge '+(isActive?'active':'')+'">'+(isActive?'▶ 当前使用':'备用')+'</span>'
+      + '<button class="btn btn-ghost btn-sm" style="color:var(--state-error-fg)" onclick="removeEmbedModel('+i+')">删除</button>'
+      + '</div>'
+      + '<div class="llm-model-card-body">'
+      + '<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">提供商</div>'
+      + '<select class="input" style="width:100%" onchange="updateEmbedModel('+i+',\'provider\',this.value);onEmbedCardProviderChange('+i+',this.value)"><option value="">请选择</option>'+provOpts+'</select></div>'
+      + '<div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Embedding 模型</div>'
+      + '<input class="input" type="text" style="width:100%" value="'+esc(m.model||'')+'" placeholder="Model ID" list="embed-model-opts-'+i+'" onchange="updateEmbedModel('+i+',\'model\',this.value)">'
+      + '<datalist id="embed-model-opts-'+i+'">'+modelOpts+'</datalist></div>'
+      + '<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">API Key</div>'
+      + '<div class="input-row"><input class="input" type="password" style="flex:1" value="'+esc(m.api_key||'')+'" placeholder="填入 API Key" onchange="updateEmbedModel('+i+',\'api_key\',this.value)">'
+      + '<button class="btn btn-ghost btn-sm" onclick="toggleLlmKeyPwd(this)">👁</button>'
+      + '<button class="btn btn-secondary btn-sm" onclick="testEmbedModelAt('+i+')">测试</button></div></div>'
+      + '<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Base URL '+(needBase?'<span style=\'color:var(--red-600)\'>*</span>':'<span style=\'color:var(--text-muted);font-weight:400\'>(可选)</span>')+'</div>'
+      + '<input class="input" type="text" style="width:100%" value="'+esc(m.base_url||'')+'" placeholder="'+defUrl+'" onchange="updateEmbedModel('+i+',\'base_url\',this.value)"></div>'
+      + '</div></div>';
+  }).join('');
+}
+
+function onEmbedCardProviderChange(i, provider) {
+  const models = window._embedModels || [];
+  if (!models[i]) return;
+  if (!models[i].base_url) models[i].base_url = EMBED_PROVIDER_URLS[provider] || '';
+  if (!models[i].model) models[i].model = (EMBED_PROVIDER_MODELS[provider]||[])[0] || '';
+  saveEmbedModels(models);
+}
+
+async function addEmbedModel() {
+  const models = await getEmbedModels();
+  models.push({provider:'', model:'', api_key:'', base_url:'', enabled:true});
+  await saveEmbedModels(models);
+}
+
+async function removeEmbedModel(i) {
+  const models = await getEmbedModels();
+  models.splice(i, 1);
+  await saveEmbedModels(models);
+}
+
+async function updateEmbedModel(i, field, val) {
+  const models = await getEmbedModels();
+  if (models[i]) models[i][field] = val;
+  await saveEmbedModels(models);
+}
+
+async function testEmbedModelAt(i) {
+  const models = await getEmbedModels();
+  const m = models[i];
+  if (!m || !m.api_key || !m.model) { toast('请先填写模型和 API Key', 'warning'); return; }
+  toast('测试 Embedding 连接中...', 'info');
+  try {
+    const r = await api('/api/llm/test', {method:'POST', body: JSON.stringify({
+      provider: m.provider, api_key: m.api_key, model: m.model,
+      base_url: m.base_url || EMBED_PROVIDER_URLS[m.provider] || '',
+      embed_mode: true,
+    })});
+    if (r.success) toast('OK ' + (r.response||'连接成功'), 'success');
+    else toast('FAIL ' + (r.error||'连接失败'), 'error');
+  } catch(e) { toast('测试失败: '+e.message, 'error'); }
+}
+
 // ══ 多模型配置列表 ═══════════════════════════════════════════════════════════
 
 // PROVIDER_MODELS 已在顶部定义，此处补充 PROVIDER_LABELS

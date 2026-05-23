@@ -259,31 +259,42 @@ async def get_llm_client() -> Optional[LLMClient]:
 
 
 async def get_embed_client() -> Optional["LLMClient"]:
-    """获取 Embedding 专用模型客户端
-    优先读 embed_model 配置，fallback 到分析匹配模型（仅 openai/qwen 支持 embedding）
-    """
+    """获取 Embedding 专用模型客户端（优先读 embed_models 列表）"""
     from backend.services.config_service import get_config
 
-    provider = await get_config("embed_provider", "")
-    api_key  = await get_config("embed_api_key", "")
-    model    = await get_config("embed_model", "")
-    base_url = await get_config("embed_base_url", "")
+    # 优先读列表配置（新版）
+    embed_models = await get_config("embed_models", [])
+    active = [m for m in embed_models if m.get("enabled") is not False
+              and m.get("api_key") and m.get("model")]
 
-    if provider and api_key and model:
-        # custom = 兼容 OpenAI 格式的自定义接口，内部走 openai 路径
-        actual_provider = "openai" if provider == "custom" else provider
+    # 兼容旧版单字段配置
+    if not active:
+        provider = await get_config("embed_provider", "")
+        api_key  = await get_config("embed_api_key", "")
+        model    = await get_config("embed_model", "")
+        base_url = await get_config("embed_base_url", "")
+        if provider and api_key and model:
+            active = [{"provider": provider, "api_key": api_key,
+                       "model": model, "base_url": base_url}]
+
+    if active:
+        m = active[0]
+        provider = m.get("provider", "openai")
+        # custom/gitee/ollama 内部走 openai 兼容路径
+        actual_provider = "openai" if provider in ("custom", "gitee", "ollama") else provider
+        base_url = m.get("base_url", "") or LLMClient._default_base_url(actual_provider)
         return LLMClient(
             provider=actual_provider,
-            api_key=api_key,
-            model=model,
-            base_url=base_url or LLMClient._default_base_url(actual_provider),
+            api_key=m["api_key"],
+            model=m["model"],
+            base_url=base_url,
         )
 
-    # fallback：从分析匹配模型里找第一个支持 embedding 的（openai / qwen）
+    # fallback：从分析匹配模型里找支持 embedding 的（openai / qwen）
     models_cfg = await get_config("llm_models", [])
-    active = [m for m in models_cfg if m.get("enabled") is not False
-              and m.get("provider") and m.get("api_key") and m.get("model")]
-    for m in active:
+    llm_active = [m for m in models_cfg if m.get("enabled") is not False
+                  and m.get("provider") and m.get("api_key") and m.get("model")]
+    for m in llm_active:
         if m["provider"] in ("openai", "qwen"):
             logger.debug(f"Embedding fallback 到分析匹配模型: {m['provider']}/{m['model']}")
             return LLMClient(
@@ -293,7 +304,7 @@ async def get_embed_client() -> Optional["LLMClient"]:
                 base_url=m.get("base_url") or LLMClient._default_base_url(m["provider"]),
             )
 
-    logger.warning("未找到支持 Embedding 的模型（需要 OpenAI 或 Qwen），将使用 TF-IDF")
+    logger.warning("未找到支持 Embedding 的模型，将使用 TF-IDF")
     return None
 
 
