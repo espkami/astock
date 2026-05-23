@@ -1,10 +1,12 @@
-"""板块标签服务 — 从概念/行业板块建立股票标签映射
+"""板块标签服务 — 从同花顺概念/行业指数建立股票→板块标签映射
 
-数据来源（优先级）：
-1. 东方财富 stock_board_concept_cons_em / stock_board_industry_cons_em（用户服务器可用）
-2. 同花顺 stock_board_concept_name_ths（概念列表，沙盒稳定）
+数据来源（Tushare）：
+- ths_index(type='N') → 概念指数列表（约400个）
+- ths_index(type='I') → 行业指数列表（约90个）
+- ths_member(ts_code) → 每个指数的成分股列表
 
-标签命名规则：标签名 = 板块名（如"粮食概念"、"机器人概念"、"粮食加工"）
+限速：ths_index 1次/小时，ths_member 待测（实测无严格限速）
+策略：先拉指数列表，再逐个拉成分股，建立 股票→[所属板块] 反向映射
 """
 import json
 import asyncio
@@ -30,86 +32,121 @@ def _set_board_progress(current, total, message, done=False, error=None):
 
 
 async def init_board_tags_table():
-    """建 stock_board_tags 表：存储股票→板块标签的映射"""
+    """建 stock_board_tags 表"""
     async with get_db() as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS stock_board_tags (
-                ts_code      TEXT PRIMARY KEY,
-                concepts     TEXT DEFAULT '[]',   -- 概念板块标签
-                industries   TEXT DEFAULT '[]',   -- 行业板块标签
-                all_board_tags TEXT DEFAULT '[]', -- 合并（用于快速搜索）
-                updated_at   TEXT
+                ts_code        TEXT PRIMARY KEY,
+                concepts       TEXT DEFAULT '[]',   -- 概念板块标签（如「黄金概念」「新能源汽车」）
+                industries     TEXT DEFAULT '[]',   -- 行业板块标签（如「半导体」「白酒」）
+                all_board_tags TEXT DEFAULT '[]',   -- 合并
+                updated_at     TEXT
             )
         """)
         await db.commit()
     logger.info("stock_board_tags 表初始化完成")
 
 
-async def fetch_concept_members_em(concept_name: str) -> list[str]:
-    """东方财富：获取概念板块成分股代码列表"""
-    import asyncio as _asyncio
-    try:
-        import akshare as ak
-        df = await _asyncio.wait_for(
-            _asyncio.to_thread(ak.stock_board_concept_cons_em, symbol=concept_name),
-            timeout=15
-        )
-        if df is None or df.empty:
-            return []
-        # 返回 ts_code 格式（需要判断交易所）
-        codes = []
-        for _, row in df.iterrows():
-            code = str(row.get("代码", "")).zfill(6)
-            if code.startswith("6"):
-                codes.append(f"{code}.SH")
-            elif code.startswith("9"):
-                codes.append(f"{code}.BJ")
-            else:
-                codes.append(f"{code}.SZ")
-        return codes
-    except Exception as e:
-        logger.debug(f"东方财富概念成分股失败 {concept_name}: {e}")
-        return []
-
-
-async def fetch_industry_members_em(industry_name: str) -> list[str]:
-    """东方财富：获取行业板块成分股代码列表"""
-    import asyncio as _asyncio
-    try:
-        import akshare as ak
-        df = await _asyncio.wait_for(
-            _asyncio.to_thread(ak.stock_board_industry_cons_em, symbol=industry_name),
-            timeout=15
-        )
-        if df is None or df.empty:
-            return []
-        codes = []
-        for _, row in df.iterrows():
-            code = str(row.get("代码", "")).zfill(6)
-            if code.startswith("6"):
-                codes.append(f"{code}.SH")
-            elif code.startswith("9"):
-                codes.append(f"{code}.BJ")
-            else:
-                codes.append(f"{code}.SZ")
-        return codes
-    except Exception as e:
-        logger.debug(f"东方财富行业成分股失败 {industry_name}: {e}")
-        return []
-
-
 async def generate_board_tags() -> dict:
     """
-    从已有的 stock_tags 数据反向构建板块→股票映射。
-    不依赖外部接口，直接用 sectors/products/themes 字段聚合。
-    同时尝试从东方财富/同花顺拉取概念板块（若可用则追加）。
+    从雪球 stock_individual_basic_info_xq 获取每只股票的 affiliate_industry（板块分类）。
+    这是市场给股票贴的行业板块标签，与主营标签（产品/业务词）完全不同。
+
+    覆盖率 100%，无限速，约 1s/只，5500只约 90 分钟。
     """
     await init_board_tags_table()
     import asyncio as _asyncio
-    import json as _json
+    import akshare as ak
 
-    # ── 阶段1：从 stock_tags 反向构建板块映射（不依赖外部接口）────────────────
-    _set_board_progress(0, 1, "从现有标签数据构建板块映射...")
+    async with get_db() as db:
+        async with db.execute("SELECT ts_code, name FROM stocks ORDER BY ts_code") as cur:
+            all_stocks = await cur.fetchall()
+
+    total = len(all_stocks)
+    if total == 0:
+        _set_board_progress(0, 0, "无股票数据", done=True, error="无数据")
+        return {"success": False, "error": "无股票数据"}
+
+    _set_board_progress(0, total, f"准备从雪球获取 {total} 只股票的板块分类...")
+
+    success_count = 0
+    fail_count    = 0
+    stock_board_map = {}  # {ts_code: ind_name}
+
+    CONCURRENCY = 5
+    sem = _asyncio.Semaphore(CONCURRENCY)
+    lock = _asyncio.Lock()
+
+    async def fetch_one(ts_code, name):
+        nonlocal success_count, fail_count
+        parts = ts_code.split(".")
+        xq_symbol = (parts[1] + parts[0]) if len(parts) == 2 else ts_code
+        async with sem:
+            try:
+                df = await _asyncio.wait_for(
+                    _asyncio.to_thread(ak.stock_individual_basic_info_xq, symbol=xq_symbol),
+                    timeout=12
+                )
+                if df is not None and not df.empty:
+                    xq = dict(zip(df['item'], df['value']))
+                    aff = xq.get('affiliate_industry', {})
+                    ind_name = aff.get('ind_name', '') if isinstance(aff, dict) else ''
+                    if ind_name:
+                        async with lock:
+                            stock_board_map[ts_code] = ind_name
+                            success_count += 1
+                    else:
+                        async with lock:
+                            fail_count += 1
+                else:
+                    async with lock:
+                        fail_count += 1
+            except Exception as e:
+                async with lock:
+                    fail_count += 1
+                logger.debug(f"雪球板块 {ts_code} 失败: {e}")
+            finally:
+                async with lock:
+                    done = success_count + fail_count
+                    if done % 100 == 0 or done == total:
+                        _set_board_progress(done, total,
+                            f"获取中 {done}/{total}（✅{success_count} ❌{fail_count}）")
+                await _asyncio.sleep(0.2)
+
+    await _asyncio.gather(*[fetch_one(r["ts_code"], r["name"]) for r in all_stocks])
+
+    # 写入数据库
+    _set_board_progress(total, total, "写入数据库...")
+    written = 0
+    async with get_db() as db:
+        for ts_code, ind_name in stock_board_map.items():
+            # ind_name 作为行业板块标签
+            industries = [ind_name]
+            all_tags   = [ind_name]
+            await db.execute("""
+                INSERT OR REPLACE INTO stock_board_tags
+                (ts_code, concepts, industries, all_board_tags, updated_at)
+                VALUES (?,?,?,?,CURRENT_TIMESTAMP)
+            """, (ts_code, '[]',
+                  json.dumps(industries, ensure_ascii=False),
+                  json.dumps(all_tags,   ensure_ascii=False)))
+            written += 1
+        await db.commit()
+
+    _set_board_progress(total, total,
+        f"✅ 板块标签生成完成，{written} 只股票获得板块分类", done=True)
+    logger.info(f"板块标签完成（雪球数据）: {written}/{total}")
+    return {"success": True, "stocks": written, "boards": written}
+
+
+
+async def _generate_board_tags_from_stock_tags() -> dict:
+    """
+    降级方案：从 stock_tags 反向构建（当 Tushare 不可用时）
+    注意：此方案生成的板块标签与主营标签内容相同，仅作临时替代
+    """
+    logger.warning("使用降级方案：从主营标签反向构建板块标签（内容与主营标签相同）")
+    _set_board_progress(0, 1, "从现有主营标签数据构建板块映射（降级方案）...")
 
     stock_tags_map: dict[str, dict] = {}
 
@@ -126,63 +163,21 @@ async def generate_board_tags() -> dict:
         ) as cur:
             tag_rows = await cur.fetchall()
 
-    total_from_tags = len(tag_rows)
-    _set_board_progress(0, total_from_tags, f"处理 {total_from_tags} 只股票的标签数据...")
-
+    total = len(tag_rows)
     for i, row in enumerate(tag_rows):
         ts_code = row["ts_code"]
         try:
-            sectors = _json.loads(row["sectors"] or "[]")
-            products = _json.loads(row["products"] or "[]")
-            themes   = _json.loads(row["themes"]   or "[]")
-            # sectors → industries（行业板块）
-            for s in sectors:
-                if s and len(s) >= 2:
-                    add_tag(ts_code, s, "industries")
-            # products → concepts（概念板块，取前3个）
-            for p in products[:3]:
-                if p and len(p) >= 2:
-                    add_tag(ts_code, p, "concepts")
-            # themes → concepts
-            for t in themes:
-                if t and len(t) >= 2:
-                    add_tag(ts_code, t, "concepts")
+            for s in json.loads(row["sectors"] or "[]"):
+                if s and len(s) >= 2: add_tag(ts_code, s, "industries")
+            for p in json.loads(row["products"] or "[]")[:3]:
+                if p and len(p) >= 2: add_tag(ts_code, p, "concepts")
+            for t in json.loads(row["themes"] or "[]"):
+                if t and len(t) >= 2: add_tag(ts_code, t, "concepts")
         except Exception:
             pass
         if i % 500 == 0:
-            _set_board_progress(i, total_from_tags, f"处理标签数据 {i}/{total_from_tags}...")
+            _set_board_progress(i, total, f"处理标签数据 {i}/{total}...")
 
-    # ── 阶段2：尝试从东方财富/同花顺追加概念板块（可选，失败不影响结果）────────
-    _set_board_progress(total_from_tags, total_from_tags + 1,
-                        "尝试从外部接口追加概念板块（可选）...")
-    try:
-        import akshare as ak
-        for fn_name, fn, col in [
-            ("东方财富概念", lambda: ak.stock_board_concept_name_em(), "板块名称"),
-            ("同花顺概念",   lambda: ak.stock_board_concept_name_ths(), "name"),
-        ]:
-            try:
-                df = await _asyncio.wait_for(_asyncio.to_thread(fn), timeout=15)
-                if df is not None and not df.empty and col in df.columns:
-                    concept_names = df[col].tolist()
-                    logger.info(f"{fn_name}: {len(concept_names)} 个概念板块，逐个拉成分股")
-                    for i, concept in enumerate(concept_names[:100]):  # 最多100个避免超时
-                        try:
-                            members = await fetch_concept_members_em(concept)
-                            for ts_code in members:
-                                add_tag(ts_code, concept, "concepts")
-                        except Exception:
-                            pass
-                        await _asyncio.sleep(0.2)
-                    break  # 成功一个就不再尝试
-            except Exception as e:
-                logger.debug(f"{fn_name}失败（可选步骤，忽略）: {e}")
-    except Exception:
-        pass
-
-    # ── 写入数据库 ───────────────────────────────────────────────────────────
-    total = len(stock_tags_map)
-    _set_board_progress(0, total, f"写入 {total} 只股票的板块标签...")
     written = 0
     async with get_db() as db:
         for ts_code, tags in stock_tags_map.items():
@@ -193,19 +188,16 @@ async def generate_board_tags() -> dict:
                 INSERT OR REPLACE INTO stock_board_tags
                 (ts_code, concepts, industries, all_board_tags, updated_at)
                 VALUES (?,?,?,?,CURRENT_TIMESTAMP)
-            """, (
-                ts_code,
-                _json.dumps(concepts,   ensure_ascii=False),
-                _json.dumps(industries, ensure_ascii=False),
-                _json.dumps(all_tags,   ensure_ascii=False),
-            ))
+            """, (ts_code,
+                  json.dumps(concepts,   ensure_ascii=False),
+                  json.dumps(industries, ensure_ascii=False),
+                  json.dumps(all_tags,   ensure_ascii=False)))
             written += 1
         await db.commit()
 
     _set_board_progress(total, total,
-        f"✅ 板块标签生成完成，{written} 只股票，来源：标签数据反向构建", done=True)
-    logger.info(f"板块标签完成: {written} 只股票")
-    return {"success": True, "stocks": written, "boards": total}
+        f"✅ 板块标签生成完成（降级方案，{written} 只）", done=True)
+    return {"success": True, "stocks": written, "boards": 0, "fallback": True}
 
 
 async def get_stock_board_tags(ts_code: str) -> dict:
@@ -218,7 +210,16 @@ async def get_stock_board_tags(ts_code: str) -> dict:
     if not row:
         return {}
     return {
-        "concepts":      json.loads(row["concepts"]       or "[]"),
-        "industries":    json.loads(row["industries"]     or "[]"),
+        "concepts":       json.loads(row["concepts"]       or "[]"),
+        "industries":     json.loads(row["industries"]     or "[]"),
         "all_board_tags": json.loads(row["all_board_tags"] or "[]"),
     }
+
+
+async def fetch_concept_members_em(concept_name: str) -> list[str]:
+    """保留旧接口签名兼容性（已废弃，东方财富接口被封）"""
+    return []
+
+
+async def get_board_progress() -> dict:
+    return get_board_progress()

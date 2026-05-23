@@ -334,14 +334,14 @@ async def _do_update_profiles(limit: int = 9999) -> dict:
 async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
     """公司简介 + 行业补全。
 
-    问题根源与修复：
-    ① AKShare stock_zyjs_ths  → 同花顺主营介绍，文字描述质量好
-    ② 巨潮 stock_profile_cninfo → 主营业务(精简) + 机构简介(完整背景) + 所属行业(标准分类)
-       - 之前只取"主营业务"字段，7-80字，信息量不足
-       - 现在同时取"机构简介"补充完整背景，行业用巨潮标准分类
-    ③ LLM 兜底（所有数据接口失败时）
-
-    行业字段优先级：巨潮所属行业 > AKShare产品类型 > 原有行业值
+    优先级：
+    ① 雪球 stock_individual_basic_info_xq
+       - main_operation_business → 公司简介（最简洁准确）
+       - org_cn_introduction     → 补充背景
+       - affiliate_industry      → 行业板块分类（最准确）
+    ② AKShare stock_zyjs_ths（同花顺主营介绍）
+    ③ 巨潮 stock_profile_cninfo（主营业务 + 所属行业）
+    ④ LLM 兜底
     """
     import akshare as ak
     import asyncio as _asyncio
@@ -350,11 +350,42 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
 
     profile_source = await _gc("profile_source", "both")
     code_only = ts_code.split(".")[0]
+    # 雪球代码格式：600760.SH → SH600760
+    parts = ts_code.split(".")
+    xq_symbol = (parts[1] + parts[0]) if len(parts) == 2 else ts_code
+
     found_desc = None
     found_ind  = industry or ""
 
-    # ── ① AKShare stock_zyjs_ths（同花顺主营介绍）────────────────────────────
-    if profile_source in ("eastmoney", "both"):
+    # ── ① 雪球（最优先，简介最准确 + 行业板块分类）────────────────────────
+    try:
+        df_xq = await _asyncio.wait_for(
+            _asyncio.to_thread(ak.stock_individual_basic_info_xq, symbol=xq_symbol),
+            timeout=12
+        )
+        if df_xq is not None and not df_xq.empty:
+            xq = dict(zip(df_xq['item'], df_xq['value']))
+            main_biz = str(xq.get('main_operation_business', '') or '').strip()
+            intro    = str(xq.get('org_cn_introduction', '') or '').strip()
+            aff_ind  = xq.get('affiliate_industry', {})
+            ind_name = aff_ind.get('ind_name', '') if isinstance(aff_ind, dict) else ''
+
+            # 行业：雪球 affiliate_industry 是市场板块分类，最准确
+            if ind_name:
+                found_ind = ind_name
+
+            # 简介：主营业务 + 公司简介前100字
+            if main_biz and len(main_biz) > 5:
+                if intro and len(main_biz) < 30:
+                    # 主营业务太短时追加公司简介
+                    found_desc = main_biz + " " + intro[:100]
+                else:
+                    found_desc = main_biz
+    except Exception as e:
+        logger.debug(f"雪球 {ts_code} 失败: {e}")
+
+    # ── ② AKShare stock_zyjs_ths（同花顺主营介绍）────────────────────────
+    if not found_desc and profile_source in ("eastmoney", "both"):
         try:
             df = await _asyncio.wait_for(
                 _asyncio.to_thread(ak.stock_zyjs_ths, symbol=code_only), timeout=12
@@ -370,8 +401,7 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
         except Exception as e:
             logger.debug(f"AKShare zyjs_ths {ts_code} 失败: {e}")
 
-    # ── ② 巨潮 stock_profile_cninfo（主营业务 + 机构简介 + 标准行业分类）─────
-    # 无论①是否成功都调：①只给简介，②额外提供标准行业分类和机构背景
+    # ── ③ 巨潮（主营业务 + 标准行业分类）────────────────────────────────
     if profile_source in ("cninfo", "both"):
         try:
             df2 = await _asyncio.wait_for(
@@ -379,40 +409,24 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
             )
             if df2 is not None and not df2.empty:
                 row2 = df2.iloc[0]
-
-                # 行业：巨潮所属行业是国家标准行业分类，比东方财富更准确
                 ind2 = str(row2.get("所属行业", "") or "").strip()
-                if ind2:
-                    found_ind = ind2  # 巨潮行业优先覆盖
-
-                # 简介：主营业务 + 机构简介合并，提供更丰富的语义信息
+                if ind2 and not found_ind:
+                    found_ind = ind2
                 if not found_desc:
-                    main_biz = str(row2.get("主营业务", "") or "").strip()
-                    intro    = str(row2.get("机构简介", "") or "").strip()
-                    # 机构简介取前200字（含公司背景、核心业务等关键信息）
-                    intro = intro[:200] if intro else ""
-                    if main_biz and intro:
-                        found_desc = main_biz + " " + intro
-                    else:
-                        found_desc = main_biz or intro
-                else:
-                    # ①已有简介，用机构简介补充背景（追加，不替换）
-                    intro = str(row2.get("机构简介", "") or "").strip()[:150]
-                    if intro and len(found_desc) < 50:
-                        # 简介太短时用机构简介补充
-                        found_desc = found_desc + " " + intro
-
+                    main_biz2 = str(row2.get("主营业务", "") or "").strip()
+                    intro2    = str(row2.get("机构简介", "") or "").strip()[:150]
+                    if main_biz2 and len(main_biz2) > 5:
+                        found_desc = main_biz2 + (" " + intro2 if intro2 and len(main_biz2) < 50 else "")
         except Exception as e:
             logger.debug(f"巨潮 {ts_code} 失败: {e}")
 
-    # 有简介就返回
     if found_desc and len(found_desc) > 5:
         kws = list(dict.fromkeys(
             [w for w in _re.split(r"[、，；。 ]+", found_desc) if 2 <= len(w) <= 8]
         ))[:10]
         return found_desc, [found_ind] if found_ind else [], kws, False, found_ind
 
-    # ── ③ LLM 兜底（仅在所有数据接口全部失败时）────────────────────────────
+    # ── ④ LLM 兜底 ───────────────────────────────────────────────────────
     try:
         from backend.services.llm_client import get_llm_client as _get_llm
         _client = await _get_llm()

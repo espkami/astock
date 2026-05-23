@@ -241,9 +241,17 @@ async def get_stock_mainbz(ts_code: str):
 
 @router.get("/{ts_code}/tags")
 async def get_stock_tags_api(ts_code: str):
-    """获取单只股票标签"""
+    """获取单只股票主营标签"""
     from backend.services.tag_service import get_stock_tags
     tags = await get_stock_tags(ts_code)
+    return APIResponse(data=tags)
+
+
+@router.get("/{ts_code}/board-tags")
+async def get_stock_board_tags_api(ts_code: str):
+    """获取单只股票板块标签"""
+    from backend.services.board_tag_service import get_stock_board_tags
+    tags = await get_stock_board_tags(ts_code)
     return APIResponse(data=tags)
 
 

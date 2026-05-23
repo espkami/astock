@@ -1052,27 +1052,29 @@
       <!-- 第二层：公司简介来源 -->
       <div style="background:var(--bg-subtle);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-4)">
         <div style="font-size:13px;font-weight:600;margin-bottom:4px">🏭 公司简介来源</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">股票列表拉取后，补全「公司简介」列的文字描述（主营业务项目标签由独立任务生成，不受此配置影响）</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">
+          补全「公司简介」列和「行业」字段。雪球始终作为第一来源，以下配置决定雪球失败时的备用顺序。
+        </div>
         <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--border-strong)'" onmouseout="this.style.borderColor='var(--border-default)'">
+            <input type="radio" name="profile_source" value="both" onchange="saveCfg('profile_source','both')" style="margin-top:3px;flex-shrink:0">
+            <div>
+              <div style="font-size:13px;font-weight:500">雪球 → AKShare → 巨潮 三源 <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span> <span class="tag-pill" style="background:var(--blue-100,#dbeafe);color:var(--blue-700,#1d4ed8)">推荐</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">覆盖最全。雪球优先（含行业板块分类），失败时 AKShare 接力，再失败时巨潮兜底</div>
+            </div>
+          </label>
           <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--border-strong)'" onmouseout="this.style.borderColor='var(--border-default)'">
             <input type="radio" name="profile_source" value="eastmoney" onchange="saveCfg('profile_source','eastmoney')" style="margin-top:3px;flex-shrink:0">
             <div>
-              <div style="font-size:13px;font-weight:500">AKShare <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span></div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">通过 AKShare 获取主营业务介绍，内容详细，覆盖全市场</div>
+              <div style="font-size:13px;font-weight:500">雪球 → AKShare 双源 <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">雪球失败时用 AKShare（同花顺）接力，不走巨潮</div>
             </div>
           </label>
           <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--border-strong)'" onmouseout="this.style.borderColor='var(--border-default)'">
             <input type="radio" name="profile_source" value="cninfo" onchange="saveCfg('profile_source','cninfo')" style="margin-top:3px;flex-shrink:0">
             <div>
-              <div style="font-size:13px;font-weight:500">巨潮资讯（cninfo）<span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span></div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">官方披露的主营业务文字描述，覆盖全市场，同时可补全行业字段</div>
-            </div>
-          </label>
-          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--border-strong)'" onmouseout="this.style.borderColor='var(--border-default)'">
-            <input type="radio" name="profile_source" value="both" onchange="saveCfg('profile_source','both')" style="margin-top:3px;flex-shrink:0">
-            <div>
-              <div style="font-size:13px;font-weight:500">AKShare + 巨潮资讯双源 <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span> <span class="tag-pill" style="background:var(--blue-100,#dbeafe);color:var(--blue-700,#1d4ed8)">推荐</span></div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">AKShare 优先，无数据时巨潮兜底，覆盖最全</div>
+              <div style="font-size:13px;font-weight:500">雪球 → 巨潮 双源 <span class="tag-pill" style="background:var(--state-success-bg);color:var(--state-success-fg)">免费</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">雪球失败时用巨潮（cninfo）接力，同时补全标准行业字段</div>
             </div>
           </label>
         </div>
@@ -1080,23 +1082,75 @@
     </div>
     <div class="config-section">
       <div class="config-section-title">🔄 更新操作</div>
-      <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)">
-        <button class="btn btn-primary" onclick="triggerStockUpdate()">立即更新全量股票</button>
-        <button class="btn btn-secondary" onclick="triggerRefillProfiles()">重新补全公司简介</button>
-        <button class="btn btn-secondary" onclick="triggerGenerateTags(false)">🏷️ 生成主营业务项目标签</button>
-        <button class="btn btn-ghost btn-sm" onclick="triggerGenerateTags(true)" title="强制覆盖重新生成所有主营业务项目标签">↺ 强制重新生成</button>
-        <button class="btn btn-secondary" onclick="triggerGenerateBoardTags()">🏛️ 生成概念/行业板块标签</button>
-        <button class="btn btn-secondary" onclick="loadStockStats(true)">刷新概览</button>
-        <div style="font-size:11px;color:var(--text-muted);align-self:center">
-          更新分两步：① 拉取股票列表 → ② 补全公司简介（约 20~30 分钟，可查看进度条）<br>
-          若公司简介补全不完整，可单独点「重新补全公司简介」重试。
+
+      <!-- 首次使用 / 全量更新 -->
+      <div style="background:var(--surface-base);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-4);margin-bottom:var(--space-3)">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3)">
+          <div>
+            <div style="font-size:13px;font-weight:600">🚀 首次使用 / 全量更新</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
+              一键完成全部四步：拉取股票列表 → 补全公司简介 → 生成主营标签 → 生成板块标签<br>
+              <span style="color:var(--orange-600,#ea580c)">约需 1~2 小时，期间可关闭页面，任务在后台运行</span>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="triggerStockUpdate()" style="white-space:nowrap;flex-shrink:0">
+            立即全量更新
+          </button>
         </div>
       </div>
-      <div id="updateProgressWrap" style="display:none">
+
+      <!-- 日常维护 -->
+      <div style="background:var(--surface-base);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-4);margin-bottom:var(--space-3)">
+        <div style="font-size:13px;font-weight:600;margin-bottom:var(--space-3)">🔧 单步修复（上次更新中断时使用）</div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-3);background:var(--surface-secondary);border-radius:var(--radius-md)">
+            <div>
+              <span style="font-size:12px;font-weight:500">① 补全公司简介</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-left:8px">公司简介有缺失时重跑</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="triggerRefillProfiles()">重新补全</button>
+          </div>
+          <div style="background:var(--surface-secondary);border-radius:var(--radius-md);overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-3)">
+              <div>
+                <span style="font-size:12px;font-weight:500">② 主营业务项目标签</span>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:8px">标签列为空时重跑</span>
+              </div>
+              <div style="display:flex;gap:var(--space-2)">
+                <button class="btn btn-ghost btn-sm" onclick="triggerGenerateTags(false)">补全缺失</button>
+                <button class="btn btn-ghost btn-sm" onclick="triggerGenerateTags(true)" style="color:var(--text-muted)" title="清空所有标签后重新生成">全部重建</button>
+              </div>
+            </div>
+            <div id="tagProgressWrap" style="display:none;padding:0 var(--space-3) var(--space-2)">
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px" id="tagProgressMsg">准备中...</div>
+              <div class="progress-bar-wrap"><div class="progress-bar-fill" id="tagProgressFill" style="width:0%"></div></div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px" id="tagProgressPct">0%</div>
+            </div>
+          </div>
+          <div style="background:var(--surface-secondary);border-radius:var(--radius-md);overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-3)">
+              <div>
+                <span style="font-size:12px;font-weight:500">③ 概念/行业板块标签</span>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:8px">板块标签为空时重跑</span>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="triggerGenerateBoardTags()">重新生成</button>
+            </div>
+            <div id="boardProgressWrap" style="display:none;padding:0 var(--space-3) var(--space-2)">
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px" id="boardProgressMsg">准备中...</div>
+              <div class="progress-bar-wrap"><div class="progress-bar-fill" id="boardProgressFill" style="width:0%"></div></div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px" id="boardProgressPct">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 进度条 + 刷新 -->
+      <div id="updateProgressWrap" style="display:none;margin-bottom:var(--space-3)">
         <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px" id="progressMsg">准备中...</div>
         <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px" id="progressPct">0%</div>
       </div>
+      <button class="btn btn-ghost btn-sm" onclick="loadStockStats(true)" style="color:var(--text-muted)">↺ 刷新概览数据</button>
     </div>
     <div class="config-section">
       <div class="config-section-title">📋 股票列表</div>
@@ -2963,7 +3017,7 @@ async function loadStocks(page=1,kw=''){
       <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;white-space:nowrap">板块</th>
       <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;white-space:nowrap">行业</th>
       <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500">公司简介</th>
-      <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;white-space:nowrap">主营业务项目</th>
+      <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500;white-space:nowrap">主营标签</th>
     </tr></thead>
     <tbody>${d.items.map(s=>{
       const desc = s.business_desc || '';
@@ -3023,7 +3077,7 @@ async function openStockDrawer(tsCode, name) {
   document.getElementById('stockDrawerMask').style.display = '';
 
   try {
-    // 并发获取：主营构成 + 主营标签 + 板块标签
+    // 并发获取：主营构成 + 主营标签
     const [mainbzRes, tagsRes] = await Promise.all([
       api('/api/stocks/' + encodeURIComponent(tsCode) + '/mainbz').catch(() => ({data: null})),
       api('/api/stocks/' + encodeURIComponent(tsCode) + '/tags').catch(() => ({data: null})),
@@ -3130,23 +3184,41 @@ async function regenOneTag(el) {
 
 // ── 股票标签相关函数 ──────────────────────────────────────────────────────
 async function triggerGenerateBoardTags() {
-  if (!confirm('将从同花顺/东方财富拉取所有概念板块和行业板块成分股，建立板块→股票映射。\n约需 30-60 分钟，确认开始？')) return;
+  if (!confirm('将从现有主营标签反向构建板块映射，确认开始？')) return;
   await api('/api/stocks/generate-board-tags', {method:'POST'});
-  toast('概念/行业板块标签生成已触发，需要能访问东方财富/同花顺，耗时约30-60分钟...', 'info');
-  document.getElementById('updateProgressWrap').style.display = '';
-  // 复用进度条，轮询板块标签进度
-  let es = new EventSource('/api/stocks/board-tag-progress');
-  es.onmessage = e => {
-    const d = JSON.parse(e.data);
-    document.getElementById('progressMsg').textContent = d.message || '生成中...';
-    document.getElementById('progressFill').style.width = (d.percent||0) + '%';
-    document.getElementById('progressPct').textContent = (d.percent||0) + '%';
-    if (d.done) {
-      es.close();
-      toast(d.error ? '板块标签生成失败（请检查服务器能否访问东方财富/同花顺）: '+d.error : '✅ 概念/行业板块标签生成完成', d.error?'error':'success');
-    }
-  };
-  es.onerror = () => es.close();
+  toast('概念/行业板块标签生成已触发，请稍候...', 'info');
+  // 使用独立的板块标签进度条
+  const wrap = document.getElementById('boardProgressWrap');
+  if (wrap) {
+    wrap.style.display = '';
+    document.getElementById('boardProgressMsg').textContent = '准备中...';
+    document.getElementById('boardProgressFill').style.width = '0%';
+    document.getElementById('boardProgressPct').textContent = '0%';
+  }
+  // 延迟 1.5s 再建 SSE，避免拿到旧的 idle 状态
+  setTimeout(() => {
+    let receivedReal = false;
+    let es = new EventSource('/api/stocks/board-tag-progress');
+    es.onmessage = e => {
+      const d = JSON.parse(e.data);
+      if (d.done && d.stage === 'idle' && !receivedReal) return; // 忽略旧 idle
+      receivedReal = true;
+      const msgEl  = document.getElementById('boardProgressMsg');
+      const fillEl = document.getElementById('boardProgressFill');
+      const pctEl  = document.getElementById('boardProgressPct');
+      if (msgEl)  msgEl.textContent = d.message || '生成中...';
+      if (fillEl) fillEl.style.width = (d.percent||0) + '%';
+      if (pctEl)  pctEl.textContent = (d.percent||0) + '%';
+      if (d.done) {
+        es.close();
+        const w = document.getElementById('boardProgressWrap');
+        if (w) setTimeout(() => { w.style.display='none'; }, 3000);
+        loadStockStats();
+        toast(d.error ? '板块标签生成失败: '+d.error : '✅ 概念/行业板块标签生成完成', d.error?'error':'success');
+      }
+    };
+    es.onerror = () => es.close();
+  }, 1500);
 }
 
 async function triggerGenerateTags(force=false) {
@@ -3154,29 +3226,47 @@ async function triggerGenerateTags(force=false) {
   if (!confirm(msg)) return;
   await api('/api/stocks/generate-tags?force=' + force, {method:'POST'});
   toast('主营业务项目标签生成已触发，请稍候...', 'info');
-  document.getElementById('updateProgressWrap').style.display = '';
-  startTagProgressPolling();
+  // 使用独立的标签进度条，不影响公司简介补全进度条
+  const wrap = document.getElementById('tagProgressWrap');
+  if (wrap) {
+    wrap.style.display = '';
+    document.getElementById('tagProgressMsg').textContent = '正在启动...';
+    document.getElementById('tagProgressFill').style.width = '0%';
+    document.getElementById('tagProgressPct').textContent = '0%';
+  }
+  startTagProgressPolling(); // 内部已有 1.5s 延迟
 }
 
 function startTagProgressPolling() {
-  let es = new EventSource('/api/stocks/tag-progress');
-  es.onmessage = e => {
-    const d = JSON.parse(e.data);
-    document.getElementById('progressMsg').textContent = d.message || '生成中...';
-    document.getElementById('progressFill').style.width = (d.percent||0) + '%';
-    document.getElementById('progressPct').textContent = (d.percent||0) + '%';
-    if (d.done) {
-      es.close();
-      loadStockStats();
-      toast(d.error ? '主营业务项目标签生成失败: '+d.error : '✅ 主营业务项目标签生成完成', d.error?'error':'success');
-      loadStocks(stockCurrentPage, stockSearchKw);
-    }
-  };
-  es.onerror = () => { es.close(); };
+  // 延迟 1.5s 再建 SSE，避免拿到旧的 idle 状态
+  setTimeout(() => {
+    let receivedReal = false;
+    let es = new EventSource('/api/stocks/tag-progress');
+    es.onmessage = e => {
+      const d = JSON.parse(e.data);
+      if (d.done && d.stage === 'idle' && !receivedReal) return; // 忽略旧 idle
+      receivedReal = true;
+      const msgEl  = document.getElementById('tagProgressMsg');
+      const fillEl = document.getElementById('tagProgressFill');
+      const pctEl  = document.getElementById('tagProgressPct');
+      if (msgEl)  msgEl.textContent = d.message || '生成中...';
+      if (fillEl) fillEl.style.width = (d.percent||0) + '%';
+      if (pctEl)  pctEl.textContent = (d.percent||0) + '%';
+      if (d.done) {
+        es.close();
+        const wrap = document.getElementById('tagProgressWrap');
+        if (wrap) setTimeout(() => { wrap.style.display='none'; }, 3000);
+        loadStockStats();
+        toast(d.error ? '主营业务项目标签生成失败: '+d.error : '✅ 主营业务项目标签生成完成', d.error?'error':'success');
+        loadStocks(stockCurrentPage, stockSearchKw);
+      }
+    };
+    es.onerror = () => { es.close(); };
+  }, 1500);
 }
 
 async function loadStockTagsBatch(tsCodes) {
-  // 批量加载标签并渲染到对应 td
+  // 批量加载主营标签并渲染（板块标签与主营标签同源，不重复展示）
   for (const code of tsCodes) {
     try {
       const r = await api('/api/stocks/' + encodeURIComponent(code) + '/tags');
@@ -3186,9 +3276,9 @@ async function loadStockTagsBatch(tsCodes) {
       if (!tags.length) {
         el.innerHTML = '<span style="font-size:10px;color:var(--text-muted)">无标签</span>';
       } else {
-        el.innerHTML = tags.slice(0,4).map(t =>
+        el.innerHTML = tags.slice(0,5).map(t =>
           '<span style="font-size:10px;padding:1px 5px;border-radius:8px;background:var(--surface-secondary);color:var(--text-secondary);white-space:nowrap">' + esc(t) + '</span>'
-        ).join('') + (tags.length>4 ? '<span style="font-size:10px;color:var(--text-muted)">+' + (tags.length-4) + '</span>' : '');
+        ).join('') + (tags.length>5 ? '<span style="font-size:10px;color:var(--text-muted)">+' + (tags.length-5) + '</span>' : '');
       }
     } catch(e) {}
   }
