@@ -54,7 +54,7 @@
     .stat-btn:hover { text-decoration: underline; }
 
     /* ── 双栏主区 ── */
-    .main-grid { display: grid; grid-template-columns: 1fr 380px; gap: var(--space-4); }
+    .main-grid { display: grid; grid-template-columns: 1fr 380px; gap: var(--space-4); align-items: stretch; }
     @media (max-width: 1024px) { .main-grid { grid-template-columns: 1fr; } }
 
     /* ── 面板通用 ── */
@@ -88,7 +88,7 @@
     .badge-neutral { background: var(--surface-secondary); color: var(--text-tertiary); }
 
     /* ── 右侧：匹配详情面板 ── */
-    .match-body { overflow-y: auto; max-height: calc(100vh - 240px); flex: 1; }
+    .match-body { overflow-y: auto; flex: 1; min-height: 0; }
     .match-empty { padding: var(--space-8); text-align: center; color: var(--text-muted); font-size: 13px; line-height: 1.8; }
 
     /* 新闻摘要块 */
@@ -373,7 +373,7 @@
 
       /* 新闻列表和匹配面板：限高调整 */
       .news-list { max-height: 45vh; }
-      .match-body { max-height: 50vh; }
+      .match-body { max-height: 60vh; }
 
       /* 面板 padding */
       .panel-header { padding: var(--space-2) var(--space-3); }
@@ -865,6 +865,51 @@
     </div>
 
     <div class="config-section">
+      <div class="config-section-title">🔢 Embedding 专用模型</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">
+        用于新闻与股票的<strong>语义向量匹配</strong>，与分析匹配模型独立配置。<br>
+        仅支持 <strong>OpenAI</strong>（text-embedding-3-small，免费额度够用）和 <strong>Qwen</strong>（text-embedding-v3，免费）。<br>
+        <strong>留空则自动从分析匹配模型中寻找可用的 OpenAI/Qwen 配置；若均无则降级为 TF-IDF。</strong>
+      </p>
+      <div class="form-row"><label>Provider</label>
+        <select class="input" id="embed_provider" onchange="onEmbedProviderChange(this.value)" style="max-width:180px">
+          <option value="">-- 留空自动 --</option>
+          <option value="openai">OpenAI</option>
+          <option value="qwen">Qwen（通义千问）</option>
+          <option value="gitee">Gitee AI（模力方舟）</option>
+          <option value="ollama">Ollama（本地部署）</option>
+          <option value="custom">自定义（兼容 OpenAI 格式）</option>
+        </select>
+      </div>
+      <div class="form-row"><label>API Key</label>
+        <div class="input-row">
+          <input class="input" type="password" id="embed_api_key" placeholder="填入 API Key"
+            onchange="saveCfg('embed_api_key',this.value)" autocomplete="off">
+          <button class="btn btn-ghost btn-sm" onclick="togglePwd('embed_api_key')">👁</button>
+        </div>
+      </div>
+      <div class="form-row"><label>Embedding 模型</label>
+        <div class="input-row">
+          <input class="input" type="text" id="embed_model" placeholder="自动填入，可手动修改"
+            onchange="saveCfg('embed_model',this.value)">
+        </div>
+        <div id="embed_model_hint" style="font-size:11px;color:var(--text-muted);margin-top:4px"></div>
+      </div>
+      <div class="form-row">
+        <label id="embed_base_url_label">Base URL <span style="font-weight:400;color:var(--text-muted)">（可选，中转用）</span></label>
+        <input class="input" type="text" id="embed_base_url" placeholder="留空使用默认"
+          onchange="saveCfg('embed_base_url',this.value)">
+        <div id="embed_base_url_hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;display:none">
+          自定义/Ollama 模式下填入接口地址（含端口），例如：<code>http://localhost:11434/v1</code> 或 <code>https://your-api.com/v1</code>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--space-2);margin-top:var(--space-2)">
+        <button class="btn btn-secondary btn-sm" onclick="testEmbedModel()">测试连接</button>
+        <span id="embed_test_result" style="font-size:12px;align-self:center"></span>
+      </div>
+    </div>
+
+    <div class="config-section">
       <div class="config-section-title">⏰ 定时匹配设置</div>
       <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">新闻持续采集（不消耗 Token），匹配在指定时间点触发（消耗 Token）。</p>
       <div class="form-row"><label>已设定的匹配时间点</label>
@@ -1014,7 +1059,7 @@
       </div>
       <div class="form-row"><label>Tushare Token</label>
         <div class="input-row">
-          <input class="input" type="password" id="tushare_token" placeholder="填入 Token 后开启开关" onblur="saveCfg('tushare_token',this.value)">
+          <input class="input" type="password" id="tushare_token" placeholder="填入 Token 后开启开关" onchange="saveCfg('tushare_token',this.value)" autocomplete="off">
           <button class="btn btn-ghost btn-sm" onclick="togglePwd('tushare_token')">👁</button>
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
@@ -1341,7 +1386,8 @@ async function loadTrending() {
   try {
     const cfg = (await api('/api/config')).data || {};
     const section = document.getElementById('trendingSection');
-    if (!cfg.trending_enabled) { if (section) section.style.display = 'none'; return; }
+    // trending_enabled 未配置时默认显示，有数据就展示
+    if (cfg.trending_enabled === false) { if (section) section.style.display = 'none'; return; }
 
     const d = await api('/api/trending');
     const sources = [
@@ -1486,7 +1532,7 @@ async function navigate(page) {
   document.querySelectorAll('.nav-link').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+page+"'")) n.classList.add('active'); });
   currentPage = page;
   if (page==='dashboard') { loadStats(); loadNews(); loadTrending(); }
-  if (page==='stocks') { await loadStockStats(); loadStocks(); }
+  if (page==='stocks') { await loadStockStats(); loadStocks(); loadStockConfig(); }
   if (page==='llm-config') loadLLMConfig();
   if (page==='news-config') loadNewsConfig();
   if (page==='data-mgmt') loadDataMgmtConfig();
@@ -2150,6 +2196,77 @@ function testSearchLLM() { toast('请使用卡片内的「测试」按钮', 'inf
 // ══════════════════════════════════════════════════════
 //  大模型配置
 // ══════════════════════════════════════════════════════
+// ── Embedding 专用模型 ──────────────────────────────────────────────────────
+const EMBED_MODELS = {
+  openai:  { model: 'text-embedding-3-small', hint: 'text-embedding-3-small（推荐，免费额度每月100M tokens）' },
+  qwen:    { model: 'text-embedding-v3',      hint: 'text-embedding-v3（免费，阿里云百炼平台）' },
+  gitee:   { model: 'Qwen3-Embedding-4B', base_url: 'https://ai.gitee.com/v1',
+             hint: 'Qwen3-Embedding-4B（推荐）或 Qwen3-Embedding-8B，中文效果佳' },
+  ollama:  { model: '',  base_url: 'http://localhost:11434/v1', api_key: 'ollama',
+             hint: '填入已拉取的模型名，如 nomic-embed-text / mxbai-embed-large / bge-m3 等' },
+  custom:  { model: '',                        hint: '请填入模型名称（如 embedding-3 / bge-m3 等），并填写 Base URL' },
+};
+
+function onEmbedProviderChange(provider) {
+  saveCfg('embed_provider', provider);
+  const info    = EMBED_MODELS[provider];
+  const modelEl = document.getElementById('embed_model');
+  const hintEl  = document.getElementById('embed_model_hint');
+  const urlHint = document.getElementById('embed_base_url_hint');
+  const urlLabel= document.getElementById('embed_base_url_label');
+
+  // 自动填模型名（custom/ollama 时留空让用户自填）
+  if (modelEl && info && info.model) {
+    modelEl.value = info.model;
+    saveCfg('embed_model', info.model);
+  } else if (modelEl && (provider === 'custom' || provider === 'ollama')) {
+    modelEl.value = '';
+    modelEl.placeholder = provider === 'ollama' ? '填入模型名，如 nomic-embed-text' : '填入模型名称，如 bge-m3';
+  } else if (modelEl) {
+    modelEl.placeholder = '自动填入，可手动修改';
+  }
+
+  // 自动填 Base URL（gitee / ollama）
+  if (provider === 'gitee' || provider === 'ollama') {
+    const urlEl = document.getElementById('embed_base_url');
+    const keyEl = document.getElementById('embed_api_key');
+    if (urlEl && !urlEl.value) { urlEl.value = info.base_url; saveCfg('embed_base_url', info.base_url); }
+    if (keyEl && !keyEl.value) { keyEl.value = info.api_key;  saveCfg('embed_api_key',  info.api_key); }
+  }
+
+  if (hintEl) hintEl.textContent = info ? info.hint : '';
+
+  // 自定义时 Base URL 变必填
+  const isCustom = provider === 'custom' || provider === 'ollama';
+  if (urlHint)  urlHint.style.display  = isCustom ? '' : 'none';
+  if (urlLabel) urlLabel.innerHTML = isCustom
+    ? 'Base URL <span style="color:var(--red-600)">*</span>'
+    : 'Base URL <span style="font-weight:400;color:var(--text-muted)">（可选，中转用）</span>';
+}
+
+async function testEmbedModel() {
+  const provider  = document.getElementById('embed_provider')?.value;
+  const api_key   = document.getElementById('embed_api_key')?.value;
+  const model     = document.getElementById('embed_model')?.value;
+  const base_url  = document.getElementById('embed_base_url')?.value || '';
+  const resultEl  = document.getElementById('embed_test_result');
+  if (!provider || !api_key || !model) {
+    if (resultEl) { resultEl.textContent = '请填写 Provider、API Key 和模型'; resultEl.style.color = 'var(--red-700)'; }
+    return;
+  }
+  if (resultEl) { resultEl.textContent = '测试中...'; resultEl.style.color = 'var(--text-muted)'; }
+  try {
+    const r = await api('/api/llm/test', { method:'POST',
+      body: JSON.stringify({ provider, api_key, model, base_url, embed_mode: true }) });
+    if (resultEl) {
+      resultEl.textContent = r.success ? (r.response || '✅ 连接成功') : '❌ ' + (r.error || '失败');
+      resultEl.style.color = r.success ? 'var(--green-700)' : 'var(--red-700)';
+    }
+  } catch(e) {
+    if (resultEl) { resultEl.textContent = '❌ ' + e.message; resultEl.style.color = 'var(--red-700)'; }
+  }
+}
+
 async function loadLLMConfig() {
   const cfg=(await api('/api/config')).data||{};
   // 多模型列表
@@ -2189,6 +2306,22 @@ async function loadLLMConfig() {
   }
   window._searchLlmModels = searchModels;
   renderSearchLlmModelList(searchModels);
+
+  // 加载 Embedding 专用模型配置
+  const embedProvider = cfg.embed_provider || '';
+  const embedProviderEl = document.getElementById('embed_provider');
+  if (embedProviderEl) {
+    embedProviderEl.value = embedProvider;
+    if (embedProvider) onEmbedProviderChange(embedProvider);  // 触发 UI 联动
+  }
+  const embedApiKeyEl = document.getElementById('embed_api_key');
+  if (embedApiKeyEl && cfg.embed_api_key) embedApiKeyEl.value = cfg.embed_api_key;
+  const embedModelEl = document.getElementById('embed_model');
+  if (embedModelEl && cfg.embed_model) embedModelEl.value = cfg.embed_model;
+  const embedBaseUrlEl = document.getElementById('embed_base_url');
+  if (embedBaseUrlEl && cfg.embed_base_url) embedBaseUrlEl.value = cfg.embed_base_url;
+  const embedHintEl = document.getElementById('embed_model_hint');
+  if (embedHintEl && EMBED_MODELS[embedProvider]) embedHintEl.textContent = EMBED_MODELS[embedProvider].hint;
 
   const r=await api('/api/config/match-schedule').catch(()=>({data:{times:[]}}));
   renderMatchTimes(r.data?.times||[]);
@@ -2563,6 +2696,16 @@ async function loadStockStats(showToast=false){
     document.getElementById('sk-updated').textContent=d.last_updated?d.last_updated.slice(0,16):'从未更新';
     if(showToast) toast('概览已刷新','success');
   } catch(e) { toast('刷新失败: '+e.message,'error'); }
+}
+async function loadStockConfig(){
+  try {
+    const cfg = (await api('/api/config')).data || {};
+    const tokenEl = document.getElementById('tushare_token');
+    if (tokenEl && cfg.tushare_token) tokenEl.value = cfg.tushare_token;
+    const enabledEl = document.getElementById('tushare_enabled');
+    if (enabledEl) enabledEl.checked = !!cfg.tushare_enabled;
+    updateTushareStatus(!!cfg.tushare_enabled);
+  } catch(e) {}
 }
 async function loadStocks(page=1,kw=''){
   stockCurrentPage=page;

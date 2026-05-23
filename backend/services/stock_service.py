@@ -190,7 +190,7 @@ async def update_stock_list() -> dict:
 
 
 async def update_stock_profiles(limit: int = 9999) -> dict:
-    """为股票批量补全主营业务（顺序处理，进度实时上报）"""
+    """为股票批量补全主营业务（10并发，后台持续运行）"""
     async with get_db() as db:
         async with db.execute(
             """SELECT s.ts_code, s.name, s.industry FROM stocks s
@@ -210,50 +210,58 @@ async def update_stock_profiles(limit: int = 9999) -> dict:
     total = len(rows)
     _set_progress("profiles", 0, total, f"准备补全 {total} 只股票主营业务...")
     client = await get_llm_client()
+
     filled = 0
     failed = 0
+    done_count = 0
+    lock = asyncio.Lock()
 
-    # 顺序处理：cninfo 爬虫接口高并发会被封，顺序+间隔更稳定
-    # 每批 20 只，批间休息 1s 避免限流
-    BATCH = 20
-    for i, row in enumerate(rows):
-        # 实时更新进度（每条都更新，前端每秒轮询可见）
-        _set_progress("profiles", i, total,
-                      f"补全中 {i}/{total}（✅{filled} ❌{failed}）— {row['name']}")
-        try:
-            desc, domains, keywords, llm_filled, ind = await _get_stock_profile(
-                row["ts_code"], row["name"], row["industry"], client
-            )
-            if desc is None:
-                # cninfo 和大模型都失败，跳过，下次重试
-                failed += 1
-                continue
-            async with get_db() as db:
-                await db.execute(
-                    """INSERT OR REPLACE INTO stock_profile
-                       (ts_code,business_desc,domains,keywords,llm_filled,updated_at)
-                       VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)""",
-                    (row["ts_code"], desc,
-                     json.dumps(domains, ensure_ascii=False),
-                     json.dumps(keywords, ensure_ascii=False),
-                     int(llm_filled)),
+    CONCURRENCY = 10
+    sem = asyncio.Semaphore(CONCURRENCY)
+
+    async def _process_one(row):
+        nonlocal filled, failed, done_count
+        async with sem:
+            try:
+                desc, domains, keywords, llm_filled, ind = await _get_stock_profile(
+                    row["ts_code"], row["name"], row["industry"], client
                 )
-                if ind and not row["industry"]:
-                    await db.execute(
-                        "UPDATE stocks SET industry=? WHERE ts_code=?",
-                        (ind, row["ts_code"])
-                    )
-                await db.commit()
-            filled += 1
-        except Exception as e:
-            failed += 1
-            logger.warning(f"股票 {row['ts_code']} 补全失败: {e}")
+                if desc is not None:
+                    async with get_db() as db:
+                        await db.execute(
+                            """INSERT OR REPLACE INTO stock_profile
+                               (ts_code,business_desc,domains,keywords,llm_filled,updated_at)
+                               VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)""",
+                            (row["ts_code"], desc,
+                             json.dumps(domains, ensure_ascii=False),
+                             json.dumps(keywords, ensure_ascii=False),
+                             int(llm_filled)),
+                        )
+                        if ind and not row["industry"]:
+                            await db.execute(
+                                "UPDATE stocks SET industry=? WHERE ts_code=?",
+                                (ind, row["ts_code"])
+                            )
+                        await db.commit()
+                    async with lock:
+                        filled += 1
+                else:
+                    async with lock:
+                        failed += 1
+            except Exception as e:
+                async with lock:
+                    failed += 1
+                logger.warning(f"股票 {row['ts_code']} 补全失败: {e}")
+            finally:
+                async with lock:
+                    done_count += 1
+                    if done_count % 50 == 0 or done_count == total:
+                        _set_progress("profiles", done_count, total,
+                                      f"补全中 {done_count}/{total}（✅{filled} ❌{failed}）")
+            # 每个任务间隔 0.1s，避免 cninfo 瞬间并发过高
+            await asyncio.sleep(0.1)
 
-        # 批间休息：每 20 只暂停 1s，避免 cninfo 限流
-        if (i + 1) % BATCH == 0:
-            await asyncio.sleep(1.0)
-        else:
-            await asyncio.sleep(0.15)
+    await asyncio.gather(*[_process_one(row) for row in rows])
 
     _set_progress("profiles", total, total,
                   f"✅ 主营业务补全完成 {filled}/{total}（失败 {failed} 只）", done=True)

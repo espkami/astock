@@ -59,12 +59,10 @@ def _process_task():
 
 def start_scheduler():
     if not _scheduler.running:
-        # 每天 02:00 清理
+        # 每天 02:00 清理旧数据
         _scheduler.add_job(_clean_task, CronTrigger(hour=2, minute=0), id=_clean_job_id, replace_existing=True)
-        # news_process 后台自动任务已移除
-        # 匹配仅通过「立即匹配」按钮 或「定时匹配」时间点触发
         _scheduler.start()
-        logger.info("调度器已启动（含后台处理 worker）")
+        logger.info("调度器已启动")
 
 
 def stop_scheduler():

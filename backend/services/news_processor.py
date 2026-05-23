@@ -28,7 +28,9 @@ BATCH_PROMPT_TEMPLATE = """{role_desc}
 
 {news_list}
 
-每条格式：{{"id":序号,"summary":"不超过60字","sentiment":"positive/negative/neutral","industries":["行业"],"event_type":"政策利好/技术突破/业绩超预期/利空消息/行业动态/其他","keywords":["词1","词2","词3"]}}{sentiment_addon}"""
+每条格式：{{"id":序号,"summary":"不超过60字","sentiment":"positive/negative/neutral","industries":["行业"],"event_type":"政策利好/技术突破/业绩超预期/利空消息/行业动态/其他","keywords":["词1","词2","词3"]}}{sentiment_addon}
+
+keywords 要求：提取与 A 股投资直接相关的**具体实体词**（公司名、产品名、技术名、细分行业名），禁止使用"上市公司"、"市场"、"发展"、"创新"、"政策"等通用词。若新闻与具体 A 股板块无直接关联，keywords 返回空数组。"""
 
 
 async def process_pending_news(batch_size: int = 20) -> int:

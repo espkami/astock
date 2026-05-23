@@ -143,8 +143,11 @@ class LLMClient:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 f"{self.base_url}/embeddings",
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                json={"model": "text-embedding-3-small", "input": texts},
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "X-Failover-Enabled": "true",
+                },
+                json={"model": self.model or "text-embedding-3-small", "input": texts},
             )
             resp.raise_for_status()
             data = resp.json()
@@ -155,8 +158,11 @@ class LLMClient:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 f"{self.base_url}/embeddings",
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                json={"model": "text-embedding-v3", "input": texts},
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "X-Failover-Enabled": "true",
+                },
+                json={"model": self.model or "text-embedding-v3", "input": texts},
             )
             resp.raise_for_status()
             data = resp.json()
@@ -250,6 +256,45 @@ async def get_llm_client() -> Optional[LLMClient]:
         model=m["model"],
         base_url=m.get("base_url") or LLMClient._default_base_url(m["provider"]),
     )
+
+
+async def get_embed_client() -> Optional["LLMClient"]:
+    """获取 Embedding 专用模型客户端
+    优先读 embed_model 配置，fallback 到分析匹配模型（仅 openai/qwen 支持 embedding）
+    """
+    from backend.services.config_service import get_config
+
+    provider = await get_config("embed_provider", "")
+    api_key  = await get_config("embed_api_key", "")
+    model    = await get_config("embed_model", "")
+    base_url = await get_config("embed_base_url", "")
+
+    if provider and api_key and model:
+        # custom = 兼容 OpenAI 格式的自定义接口，内部走 openai 路径
+        actual_provider = "openai" if provider == "custom" else provider
+        return LLMClient(
+            provider=actual_provider,
+            api_key=api_key,
+            model=model,
+            base_url=base_url or LLMClient._default_base_url(actual_provider),
+        )
+
+    # fallback：从分析匹配模型里找第一个支持 embedding 的（openai / qwen）
+    models_cfg = await get_config("llm_models", [])
+    active = [m for m in models_cfg if m.get("enabled") is not False
+              and m.get("provider") and m.get("api_key") and m.get("model")]
+    for m in active:
+        if m["provider"] in ("openai", "qwen"):
+            logger.debug(f"Embedding fallback 到分析匹配模型: {m['provider']}/{m['model']}")
+            return LLMClient(
+                provider=m["provider"],
+                api_key=m["api_key"],
+                model=m["model"],
+                base_url=m.get("base_url") or LLMClient._default_base_url(m["provider"]),
+            )
+
+    logger.warning("未找到支持 Embedding 的模型（需要 OpenAI 或 Qwen），将使用 TF-IDF")
+    return None
 
 
 async def test_llm_connection(provider: str, api_key: str, model: str, base_url: Optional[str] = None) -> dict:

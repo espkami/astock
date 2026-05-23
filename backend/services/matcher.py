@@ -72,7 +72,11 @@ async def match_pending_news(batch_size: int = 10) -> int:
 
     total = len(rows)
     top_k = await get_config("match_top_k", 5)
+    # 分析匹配模型：只做 LLM 精排
     client = await get_llm_client()
+    # Embedding 专用模型：独立配置，支持 OpenAI/Qwen 免费额度
+    from backend.services.llm_client import get_embed_client
+    embed_client = await get_embed_client()
     matched = 0
 
     # 初始化进度
@@ -91,6 +95,7 @@ async def match_pending_news(batch_size: int = 10) -> int:
                 sentiment=row["sentiment"],
                 top_k=top_k,
                 client=client,
+                embed_client=embed_client,
             )
             if result:
                 async with get_db() as db:
@@ -113,7 +118,7 @@ async def match_pending_news(batch_size: int = 10) -> int:
 async def _match_one_news(
     news_id: int, title: str, summary: str,
     industries: list[str], keywords: list[str],
-    sentiment: str, top_k: int, client
+    sentiment: str, top_k: int, client, embed_client=None
 ) -> Optional[list[dict]]:
 
     # ── 阶段一：行业粗筛 ──────────────────────────────────────────────────────
@@ -134,8 +139,10 @@ async def _match_one_news(
         doc_texts.append(text if text else name)
 
     semantic_scores = [0.0] * len(candidates)
-    if client:
-        embeddings = await client.embed([query_text] + doc_texts)
+    # 优先用 Embedding 专用模型，fallback 到分析匹配模型（仅 openai/qwen 支持）
+    _embed = embed_client or client
+    if _embed:
+        embeddings = await _embed.embed([query_text] + doc_texts)
         if len(embeddings) == len(candidates) + 1:
             query_emb = embeddings[0]
             for i, doc_emb in enumerate(embeddings[1:]):
@@ -143,6 +150,7 @@ async def _match_one_news(
         else:
             semantic_scores = _tfidf_similarity(query_text, doc_texts)
     else:
+        logger.debug("无可用 Embedding 模型，使用 TF-IDF")
         semantic_scores = _tfidf_similarity(query_text, doc_texts)
 
     # 附加语义分数，取 top_k*2 进精排
@@ -157,9 +165,15 @@ async def _match_one_news(
         if llm_results:
             return llm_results
 
-    # fallback: 用 business_desc 生成有意义的理由
+    # fallback: 语义分数低于阈值时不强行匹配（宁可无结果也不要乱匹配）
+    MIN_SEMANTIC_SCORE = 0.15
+    qualified = [c for c in top_candidates if c.get("semantic_score", 0) >= MIN_SEMANTIC_SCORE]
+    if not qualified:
+        logger.debug(f"新闻 {news_id}: 候选语义分均低于 {MIN_SEMANTIC_SCORE}，跳过匹配")
+        return []
+
     results = []
-    for c in top_candidates[:top_k]:
+    for c in qualified[:top_k]:
         name = c["name"]
         desc = c.get("business_desc") or ""
         industry = c.get("industry") or ""
@@ -185,13 +199,24 @@ async def _match_one_news(
     return results
 
 
+# 通用词黑名单：这些词出现在几乎所有公司描述里，用于搜索会产生大量噪音
+_GENERIC_TERMS = {
+    "上市公司", "市场", "市场活力", "高质量发展", "创新", "发展", "体系",
+    "全链条", "支持", "改革", "政策", "监管", "规范", "制度", "管理",
+    "服务", "业务", "企业", "公司", "经营", "运营", "投资", "金融",
+    "经济", "产业", "行业", "市场化", "国际化", "数字化", "智能化",
+    "资本", "资产", "收益", "利润", "增长", "规模", "战略", "布局",
+}
+
 async def _industry_filter(industries: list[str], keywords: list[str]) -> list[dict]:
     """候选集筛选：
     优先级1 — 股票名称精确包含关键词（最相关）
     优先级2 — stock_profile 关键词/描述匹配（有 profile 时）
     兜底   — 返回随机 150 只股票供语义排序
     """
-    search_terms = list(set(industries + keywords))
+    # 过滤掉通用词，只保留有区分度的词
+    raw_terms = list(set(industries + keywords))
+    search_terms = [t for t in raw_terms if t not in _GENERIC_TERMS and len(t) >= 2]
 
     results = []
 
@@ -313,7 +338,8 @@ async def _llm_rerank(client, title: str, summary: str, candidates: list[dict], 
     "sentiment_impact": "positive 或 negative 或 neutral"
   }}
 ]
-按相关性降序排列。"""
+按相关性降序排列。
+若候选股票中没有与新闻真正相关的，请返回空数组 []，不要强行匹配。"""
 
     try:
         resp = await client.chat([

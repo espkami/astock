@@ -234,13 +234,13 @@ async def list_news(
     async with get_db() as db:
         sent_filter = "" if sentiment == "all" else f"AND sentiment = '{sentiment}'"
         async with db.execute(
-            f"SELECT COUNT(*) as cnt FROM news WHERE 1=1 {sent_filter}"
+            f"SELECT COUNT(*) as cnt FROM news WHERE raw_source != 'trending' {sent_filter}"
         ) as cur:
             total = (await cur.fetchone())["cnt"]
         async with db.execute(
             f"""SELECT id, url, title, source, published_at, summary,
                        sentiment, industries, keywords, raw_source, created_at
-                FROM news WHERE 1=1 {sent_filter}
+                FROM news WHERE raw_source != 'trending' {sent_filter}
                 ORDER BY created_at DESC LIMIT ? OFFSET ?""",
             (limit, offset),
         ) as cur:
@@ -428,16 +428,92 @@ async def trigger_classify():
     return APIResponse(message=f"分类任务已触发，待处理 {pending} 条未分类新闻")
 
 
+@app.post("/api/embed/test")
+async def test_embed_connection(req: dict):
+    """测试 Embedding 模型连接（调 /embeddings 接口，不是 chat）"""
+    import httpx as _httpx
+    provider  = req.get("provider", "")
+    api_key   = req.get("api_key", "")
+    model     = req.get("model", "")
+    base_url  = req.get("base_url", "").rstrip("/")
+
+    # 确定实际 base_url
+    PROVIDER_URLS = {
+        "openai": "https://api.openai.com/v1",
+        "qwen":   "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    }
+    if not base_url:
+        base_url = PROVIDER_URLS.get(provider, "")
+    if not base_url:
+        return {"success": False, "error": "请填写 Base URL"}
+
+    try:
+        async with _httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"{base_url}/embeddings",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "X-Failover-Enabled": "true",  # Gitee AI 等平台需要
+                },
+                json={"model": model, "input": ["测试连接"]},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                dim = len(data["data"][0]["embedding"]) if data.get("data") else "?"
+                return {"success": True, "response": f"✅ 向量维度: {dim}"}
+            else:
+                return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @app.post("/api/llm/test")
 async def test_llm_connection_api(req: dict):
-    """测试大模型连接（多模型卡片里的「测试」按钮）"""
-    from backend.services.llm_client import test_llm_connection
+    """测试大模型连接 / Embedding 连接（embed_mode=true 时走 /embeddings 接口）"""
+    import httpx as _httpx
     provider = req.get("provider", "")
     api_key  = req.get("api_key", "")
     model    = req.get("model", "")
-    base_url = req.get("base_url", "")
+    base_url = (req.get("base_url") or "").rstrip("/")
+    embed_mode = req.get("embed_mode", False)
+
     if not provider or not api_key or not model:
         return {"success": False, "error": "请填写提供商、模型和 API Key"}
+
+    # Embedding 测试：调 /embeddings 端点
+    if embed_mode:
+        PROVIDER_URLS = {
+            "openai": "https://api.openai.com/v1",
+            "qwen":   "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "gitee":  "https://ai.gitee.com/v1",
+        }
+        if not base_url:
+            base_url = PROVIDER_URLS.get(provider, "")
+        if not base_url:
+            return {"success": False, "error": "请填写 Base URL"}
+        try:
+            async with _httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(
+                    f"{base_url}/embeddings",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                        "X-Failover-Enabled": "true",
+                    },
+                    json={"model": model, "input": ["测试连接"]},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    dim = len(data["data"][0]["embedding"]) if data.get("data") else "?"
+                    return {"success": True, "response": f"✅ 向量维度: {dim}"}
+                else:
+                    return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    # 普通 LLM 测试
+    from backend.services.llm_client import test_llm_connection
     result = await test_llm_connection(provider, api_key, model, base_url or None)
     return result
 
@@ -522,17 +598,19 @@ async def news_window(
     sent_filter = "" if sentiment == "all" else f"AND sentiment = '{sentiment}'"
 
     async with get_db() as db:
-        # 总数
+        # 总数（排除热搜，热搜已在仪表盘单独展示）
         async with db.execute(
             f"""SELECT COUNT(*) as cnt FROM news
-                WHERE datetime(created_at, '+8 hours') >= {since_expr}
+                WHERE raw_source != 'trending'
+                AND datetime(created_at, '+8 hours') >= {since_expr}
                 {sent_filter}""",
         ) as cur:
             total = (await cur.fetchone())["cnt"]
         # 分页数据
         async with db.execute(
             f"""SELECT * FROM news
-                WHERE datetime(created_at, '+8 hours') >= {since_expr}
+                WHERE raw_source != 'trending'
+                AND datetime(created_at, '+8 hours') >= {since_expr}
                 {sent_filter}
                 ORDER BY created_at DESC
                 LIMIT ? OFFSET ?""",
@@ -542,7 +620,8 @@ async def news_window(
         # 历史条数
         async with db.execute(
             f"""SELECT COUNT(*) as cnt FROM news
-                WHERE datetime(created_at, '+8 hours') < {since_expr}""",
+                WHERE raw_source != 'trending'
+                AND datetime(created_at, '+8 hours') < {since_expr}""",
         ) as cur:
             history_count = (await cur.fetchone())["cnt"]
 
