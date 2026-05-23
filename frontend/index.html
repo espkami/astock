@@ -1157,7 +1157,27 @@
     </div>
     <div class="config-section">
       <div class="config-section-title">💾 数据导出</div>
-      <button class="btn btn-primary" onclick="exportData()">导出全量数据 JSON</button>
+      <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+        <!-- 股票数据导出/导入 -->
+        <div style="padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md);border:1px solid var(--border-subtle)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:var(--space-1)">📊 股票数据</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">包含股票列表、公司简介、主营业务项目标签、概念/行业板块标签</div>
+          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center">
+            <button class="btn btn-primary btn-sm" onclick="exportStockData()">⬇️ 导出股票数据</button>
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+              ⬆️ 导入股票数据
+              <input type="file" accept=".json" style="display:none" onchange="importStockData(this)">
+            </label>
+            <span id="stockImportStatus" style="font-size:11px;color:var(--text-muted)"></span>
+          </div>
+        </div>
+        <!-- 全量数据导出 -->
+        <div style="padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md);border:1px solid var(--border-subtle)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:var(--space-1)">🗄️ 全量数据</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">包含新闻、匹配结果、股票数据</div>
+          <button class="btn btn-secondary btn-sm" onclick="exportData()">⬇️ 导出全量数据 JSON</button>
+        </div>
+      </div>
     </div>
 
     <!-- 📂 历史数据 -->
@@ -3246,6 +3266,38 @@ function confirmCleanStocks(){document.getElementById('confirmTitle').textConten
 async function doClean(targets,days){try{await api('/api/data/clean',{method:'POST',body:JSON.stringify({days,targets})});toast('清除完成','success');loadStats();}catch(e){toast('清除失败: '+e.message,'error');}}
 function closeModal(){document.getElementById('confirmModal').classList.remove('open');}
 function exportData(){window.open(API+'/api/data/export','_blank');}
+
+function exportStockData(){window.open(API+'/api/data/export/stocks','_blank');}
+
+async function importStockData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('stockImportStatus');
+  status.textContent = '读取文件...';
+  input.value = '';  // 允许重复选同一文件
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    // 校验格式
+    if (!data.stocks || !Array.isArray(data.stocks)) {
+      status.textContent = '❌ 文件格式错误，缺少 stocks 字段';
+      return;
+    }
+    status.textContent = `导入中... (${data.stocks.length}只股票)`;
+    const r = await api('/api/data/import/stocks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    const c = r.data || {};
+    status.textContent = `✅ 导入完成：股票${c.stocks||0} 简介${c.profiles||0} 标签${c.tags||0} 板块标签${c.board_tags||0}`;
+    // 刷新股票列表
+    if (currentPage === 'stocks') { loadStockStats(); loadStocks(); }
+    toast('股票数据导入完成', 'success');
+  } catch(e) {
+    status.textContent = '❌ 导入失败: ' + e.message;
+    toast('导入失败: ' + e.message, 'error');
+  }
+}
 
 function onMatchTypeChange(value) {
   saveCfg('match_company_type', value);
