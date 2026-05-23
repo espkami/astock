@@ -2207,6 +2207,32 @@ const EMBED_MODELS = {
   custom:  { model: '',                        hint: '请填入模型名称（如 embedding-3 / bge-m3 等），并填写 Base URL' },
 };
 
+function _loadEmbedConfig(cfg) {
+  // 1. 先设置 provider（不触发 onEmbedProviderChange）
+  const pEl = document.getElementById('embed_provider');
+  if (pEl && cfg.embed_provider) pEl.value = cfg.embed_provider;
+
+  // 2. 直接回填所有字段（不走 onEmbedProviderChange，避免被覆盖）
+  const kEl = document.getElementById('embed_api_key');
+  const mEl = document.getElementById('embed_model');
+  const bEl = document.getElementById('embed_base_url');
+  const hEl = document.getElementById('embed_model_hint');
+  if (kEl && cfg.embed_api_key)  kEl.value = cfg.embed_api_key;
+  if (mEl && cfg.embed_model)    mEl.value = cfg.embed_model;
+  if (bEl && cfg.embed_base_url) bEl.value = cfg.embed_base_url;
+  if (hEl && cfg.embed_provider && EMBED_MODELS[cfg.embed_provider])
+    hEl.textContent = EMBED_MODELS[cfg.embed_provider].hint;
+
+  // 3. 仅更新 UI 样式（label/hint显示），不触发保存逻辑
+  const isCustom = cfg.embed_provider === 'custom' || cfg.embed_provider === 'ollama';
+  const urlHint  = document.getElementById('embed_base_url_hint');
+  const urlLabel = document.getElementById('embed_base_url_label');
+  if (urlHint)  urlHint.style.display = isCustom ? '' : 'none';
+  if (urlLabel) urlLabel.innerHTML = isCustom
+    ? 'Base URL <span style="color:var(--red-600)">*</span>'
+    : 'Base URL <span style="font-weight:400;color:var(--text-muted)">（可选，中转用）</span>';
+}
+
 function onEmbedProviderChange(provider) {
   saveCfg('embed_provider', provider);
   const info    = EMBED_MODELS[provider];
@@ -2308,24 +2334,8 @@ async function loadLLMConfig() {
   renderSearchLlmModelList(searchModels);
 
   // 加载 Embedding 专用模型配置
-  const embedProvider = cfg.embed_provider || '';
-  const embedProviderEl = document.getElementById('embed_provider');
-  if (embedProviderEl) {
-    embedProviderEl.value = embedProvider;
-    if (embedProvider) onEmbedProviderChange(embedProvider);  // 触发 UI 联动
-  }
-  const embedApiKeyEl = document.getElementById('embed_api_key');
-  if (embedApiKeyEl && cfg.embed_api_key) embedApiKeyEl.value = cfg.embed_api_key;
-  const embedModelEl = document.getElementById('embed_model');
-  if (embedModelEl && cfg.embed_model) embedModelEl.value = cfg.embed_model;
-  const embedBaseUrlEl = document.getElementById('embed_base_url');
-  if (embedBaseUrlEl && cfg.embed_base_url) embedBaseUrlEl.value = cfg.embed_base_url;
-  // 回填后立即持久化（防止 onchange 未触发导致配置丢失）
-  if (cfg.embed_api_key)  saveCfg('embed_api_key',  cfg.embed_api_key);
-  if (cfg.embed_model)    saveCfg('embed_model',    cfg.embed_model);
-  if (cfg.embed_base_url) saveCfg('embed_base_url', cfg.embed_base_url);
-  const embedHintEl = document.getElementById('embed_model_hint');
-  if (embedHintEl && EMBED_MODELS[embedProvider]) embedHintEl.textContent = EMBED_MODELS[embedProvider].hint;
+  // ── Embedding 专用模型回填 ──────────────────────────────────────────────
+  _loadEmbedConfig(cfg);
 
   const r=await api('/api/config/match-schedule').catch(()=>({data:{times:[]}}));
   renderMatchTimes(r.data?.times||[]);
