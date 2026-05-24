@@ -364,7 +364,7 @@ async def match_news_now(news_id: int):
         from backend.services.news_processor import DEFAULT_CLASSIFY_PROMPT
         prompt_tpl = await _gc("classify_prompt", DEFAULT_CLASSIFY_PROMPT)
         try:
-            await _classify_one(client, prompt_tpl, news_id, row["title"], row["content"] or "")
+            await _classify_one(client, prompt_tpl, "", news_id, row["title"], row["content"] or "")
         except Exception as e:
             logger.error(f"即时分类失败: {e}")
             return {"success": False, "message": f"分类失败: {e}"}

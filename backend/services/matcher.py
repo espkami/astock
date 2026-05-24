@@ -185,12 +185,16 @@ async def _match_one_news(
         if llm_results:
             return llm_results
 
-    # fallback: 语义分数低于阈值时不强行匹配（宁可无结果也不要乱匹配）
-    MIN_SEMANTIC_SCORE = 0.15
-    qualified = [c for c in top_candidates if c.get("semantic_score", 0) >= MIN_SEMANTIC_SCORE]
+    # fallback: 优先保留标签强命中(tag_score>=2.0)，其次看语义分
+    # TF-IDF fallback时阈值更低（embedding缺失时分数天然偏低）
+    MIN_SEMANTIC_SCORE = 0.05
+    qualified = [c for c in top_candidates if c.get("tag_score", 0) >= 2.0
+                 or c.get("semantic_score", 0) >= MIN_SEMANTIC_SCORE]
     if not qualified:
         logger.debug(f"新闻 {news_id}: 候选语义分均低于 {MIN_SEMANTIC_SCORE}，跳过匹配")
         return []
+    # tag_score优先重排，兜底时标签命中的股票排在前面
+    qualified.sort(key=lambda x: (x.get("tag_score", 0), x.get("semantic_score", 0)), reverse=True)
 
     results = []
     for c in qualified[:top_k]:
@@ -226,6 +230,10 @@ _GENERIC_TERMS = {
     "服务", "业务", "企业", "公司", "经营", "运营", "投资", "金融",
     "经济", "产业", "行业", "市场化", "国际化", "数字化", "智能化",
     "资本", "资产", "收益", "利润", "增长", "规模", "战略", "布局",
+    # 行业大类泛词（industries字段常见，粒度太粗不宜直接匹配）
+    "农业", "食品", "食品行业", "工业", "制造业", "消费", "零售",
+    "医疗", "医药", "教育", "地产", "房地产", "能源", "交通", "物流",
+    "科技", "互联网", "电商", "传媒", "文化", "旅游", "餐饮",
 }
 
 async def _industry_filter(industries: list[str], keywords: list[str]) -> list[dict]:
@@ -246,7 +254,8 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
     if search_terms:
         tag_conds = " OR ".join(["st.all_tags LIKE ?" for _ in search_terms])
         board_conds = " OR ".join(["sbt.all_board_tags LIKE ?" for _ in search_terms])
-        tag_params = [f'%"{t}"%' for t in search_terms]
+        # 子串匹配：允许 "水稻" 命中 "水稻种子"，"大米" 命中 "稻谷、大米及米糠"
+        tag_params = [f'%{t}%' for t in search_terms]
 
         # 0a. 主营标签匹配（products/sectors）
         async with get_db() as db:
