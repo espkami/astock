@@ -66,8 +66,13 @@ async def trigger_refill_profiles():
             "DELETE FROM stock_profile WHERE llm_filled=0 AND length(business_desc) < 30"
         )
         await db.commit()
-    asyncio.create_task(stock_service.update_stock_profiles(limit=9999))
-    return APIResponse(message="主营业务重新补全任务已触发")
+    # 补全完成后自动补全缺失的标签（不强制重建）
+    async def _refill_then_tags():
+        await stock_service.update_stock_profiles(limit=9999)
+        from backend.services.tag_service import generate_all_tags
+        await generate_all_tags(force=False)
+    asyncio.create_task(_refill_then_tags())
+    return APIResponse(message="主营业务重新补全任务已触发，完成后自动补全缺失标签")
 
 
 async def _run_full_update():
