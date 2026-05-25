@@ -280,7 +280,7 @@ async def list_results(limit: int = 50, offset: int = 0, sentiment: str = "all",
             FROM match_results mr
             JOIN news n ON mr.news_id = n.id
             WHERE 1=1 {where} {news_filter}
-            ORDER BY mr.id DESC
+            ORDER BY COALESCE(n.published_at, n.created_at) DESC
             LIMIT ? OFFSET ?
         """, (limit, offset)) as cur:
             rows = await cur.fetchall()
@@ -876,7 +876,7 @@ async def history_results(
                        n.title, n.summary, n.sentiment
                 FROM match_results mr JOIN news n ON mr.news_id=n.id
                 WHERE datetime(n.created_at, '+8 hours') < {since_expr}
-                ORDER BY mr.id DESC LIMIT ? OFFSET ?""",
+                ORDER BY COALESCE(n.published_at, n.created_at) DESC LIMIT ? OFFSET ?""",
             (limit, offset)
         ) as cur:
             rows = await cur.fetchall()
