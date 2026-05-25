@@ -135,11 +135,13 @@ def update_match_schedule(times: list[str]):
     更新定时匹配时间点，times 格式如 ["08:00","12:00","20:00"]
     空列表则移除定时匹配任务
     """
-    # 先移除旧的
-    try:
-        _scheduler.remove_job(_match_job_id)
-    except Exception:
-        pass
+    # 先移除旧的（job id 是 scheduled_match_0, _1 ... 需逐一移除）
+    for job in _scheduler.get_jobs():
+        if job.id.startswith(_match_job_id + "_") or job.id == _match_job_id:
+            try:
+                _scheduler.remove_job(job.id)
+            except Exception:
+                pass
 
     if not times or not _scheduler.running:
         return

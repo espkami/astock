@@ -43,10 +43,14 @@ async def _write_match_progress(done: int, total: int, current_title: str = "", 
     import json as _json
     try:
         from backend.services.config_service import set_config
+        msg = ""
+        if finished:
+            msg = f"✅ 匹配完成，共处理 {done} 条" if done > 0 else "✅ 最新新闻均已匹配完毕"
         await set_config("match_progress", _json.dumps({
             "done": done, "total": total,
             "current": current_title[:40] if current_title else "",
             "finished": finished,
+            "message": msg,
         }))
     except Exception:
         pass

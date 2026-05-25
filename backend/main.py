@@ -414,6 +414,12 @@ async def trigger_classify():
     """手动触发：对未分类新闻执行大模型分类（提取摘要/情感/行业/关键词）"""
     import asyncio as _asyncio
     from backend.database import get_db as _get_db
+    from backend.services.news_processor import get_classify_progress
+
+    # 如果已在运行，直接返回当前进度
+    prog = get_classify_progress()
+    if prog.get("running"):
+        return APIResponse(message=f"分类任务正在运行中... {prog.get('message','')}")
 
     async with _get_db() as db:
         async with db.execute(
@@ -425,14 +431,79 @@ async def trigger_classify():
         return APIResponse(message="所有新闻均已完成分类 ✅")
 
     async def _run():
-        from backend.services.news_processor import process_pending_news
+        from backend.services.news_processor import process_pending_news, _set_classify_progress
+        from backend.database import get_db as _gdb
+        import asyncio as _aio
+        total_done = 0
+        _set_classify_progress(0, pending, f"开始分类 {pending} 条新闻...", running=True, done=False)
+        consecutive_empty = 0  # 连续无新数据次数
         try:
-            n = await process_pending_news(batch_size=200)
-            logger.info(f"手动分类完成: {n} 条")
+            while True:
+                # 查当前剩余量
+                async with _gdb() as _db:
+                    async with _db.execute("SELECT COUNT(*) as cnt FROM news WHERE summary IS NULL") as _cur:
+                        remaining = (await _cur.fetchone())["cnt"]
+
+                if remaining == 0:
+                    break  # 全部分类完成
+
+                done_count = pending - remaining
+                _set_classify_progress(done_count, pending,
+                    f"分类中 {done_count}/{pending}（剩余 {remaining} 条）", running=True, done=False)
+
+                prev_remaining = remaining
+                n = await process_pending_news(batch_size=50, _skip_reset=True)
+                # 重新查剩余量，判断是否有实际进展
+                async with _gdb() as _db2:
+                    async with _db2.execute("SELECT COUNT(*) as cnt FROM news WHERE summary IS NULL") as _cur2:
+                        remaining = (await _cur2.fetchone())["cnt"]
+                total_done += max(0, prev_remaining - remaining)
+
+                if remaining < prev_remaining:
+                    # 有实际进展
+                    consecutive_empty = 0
+                else:
+                    # 本批全部失败（429/超时），等待后重试
+                    consecutive_empty += 1
+                    wait = min(10 * consecutive_empty, 60)
+                    _set_classify_progress(done_count, pending,
+                        f"⏳ 限速等待 {wait}s，剩余 {remaining} 条...", running=True, done=False)
+                    await _aio.sleep(wait)
+
         except Exception as e:
             logger.error(f"手动分类异常: {e}")
-    _asyncio.ensure_future(_run())
+            _set_classify_progress(total_done, pending,
+                f"分类异常: {e}", running=False, done=True, error=str(e))
+            return
+        done_msg = f"✅ 分类完成，共处理 {total_done} 条" if total_done > 0 else "✅ 最新新闻均已分类完毕"
+        _set_classify_progress(pending, pending, done_msg, running=False, done=True)
+        logger.info(f"手动分类全部完成: {total_done} 条")
+    _asyncio.create_task(_run())
     return APIResponse(message=f"分类任务已触发，待处理 {pending} 条未分类新闻")
+
+
+@app.get("/api/classify/progress")
+async def classify_progress_snapshot():
+    """分类进度快照（轮询用）"""
+    from backend.services.news_processor import get_classify_progress
+    return APIResponse(data=get_classify_progress())
+
+
+@app.get("/api/classify/progress-sse")
+async def classify_progress_sse():
+    """分类进度 SSE 流"""
+    from backend.services.news_processor import get_classify_progress
+    from fastapi.responses import StreamingResponse
+    import json as _json
+    async def event_stream():
+        while True:
+            progress = get_classify_progress()
+            yield f"data: {_json.dumps(progress, ensure_ascii=False)}\n\n"
+            if progress.get("done"):
+                break
+            await asyncio.sleep(1)
+    return StreamingResponse(event_stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.post("/api/embed/test")
@@ -570,12 +641,18 @@ async def trigger_match():
 
     async def _run():
         from backend.services.matcher import match_pending_news
+        total_matched = 0
         try:
-            m = await match_pending_news(batch_size=200)
-            logger.info(f"手动匹配完成: {m} 条")
+            # 循环处理，每批20条，直到全部完成
+            while True:
+                m = await match_pending_news(batch_size=20)
+                if m == 0:
+                    break
+                total_matched += m
+            logger.info(f"手动匹配全部完成: {total_matched} 条")
         except Exception as e:
             logger.error(f"手动匹配异常: {e}")
-    _asyncio.ensure_future(_run())
+    _asyncio.create_task(_run())
     return APIResponse(message=f"匹配任务已触发，待处理 {pending} 条（已匹配的自动跳过）")
 
 
@@ -619,7 +696,7 @@ async def news_window(
                 WHERE raw_source != 'trending'
                 AND datetime(created_at, '+8 hours') >= {since_expr}
                 {sent_filter}
-                ORDER BY created_at DESC
+                ORDER BY COALESCE(published_at, created_at) DESC
                 LIMIT ? OFFSET ?""",
             (limit, offset),
         ) as cur:
@@ -742,19 +819,30 @@ async def history_results(
 @app.post("/api/collect", response_model=APIResponse)
 async def trigger_collect():
     import asyncio
+    from backend.services.news_collector import get_collect_progress
+    prog = get_collect_progress()
+    if prog.get("running"):
+        return APIResponse(message=f"采集任务正在运行中... {prog.get('message','')}")
+
     async def _full_pipeline():
         from backend.services.news_collector import run_collection
-        from backend.services.news_processor import process_pending_news
+        from backend.services.news_processor import process_pending_news, _set_classify_progress
         try:
             result = await run_collection()
-            if result.get("saved", 0) > 0:
-                await process_pending_news(batch_size=50)
-                # 匹配不在采集流程中触发，由「立即匹配」或「定时匹配」触发
+            # 采集完成后自动分类（如果有新内容且自动分类开启，collector内部已处理）
+            # 此处不再重复分类
         except Exception as e:
             from loguru import logger
             logger.error(f"流水线异常: {e}")
-    asyncio.ensure_future(_full_pipeline())
-    return APIResponse(message="采集任务已触发（仅采集+分类，匹配请手动触发）")
+    asyncio.create_task(_full_pipeline())
+    return APIResponse(message="采集任务已触发")
+
+
+@app.get("/api/collect/progress")
+async def collect_progress_snapshot():
+    """采集进度快照"""
+    from backend.services.news_collector import get_collect_progress
+    return APIResponse(data=get_collect_progress())
 
 
 # 静态文件 & SPA fallback（必须放最后）

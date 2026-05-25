@@ -267,7 +267,7 @@ async def collect_llm_search() -> list[dict]:
             resp_text = await client.chat([
                 {"role": "system", "content": "你是新闻搜索助手，只返回 JSON 数组，不加任何说明。"},
                 {"role": "user", "content": prompt},
-            ], json_mode=False)
+            ], json_mode=False, timeout=20)
             text = resp_text.strip()
             if text.startswith("```"):
                 text = text.split("```")[1]
@@ -402,9 +402,28 @@ async def collect_trending() -> list[dict]:
 
 # ─── 主入口 ───────────────────────────────────────────────────────────────────
 
+# 全局采集进度
+_collect_progress = {
+    "running": False, "stage": "idle", "message": "空闲", "done": True,
+    "collected": 0, "saved": 0, "error": None
+}
+
+def get_collect_progress() -> dict:
+    return dict(_collect_progress)
+
+def _set_collect_progress(stage: str, message: str, running: bool = True,
+                           done: bool = False, collected: int = 0, saved: int = 0, error=None):
+    _collect_progress.update({
+        "running": running, "stage": stage, "message": message,
+        "done": done, "collected": collected, "saved": saved, "error": error,
+    })
+
+
 async def run_collection(sources: Optional[list[str]] = None) -> dict:
     """执行采集，返回统计"""
     sources = sources or ["newsapi", "rss", "llm", "trending"]
+    _set_collect_progress("collecting", "正在采集新闻...", running=True, done=False)
+
     tasks = []
     if "newsapi" in sources:
         tasks.append(collect_newsapi())
@@ -415,7 +434,15 @@ async def run_collection(sources: Optional[list[str]] = None) -> dict:
     if "trending" in sources:
         tasks.append(collect_trending())
 
-    all_results = await asyncio.gather(*tasks, return_exceptions=True)
+    # 总超时60秒，防止某个源（尤其是LLM搜索）永久挂起
+    try:
+        all_results = await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=True),
+            timeout=60
+        )
+    except asyncio.TimeoutError:
+        logger.warning("采集总超时(60s)，已获取部分结果")
+        all_results = []
     combined = []
     for r in all_results:
         if isinstance(r, list):
@@ -423,14 +450,19 @@ async def run_collection(sources: Optional[list[str]] = None) -> dict:
         elif isinstance(r, Exception):
             logger.error(f"采集任务异常: {r}")
 
+    _set_collect_progress("saving", f"采集到 {len(combined)} 条，正在入库...",
+                           running=True, done=False, collected=len(combined))
     saved = await _save_raw_news(combined)
     logger.info(f"本次采集: 原始 {len(combined)} 条，新增 {saved} 条")
+    done_msg = f"✅ 采集完成，新增 {saved} 条" if saved > 0 else "✅ 最新新闻已采集完毕"
+    _set_collect_progress("done", done_msg,
+                           running=False, done=True, collected=len(combined), saved=saved)
 
     # 采集完成后是否自动分类，由「新闻采集」页「采集后自动分类」开关控制
     if saved > 0:
         auto_classify = await get_config("auto_classify_enabled", True)
         if auto_classify is not False:
-            asyncio.ensure_future(_trigger_classify())
+            asyncio.create_task(_trigger_classify())
         else:
             logger.info("自动分类已关闭，跳过分类（可手动点击「立即分类」）")
 

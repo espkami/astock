@@ -485,6 +485,7 @@
       <button class="btn btn-secondary btn-sm" onclick="triggerCollect()" id="collectBtn">立即采集</button>
       <button class="btn btn-secondary btn-sm" onclick="triggerClassify()" id="classifyBtn">立即分类</button>
       <button class="btn btn-primary btn-sm" onclick="triggerMatch()" id="matchBtn">立即匹配</button>
+
       <span id="navUsername" style="font-size:12px;color:var(--text-muted)"></span>
       <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="退出登录">退出</button>
       <button class="theme-toggle btn btn-ghost btn-sm" style="font-size:16px">🌙</button>
@@ -1328,19 +1329,50 @@
   </div>
 </div>
 <!-- 匹配进度浮层 -->
-<div id="matchProgressOverlay" style="display:none;position:fixed;bottom:24px;right:24px;z-index:500;
+<!-- 右下角统一进度浮窗 -->
+<div id="taskProgressOverlay" style="display:none;position:fixed;bottom:24px;right:24px;z-index:500;
   background:var(--surface-primary);border:1px solid var(--border-default);border-radius:var(--radius-lg);
-  box-shadow:var(--shadow-modal);padding:16px 20px;min-width:280px;max-width:340px">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <span style="font-size:13px;font-weight:600">🎯 匹配进行中</span>
-    <span id="matchProgressCount" style="font-size:12px;color:var(--text-muted)">0 / 0</span>
+  box-shadow:var(--shadow-modal);padding:14px 18px;min-width:300px;max-width:360px">
+  <div style="font-size:12px;font-weight:600;margin-bottom:10px;color:var(--text-primary)">
+    📊 任务进度
   </div>
-  <div style="background:var(--surface-secondary);border-radius:4px;height:6px;overflow:hidden;margin-bottom:8px">
-    <div id="matchProgressBar" style="height:100%;background:var(--blue-800);border-radius:4px;
-      transition:width .4s ease;width:0%"></div>
+  <!-- 采集进度行 -->
+  <div id="collectProgressRow" style="display:none;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:12px">📡 采集</span>
+      <span id="collectProgressTxt" style="font-size:11px;color:var(--text-muted)">准备中...</span>
+    </div>
+    <div style="background:var(--surface-secondary);border-radius:3px;height:4px;overflow:hidden">
+      <div id="collectProgressBar" style="height:100%;background:#3b82f6;border-radius:3px;transition:width .4s;width:0%"></div>
+    </div>
   </div>
-  <div id="matchProgressCurrent" style="font-size:11px;color:var(--text-muted);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis">准备中...</div>
+  <!-- 分类进度行 -->
+  <div id="classifyProgressRow" style="display:none;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:12px">🧠 分类</span>
+      <span id="classifyProgressTxt2" style="font-size:11px;color:var(--text-muted)">准备中...</span>
+    </div>
+    <div style="background:var(--surface-secondary);border-radius:3px;height:4px;overflow:hidden">
+      <div id="classifyProgressBar2" style="height:100%;background:#8b5cf6;border-radius:3px;transition:width .4s;width:0%"></div>
+    </div>
+  </div>
+  <!-- 匹配进度行 -->
+  <div id="matchProgressRow" style="display:none;margin-bottom:4px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:12px">🎯 匹配</span>
+      <span id="matchProgressTxt2" style="font-size:11px;color:var(--text-muted)">准备中...</span>
+    </div>
+    <div style="background:var(--surface-secondary);border-radius:3px;height:4px;overflow:hidden">
+      <div id="matchProgressBar2" style="height:100%;background:#10b981;border-radius:3px;transition:width .4s;width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 兼容旧代码的隐藏元素 -->
+<div id="matchProgressOverlay" style="display:none">
+  <div id="matchProgressCount"></div>
+  <div id="matchProgressBar" style="width:0%"></div>
+  <div id="matchProgressCurrent"></div>
 </div>
 
 <div id="toast"></div>
@@ -2090,11 +2122,13 @@ async function triggerCollect() {
   btns.forEach(b=>{ b.disabled=true; b.textContent='采集中...'; });
   try {
     await api('/api/collect',{method:'POST'});
-    toast('采集任务已触发，新闻将持续入库','success');
-    setTimeout(()=>{ loadStats(); loadNews(); }, 5000);
+    toast('采集任务已触发','success');
+    startCollectPolling();
   } catch(e) { toast('触发失败: '+e.message,'error'); }
-  finally { btns.forEach(b=>{ b.disabled=false; b.textContent='立即采集'; }); }
+  finally { setTimeout(()=>{ btns.forEach(b=>{ b.disabled=false; b.textContent='立即采集'; }); }, 3000); }
 }
+
+let _classifyPollTimer = null;
 
 async function triggerClassify() {
   const btns = [document.getElementById('classifyBtn'), document.getElementById('classifyBtnM')].filter(Boolean);
@@ -2102,9 +2136,11 @@ async function triggerClassify() {
   try {
     const r = await api('/api/classify',{method:'POST'});
     toast((r.message||'分类任务已触发'), 'success');
-    setTimeout(()=>{ loadStats(); loadNews(); }, 8000);
-  } catch(e) { toast('触发失败: '+e.message,'error'); }
-  finally { setTimeout(()=>{ btns.forEach(b=>{ b.disabled=false; b.textContent='立即分类'; }); }, 3000); }
+    startClassifyPolling(btns);
+  } catch(e) {
+    toast('触发失败: '+e.message,'error');
+    btns.forEach(b=>{ b.disabled=false; b.textContent='立即分类'; });
+  }
 }
 
 let _matchPollTimer = null;
@@ -2125,44 +2161,132 @@ async function triggerMatch() {
   }
 }
 
+// ══════════════════════════════════════════════════════
+//  统一右下角进度管理器
+// ══════════════════════════════════════════════════════
+const _taskPollers = {};  // { collect, classify, match }
+
+function _showTaskOverlay() {
+  const el = document.getElementById('taskProgressOverlay');
+  if (el) el.style.display = 'block';
+}
+function _hideTaskOverlayIfDone() {
+  const allDone = !Object.values(_taskPollers).some(Boolean);
+  if (allDone) {
+    const el = document.getElementById('taskProgressOverlay');
+    if (el) setTimeout(() => { el.style.display = 'none'; }, 2000);
+  }
+}
+
+// ── 采集进度 ──
+function startCollectPolling() {
+  if (_taskPollers.collect) return;
+  document.getElementById('collectProgressRow').style.display = 'block';
+  _showTaskOverlay();
+  let collectTick = 0;
+  const COLLECT_TIMEOUT = 60;  // 最多等60次(120秒)
+  _taskPollers.collect = setInterval(async () => {
+    collectTick++;
+    try {
+      const r = await api('/api/collect/progress');
+      const p = r.data || {};
+      const txt = document.getElementById('collectProgressTxt');
+      const bar = document.getElementById('collectProgressBar');
+      if (txt) txt.textContent = p.message || '运行中...';
+      // 真实阶段进度
+      const pct = p.stage === 'collecting' ? 40 : p.stage === 'saving' ? 80 : p.done ? 100 : 20;
+      if (bar) bar.style.width = pct + '%';
+      if (p.done || collectTick >= COLLECT_TIMEOUT) {
+        clearInterval(_taskPollers.collect); _taskPollers.collect = null;
+        if (bar) bar.style.width = '100%';
+        if (txt && collectTick >= COLLECT_TIMEOUT && !p.done) txt.textContent = '采集超时，请检查网络';
+        setTimeout(() => { document.getElementById('collectProgressRow').style.display = 'none'; _hideTaskOverlayIfDone(); }, 3000);
+        if (p.done) { loadStats(); loadNews(); }
+      }
+    } catch(e) {
+      if (collectTick >= COLLECT_TIMEOUT) {
+        clearInterval(_taskPollers.collect); _taskPollers.collect = null;
+        document.getElementById('collectProgressRow').style.display = 'none';
+        _hideTaskOverlayIfDone();
+      }
+    }
+  }, 2000);
+}
+
+// ── 分类进度 ──
+function startClassifyPolling(btns) {
+  if (_taskPollers.classify) return;
+  document.getElementById('classifyProgressRow').style.display = 'block';
+  _showTaskOverlay();
+  _taskPollers.classify = setInterval(async () => {
+    try {
+      const r = await api('/api/classify/progress');
+      const p = r.data || {};
+      const pct = p.percent || 0;
+      const txt = document.getElementById('classifyProgressTxt2');
+      const bar = document.getElementById('classifyProgressBar2');
+      if (txt) txt.textContent = `${pct.toFixed(0)}% · ${(p.message||'').slice(0,35)}`;
+      if (bar) bar.style.width = pct + '%';
+      if (btns) btns.forEach(b => { b.textContent = `分类 ${pct.toFixed(0)}%`; });
+      if (p.done && !p.running) {
+        clearInterval(_taskPollers.classify); _taskPollers.classify = null;
+        if (bar) bar.style.width = '100%';
+        if (btns) btns.forEach(b => { b.disabled = false; b.textContent = '立即分类'; });
+        setTimeout(() => { document.getElementById('classifyProgressRow').style.display = 'none'; _hideTaskOverlayIfDone(); }, 3000);
+        if (!p.error) { toast(p.message || '✅ 分类完成', 'success'); loadStats(); loadNews(); }
+        else toast('分类异常: ' + p.error, 'error');
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+// ── 匹配进度（重写，使用新浮窗）──
 function showMatchProgress() {
-  const overlay = document.getElementById('matchProgressOverlay');
-  if (overlay) overlay.style.display = 'block';
+  document.getElementById('matchProgressRow').style.display = 'block';
+  _showTaskOverlay();
 }
 
 function hideMatchProgress() {
-  const overlay = document.getElementById('matchProgressOverlay');
-  if (overlay) overlay.style.display = 'none';
+  if (_taskPollers.match) { clearInterval(_taskPollers.match); _taskPollers.match = null; }
+  document.getElementById('matchProgressRow').style.display = 'none';
+  _hideTaskOverlayIfDone();
 }
 
 function startMatchPolling(btns) {
-  if (_matchPollTimer) clearInterval(_matchPollTimer);
-  _matchPollTimer = setInterval(async () => {
+  if (_taskPollers.match) clearInterval(_taskPollers.match);
+  let matchTick = 0;
+  const MATCH_TIMEOUT = 200;  // 最多等200次(5分钟)
+  _taskPollers.match = setInterval(async () => {
+    matchTick++;
     try {
       const p = await api('/api/match/progress');
       const done = p.done || 0;
       const total = p.total || 0;
-      const pct = total > 0 ? Math.round(done / total * 100) : 0;
-      const current = p.current || '';
+      const pct = total > 0 ? Math.round(done / total * 100) : (p.finished ? 100 : 10);
       const finished = p.finished === true;
 
-      // 更新进度条
-      const bar = document.getElementById('matchProgressBar');
-      const count = document.getElementById('matchProgressCount');
-      const cur = document.getElementById('matchProgressCurrent');
+      const bar = document.getElementById('matchProgressBar2');
+      const txt = document.getElementById('matchProgressTxt2');
       if (bar) bar.style.width = pct + '%';
-      if (count) count.textContent = `${done} / ${total}`;
-      if (cur) cur.textContent = finished ? '✅ 匹配完成！' : (current ? `正在匹配：${current}` : '准备中...');
+      if (txt) txt.textContent = finished ? '✅ 完成' : `${done}/${total} · ${(p.current||'处理中...')}`.slice(0,30);
 
-      if (finished && total > 0) {
-        clearInterval(_matchPollTimer);
-        _matchPollTimer = null;
+      if (finished || matchTick >= MATCH_TIMEOUT) {
+        clearInterval(_taskPollers.match); _taskPollers.match = null;
         btns.forEach(b=>{ b.disabled=false; b.textContent='立即匹配'; });
-        toast(`匹配完成，共处理 ${total} 条`, 'success');
-        setTimeout(()=>{ hideMatchProgress(); loadStats(); loadNews(); }, 2000);
+        const finishMsg = p.message || (finished ? `匹配完成，共处理 ${total} 条` : '匹配超时，请重试');
+        toast(finishMsg, finished ? 'success' : 'warning');
+        if (txt) txt.textContent = p.message || (finished ? '✅ 完成' : '⏰ 超时');
+        setTimeout(()=>{ document.getElementById('matchProgressRow').style.display='none'; _hideTaskOverlayIfDone(); loadStats(); loadNews(); }, 2000);
       }
-    } catch(e) { /* 静默失败 */ }
-  }, 1500);  // 每1.5秒轮询一次
+    } catch(e) {
+      if (matchTick >= MATCH_TIMEOUT) {
+        clearInterval(_taskPollers.match); _taskPollers.match = null;
+        btns.forEach(b=>{ b.disabled=false; b.textContent='立即匹配'; });
+        document.getElementById('matchProgressRow').style.display='none';
+        _hideTaskOverlayIfDone();
+      }
+    }
+  }, 1500);
 }
 
 // ══════════════════════════════════════════════════════
@@ -2210,14 +2334,14 @@ function onAutoClassifyChange(enabled) {
 }
 
 function updateClassifyBtnVisibility(autoClassify) {
-  // 自动分类开启时，手动「立即分类」按钮无意义，隐藏
+  // 始终显示「立即分类」按钮，无论自动分类是否开启
   const btns = [
     document.getElementById('classifyBtn'),
     document.getElementById('classifyBtnM'),
   ];
   btns.forEach(btn => {
     if (!btn) return;
-    btn.style.display = autoClassify ? 'none' : '';
+    btn.style.display = '';  // 始终显示
   });
 }
 

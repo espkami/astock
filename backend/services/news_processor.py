@@ -5,6 +5,24 @@ from loguru import logger
 from backend.database import get_db
 from backend.services.config_service import get_config
 
+# 全局分类进度
+_classify_progress = {
+    "running": False, "current": 0, "total": 0,
+    "percent": 0.0, "message": "空闲", "done": True, "error": None
+}
+
+def get_classify_progress() -> dict:
+    return dict(_classify_progress)
+
+def _set_classify_progress(current: int, total: int, message: str,
+                           running: bool = True, done: bool = False, error=None):
+    _classify_progress.update({
+        "running": running,
+        "current": current, "total": total,
+        "percent": round(current / total * 100, 1) if total > 0 else 0,
+        "message": message, "done": done, "error": error,
+    })
+
 # 各分析偏好的 Prompt 模板
 FOCUS_PROMPTS = {
     "stock": "你是 A 股投资分析师，专注判断新闻对个股和板块的直接影响。",
@@ -39,13 +57,14 @@ keywords 规则（严格遵守）：
 示例：新闻"大米越来越难吃，水稻品种选育问题"→keywords:["大米","水稻","稻谷","粮食","种子","粮食加工"]"""
 
 
-async def process_pending_news(batch_size: int = 20) -> int:
+async def process_pending_news(batch_size: int = 20, _skip_reset: bool = False) -> int:
     """处理未分类的新闻，批量调用大模型，返回处理条数"""
     from backend.services.llm_client import get_llm_client
 
     client = await get_llm_client()
     if not client:
         logger.warning("新闻处理：未配置大模型，跳过")
+        _set_classify_progress(0, 0, "未配置大模型", running=False, done=True, error="未配置大模型")
         return 0
 
     focus         = await get_config("analysis_focus", "balanced")
@@ -61,36 +80,61 @@ async def process_pending_news(batch_size: int = 20) -> int:
             rows = await cur.fetchall()
 
     if not rows:
+        if not _skip_reset:
+            _set_classify_progress(0, 0, "✅ 最新新闻均已分类完毕", running=False, done=True)
         return 0
 
-    # ── 批量处理：每次最多 10 条合并为一个请求 ──────────────────────────────
-    BATCH = 20  # 每批20条合并1次调用，比10条节省~3% prompt overhead
+    total = len(rows)
+    if not _skip_reset:
+        _set_classify_progress(0, total, f"准备分类 {total} 条新闻...")
+
+    # ── 批量处理：每次最多 20 条合并为一个请求 ──────────────────────────────
+    BATCH = 20
     processed = 0
-    for chunk_start in range(0, len(rows), BATCH):
+    for chunk_start in range(0, total, BATCH):
         chunk = rows[chunk_start: chunk_start + BATCH]
         try:
             n = await _classify_batch(client, role_desc, sentiment_addon, chunk)
             processed += n
         except Exception as e:
             logger.error(f"批量分类失败（条目 {chunk_start}-{chunk_start+len(chunk)}）: {e}")
-            # fallback：逐条处理
             for row in chunk:
-                try:
-                    ok = await _classify_one_fallback(client, role_desc, sentiment_addon,
-                                                       row["id"], row["title"], row["content"] or "")
-                    if ok:
-                        processed += 1
-                except Exception as e2:
-                    if "400" in str(e2):
-                        await _mark_blocked(row["id"])
-                    logger.warning(f"单条分类跳过 {row['id']}: {type(e2).__name__}")
+                retry = 0
+                while retry < 3:
+                    try:
+                        ok = await _classify_one_fallback(client, role_desc, sentiment_addon,
+                                                           row["id"], row["title"], row["content"] or "")
+                        if ok:
+                            processed += 1
+                        break
+                    except Exception as e2:
+                        err_str = str(e2)
+                        if "400" in err_str:
+                            await _mark_blocked(row["id"])
+                            break
+                        elif "429" in err_str or "rate" in err_str.lower():
+                            retry += 1
+                            wait = 10 * retry
+                            logger.warning(f"分类 429 限速，等待 {wait}s 后重试（{retry}/3）")
+                            await asyncio.sleep(wait)
+                        else:
+                            logger.warning(f"单条分类跳过 {row['id']}: {type(e2).__name__}")
+                            break
+        # 更新进度
+        done_so_far = min(chunk_start + BATCH, total)
+        _set_classify_progress(done_so_far, total,
+            f"分类中 {done_so_far}/{total}（已完成 {processed} 条）")
         # 批次间短暂等待，避免 429
-        if chunk_start + BATCH < len(rows):
+        if chunk_start + BATCH < total:
             await asyncio.sleep(2)
 
-    logger.info(f"新闻分类完成: {processed}/{len(rows)}")
-
-    return processed
+    if not _skip_reset:
+        _set_classify_progress(total, total,
+            f"✅ 分类完成，共处理 {processed} 条" if processed > 0 else "✅ 最新新闻均已分类完毕", running=False, done=True)
+    logger.info(f"新闻分类完成: {processed}/{total}")
+    # 返回尝试处理的条数（total），而非成功数（processed）
+    # 这样外层能正确判断是否还有待处理数据（返回0才表示没有更多）
+    return total
 
 
 async def _classify_batch(client, role_desc: str, sentiment_addon: str, rows: list) -> int:
