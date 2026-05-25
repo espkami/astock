@@ -38,18 +38,22 @@ def _tfidf_similarity(query: str, docs: list[str]) -> list[float]:
         return [0.0] * len(docs)
 
 
-async def _write_match_progress(done: int, total: int, current_title: str = "", finished: bool = False):
+async def _write_match_progress(done: int, total: int, current_title: str = "",
+                                finished: bool = False, error: str | None = None):
     """将匹配进度写入 config 表，供前端轮询"""
     import json as _json
     try:
         from backend.services.config_service import set_config
         msg = ""
         if finished:
-            msg = f"✅ 匹配完成，共处理 {done} 条" if done > 0 else "✅ 最新新闻均已匹配完毕"
+            msg = f"匹配异常: {error}" if error else (
+                f"✅ 匹配完成，共处理 {done} 条" if done > 0 else "✅ 最新新闻均已匹配完毕"
+            )
         await set_config("match_progress", _json.dumps({
             "done": done, "total": total,
             "current": current_title[:40] if current_title else "",
             "finished": finished,
+            "error": error,
             "message": msg,
         }))
     except Exception:
@@ -101,7 +105,7 @@ async def match_pending_news(batch_size: int = 10) -> int:
                 client=client,
                 embed_client=embed_client,
             )
-            if result:
+            if result is not None:
                 async with get_db() as db:
                     await db.execute("DELETE FROM match_results WHERE news_id=?", (row["id"],))
                     await db.execute(

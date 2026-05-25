@@ -770,9 +770,9 @@
             <span class="slider-val" id="newsapi_interval_val">30分</span>
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
-            <button class="suggest-btn" onclick="setInterval('newsapi',3600)">1小时<br><span>省配额</span></button>
-            <button class="suggest-btn suggest-btn-active" onclick="setInterval('newsapi',7200)">2小时<br><span>推荐★</span></button>
-            <button class="suggest-btn" onclick="setInterval('newsapi',14400)">4小时<br><span>免费版</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('newsapi',3600)\">1小时<br><span>省配额</span></button>
+            <button class="suggest-btn suggest-btn-active" onclick=\"setCollectInterval('newsapi',7200)\">2小时<br><span>推荐★</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('newsapi',14400)\">4小时<br><span>免费版</span></button>
           </div>
           <div id="newsapi_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:14px"></div>
         </div>
@@ -790,9 +790,9 @@
             <span class="slider-val" id="rss_interval_val">5分</span>
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
-            <button class="suggest-btn" onclick="setInterval('rss',300)">5分钟<br><span>近实时</span></button>
-            <button class="suggest-btn suggest-btn-active" onclick="setInterval('rss',1800)">30分钟<br><span>推荐★</span></button>
-            <button class="suggest-btn" onclick="setInterval('rss',3600)">1小时<br><span>低负载</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('rss',300)\">5分钟<br><span>近实时</span></button>
+            <button class="suggest-btn suggest-btn-active" onclick=\"setCollectInterval('rss',1800)\">30分钟<br><span>推荐★</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('rss',3600)\">1小时<br><span>低负载</span></button>
           </div>
           <div id="rss_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:14px"></div>
         </div>
@@ -810,9 +810,9 @@
             <span class="slider-val" id="llm_search_interval_val">1小时</span>
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
-            <button class="suggest-btn suggest-btn-active" onclick="setInterval('llm_search',3600)">1小时<br><span>推荐★</span></button>
-            <button class="suggest-btn" onclick="setInterval('llm_search',7200)">2小时<br><span>省Token</span></button>
-            <button class="suggest-btn" onclick="setInterval('llm_search',86400)">每天1次<br><span>最省</span></button>
+            <button class="suggest-btn suggest-btn-active" onclick=\"setCollectInterval('llm_search',3600)\">1小时<br><span>推荐★</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('llm_search',7200)\">2小时<br><span>省Token</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('llm_search',86400)\">每天1次<br><span>最省</span></button>
           </div>
           <div id="llm_search_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:14px"></div>
         </div>
@@ -830,11 +830,11 @@
             <span class="slider-val" id="trending_interval_val">1小时</span>
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
-            <button class="suggest-btn" onclick="setInterval('trending',1800)">30分钟<br><span>高频</span></button>
-            <button class="suggest-btn suggest-btn-active" onclick="setInterval('trending',3600)">1小时<br><span>推荐★</span></button>
-            <button class="suggest-btn" onclick="setInterval('trending',14400)">4小时<br><span>低负载</span></button>
-            <button class="suggest-btn" onclick="setInterval('trending',43200)">12小时<br><span>每天2次</span></button>
-            <button class="suggest-btn" onclick="setInterval('trending',86400)">每天1次<br><span>最省</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('trending',1800)\">30分钟<br><span>高频</span></button>
+            <button class="suggest-btn suggest-btn-active" onclick=\"setCollectInterval('trending',3600)\">1小时<br><span>推荐★</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('trending',14400)\">4小时<br><span>低负载</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('trending',43200)\">12小时<br><span>每天2次</span></button>
+            <button class="suggest-btn" onclick=\"setCollectInterval('trending',86400)\">每天1次<br><span>最省</span></button>
           </div>
           <div id="trending_interval_hint" style="font-size:11px;color:var(--text-muted);margin-top:6px;min-height:14px"></div>
         </div>
@@ -1427,6 +1427,15 @@ async function api(path, opts={}) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
+async function apiWithTimeout(path, opts={}, timeoutMs=15000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await api(path, {...opts, signal: ctrl.signal});
+  } finally {
+    clearTimeout(timer);
+  }
+}
 function toast(msg, type='info') {
   const el = document.createElement('div');
   el.className = `toast-item toast-${type}`; el.textContent = msg;
@@ -1474,7 +1483,7 @@ function onIntervalInput(src) {
   updateSuggestBtns(src, v);
 }
 
-function setInterval(src, seconds) {
+function setCollectInterval(src, seconds) {
   const cfg = INTERVAL_CFG[src];
   const elId = src + '_interval';
   const el = document.getElementById(elId);
@@ -1487,7 +1496,7 @@ function setInterval(src, seconds) {
 function updateSuggestBtns(src, val) {
   // 找该 src 对应的所有 suggest-btn，匹配 onclick 里的秒数
   document.querySelectorAll('.suggest-btn').forEach(btn => {
-    const match = btn.getAttribute('onclick')?.match(/setInterval\('([^']+)',(\d+)\)/);
+    const match = btn.getAttribute('onclick')?.match(/setCollectInterval\('([^']+)',(\d+)\)/);
     if (match && match[1] === src) {
       btn.classList.toggle('suggest-btn-active', parseInt(match[2]) === val);
     }
@@ -2122,7 +2131,6 @@ async function triggerCollect() {
   btns.forEach(b=>{ b.disabled=true; b.textContent='采集中...'; });
   try {
     await api('/api/collect',{method:'POST'});
-    toast('采集任务已触发','success');
     startCollectPolling();
   } catch(e) { toast('触发失败: '+e.message,'error'); }
   finally { setTimeout(()=>{ btns.forEach(b=>{ b.disabled=false; b.textContent='立即采集'; }); }, 3000); }
@@ -2134,8 +2142,7 @@ async function triggerClassify() {
   const btns = [document.getElementById('classifyBtn'), document.getElementById('classifyBtnM')].filter(Boolean);
   btns.forEach(b=>{ b.disabled=true; b.textContent='分类中...'; });
   try {
-    const r = await api('/api/classify',{method:'POST'});
-    toast((r.message||'分类任务已触发'), 'success');
+    await api('/api/classify',{method:'POST'});
     startClassifyPolling(btns);
   } catch(e) {
     toast('触发失败: '+e.message,'error');
@@ -2149,11 +2156,7 @@ async function triggerMatch() {
   const btns = [document.getElementById('matchBtn'), document.getElementById('matchBtnM')].filter(Boolean);
   btns.forEach(b=>{ b.disabled=true; b.textContent='匹配中...'; });
   try {
-    const r = await api('/api/match',{method:'POST'});
-    const msg = r.message || '匹配任务已触发';
-    toast(msg, 'info');
-    // 显示进度浮层并开始轮询
-    showMatchProgress();
+    await api('/api/match',{method:'POST'});
     startMatchPolling(btns);
   } catch(e) {
     toast('触发失败: '+e.message,'error');
@@ -2174,7 +2177,9 @@ function _hideTaskOverlayIfDone() {
   const allDone = !Object.values(_taskPollers).some(Boolean);
   if (allDone) {
     const el = document.getElementById('taskProgressOverlay');
-    if (el) setTimeout(() => { el.style.display = 'none'; }, 2000);
+    if (el) setTimeout(() => {
+      if (!Object.values(_taskPollers).some(Boolean)) el.style.display = 'none';
+    }, 2000);
   }
 }
 
@@ -2183,12 +2188,18 @@ function startCollectPolling() {
   if (_taskPollers.collect) return;
   document.getElementById('collectProgressRow').style.display = 'block';
   _showTaskOverlay();
-  let collectTick = 0;
-  const COLLECT_TIMEOUT = 60;  // 最多等60次(120秒)
-  _taskPollers.collect = setInterval(async () => {
-    collectTick++;
+  const poller = { cancelled: false };
+  _taskPollers.collect = poller;
+  const collectStartedAt = Date.now();
+  const COLLECT_TIMEOUT_MS = 120000;
+  const finishCollectPolling = () => {
+    poller.cancelled = true;
+    if (_taskPollers.collect === poller) _taskPollers.collect = null;
+  };
+  const pollCollectProgress = async () => {
+    if (poller.cancelled) return;
     try {
-      const r = await api('/api/collect/progress');
+      const r = await apiWithTimeout('/api/collect/progress', {}, 8000);
       const p = r.data || {};
       const txt = document.getElementById('collectProgressTxt');
       const bar = document.getElementById('collectProgressBar');
@@ -2196,21 +2207,30 @@ function startCollectPolling() {
       // 真实阶段进度
       const pct = p.stage === 'collecting' ? 40 : p.stage === 'saving' ? 80 : p.done ? 100 : 20;
       if (bar) bar.style.width = pct + '%';
-      if (p.done || collectTick >= COLLECT_TIMEOUT) {
-        clearInterval(_taskPollers.collect); _taskPollers.collect = null;
+      const timedOut = Date.now() - collectStartedAt >= COLLECT_TIMEOUT_MS;
+      if (p.done || timedOut) {
+        finishCollectPolling();
         if (bar) bar.style.width = '100%';
-        if (txt && collectTick >= COLLECT_TIMEOUT && !p.done) txt.textContent = '采集超时，请检查网络';
+        if (txt && timedOut && !p.done) txt.textContent = '采集超时，请检查网络';
         setTimeout(() => { document.getElementById('collectProgressRow').style.display = 'none'; _hideTaskOverlayIfDone(); }, 3000);
-        if (p.done) { loadStats(); loadNews(); }
+        if (p.error) toast('采集失败: ' + p.error, 'error');
+        else if (p.done) {
+          toast(p.message || '采集完成', 'success');
+          loadStats();
+          loadNews();
+        }
       }
     } catch(e) {
-      if (collectTick >= COLLECT_TIMEOUT) {
-        clearInterval(_taskPollers.collect); _taskPollers.collect = null;
+      if (Date.now() - collectStartedAt >= COLLECT_TIMEOUT_MS) {
+        finishCollectPolling();
         document.getElementById('collectProgressRow').style.display = 'none';
         _hideTaskOverlayIfDone();
       }
+    } finally {
+      if (!poller.cancelled) setTimeout(pollCollectProgress, 2000);
     }
-  }, 2000);
+  };
+  pollCollectProgress();
 }
 
 // ── 分类进度 ──
@@ -2218,9 +2238,18 @@ function startClassifyPolling(btns) {
   if (_taskPollers.classify) return;
   document.getElementById('classifyProgressRow').style.display = 'block';
   _showTaskOverlay();
-  _taskPollers.classify = setInterval(async () => {
+  const poller = { cancelled: false };
+  _taskPollers.classify = poller;
+  let progressErrorCount = 0;
+  const finishClassifyPolling = () => {
+    poller.cancelled = true;
+    if (_taskPollers.classify === poller) _taskPollers.classify = null;
+  };
+  const pollClassifyProgress = async () => {
+    if (poller.cancelled) return;
     try {
-      const r = await api('/api/classify/progress');
+      const r = await apiWithTimeout('/api/classify/progress', {}, 8000);
+      progressErrorCount = 0;
       const p = r.data || {};
       const pct = p.percent || 0;
       const txt = document.getElementById('classifyProgressTxt2');
@@ -2229,15 +2258,24 @@ function startClassifyPolling(btns) {
       if (bar) bar.style.width = pct + '%';
       if (btns) btns.forEach(b => { b.textContent = `分类 ${pct.toFixed(0)}%`; });
       if (p.done && !p.running) {
-        clearInterval(_taskPollers.classify); _taskPollers.classify = null;
+        finishClassifyPolling();
         if (bar) bar.style.width = '100%';
         if (btns) btns.forEach(b => { b.disabled = false; b.textContent = '立即分类'; });
         setTimeout(() => { document.getElementById('classifyProgressRow').style.display = 'none'; _hideTaskOverlayIfDone(); }, 3000);
         if (!p.error) { toast(p.message || '✅ 分类完成', 'success'); loadStats(); loadNews(); }
         else toast('分类异常: ' + p.error, 'error');
       }
-    } catch(e) {}
-  }, 2000);
+    } catch(e) {
+      progressErrorCount++;
+      const txt = document.getElementById('classifyProgressTxt2');
+      if (txt && progressErrorCount >= 3) {
+        txt.textContent = '进度连接异常，后台任务可能仍在继续...';
+      }
+    } finally {
+      if (!poller.cancelled) setTimeout(pollClassifyProgress, progressErrorCount ? 5000 : 2000);
+    }
+  };
+  pollClassifyProgress();
 }
 
 // ── 匹配进度（重写，使用新浮窗）──
@@ -2247,19 +2285,34 @@ function showMatchProgress() {
 }
 
 function hideMatchProgress() {
-  if (_taskPollers.match) { clearInterval(_taskPollers.match); _taskPollers.match = null; }
+  if (_taskPollers.match) {
+    if (typeof _taskPollers.match === 'object') _taskPollers.match.cancelled = true;
+    else clearInterval(_taskPollers.match);
+    _taskPollers.match = null;
+  }
   document.getElementById('matchProgressRow').style.display = 'none';
   _hideTaskOverlayIfDone();
 }
 
 function startMatchPolling(btns) {
-  if (_taskPollers.match) clearInterval(_taskPollers.match);
-  let matchTick = 0;
-  const MATCH_TIMEOUT = 200;  // 最多等200次(5分钟)
-  _taskPollers.match = setInterval(async () => {
-    matchTick++;
+  if (_taskPollers.match) {
+    if (typeof _taskPollers.match === 'object') _taskPollers.match.cancelled = true;
+    else clearInterval(_taskPollers.match);
+    _taskPollers.match = null;
+  }
+  showMatchProgress();
+  const poller = { cancelled: false };
+  _taskPollers.match = poller;
+  let progressErrorCount = 0;
+  const finishMatchPolling = () => {
+    poller.cancelled = true;
+    if (_taskPollers.match === poller) _taskPollers.match = null;
+  };
+  const pollMatchProgress = async () => {
+    if (poller.cancelled) return;
     try {
-      const p = await api('/api/match/progress');
+      const p = await apiWithTimeout('/api/match/progress', {}, 8000);
+      progressErrorCount = 0;
       const done = p.done || 0;
       const total = p.total || 0;
       const pct = total > 0 ? Math.round(done / total * 100) : (p.finished ? 100 : 10);
@@ -2270,23 +2323,48 @@ function startMatchPolling(btns) {
       if (bar) bar.style.width = pct + '%';
       if (txt) txt.textContent = finished ? '✅ 完成' : `${done}/${total} · ${(p.current||'处理中...')}`.slice(0,30);
 
-      if (finished || matchTick >= MATCH_TIMEOUT) {
-        clearInterval(_taskPollers.match); _taskPollers.match = null;
+      if (finished) {
+        finishMatchPolling();
         btns.forEach(b=>{ b.disabled=false; b.textContent='立即匹配'; });
-        const finishMsg = p.message || (finished ? `匹配完成，共处理 ${total} 条` : '匹配超时，请重试');
-        toast(finishMsg, finished ? 'success' : 'warning');
-        if (txt) txt.textContent = p.message || (finished ? '✅ 完成' : '⏰ 超时');
+        const finishMsg = p.error ? `匹配异常: ${p.error}` : (p.message || `匹配完成，共处理 ${total} 条`);
+        toast(finishMsg, p.error ? 'error' : 'success');
+        if (txt) txt.textContent = finishMsg || '✅ 完成';
         setTimeout(()=>{ document.getElementById('matchProgressRow').style.display='none'; _hideTaskOverlayIfDone(); loadStats(); loadNews(); }, 2000);
       }
     } catch(e) {
-      if (matchTick >= MATCH_TIMEOUT) {
-        clearInterval(_taskPollers.match); _taskPollers.match = null;
-        btns.forEach(b=>{ b.disabled=false; b.textContent='立即匹配'; });
-        document.getElementById('matchProgressRow').style.display='none';
-        _hideTaskOverlayIfDone();
+      progressErrorCount++;
+      const txt = document.getElementById('matchProgressTxt2');
+      if (txt && progressErrorCount >= 3) {
+        txt.textContent = '进度连接异常，后台任务可能仍在继续...';
       }
+    } finally {
+      if (!poller.cancelled) setTimeout(pollMatchProgress, progressErrorCount ? 5000 : 2000);
     }
-  }, 1500);
+  };
+  pollMatchProgress();
+}
+
+async function resumeBackgroundTasks() {
+  try {
+    const collect = (await apiWithTimeout('/api/collect/progress', {}, 5000)).data || {};
+    if (collect.running && !collect.done) startCollectPolling();
+  } catch(e) {}
+  try {
+    const classify = (await apiWithTimeout('/api/classify/progress', {}, 5000)).data || {};
+    if (classify.running && !classify.done) {
+      const btns = [document.getElementById('classifyBtn'), document.getElementById('classifyBtnM')].filter(Boolean);
+      btns.forEach(b => { b.disabled = true; b.textContent = `分类 ${(classify.percent||0).toFixed(0)}%`; });
+      startClassifyPolling(btns);
+    }
+  } catch(e) {}
+  try {
+    const match = await apiWithTimeout('/api/match/progress', {}, 5000);
+    if (match && match.finished !== true) {
+      const btns = [document.getElementById('matchBtn'), document.getElementById('matchBtnM')].filter(Boolean);
+      btns.forEach(b => { b.disabled = true; b.textContent = '匹配中...'; });
+      startMatchPolling(btns);
+    }
+  } catch(e) {}
 }
 
 // ══════════════════════════════════════════════════════
@@ -2564,10 +2642,11 @@ async function loadLLMConfig() {
   window._llmModels = llmModels;
   renderLlmModelList(llmModels);
   // 兼容旧字段（保留给其他功能使用）
-  if(cfg.llm_provider) { try{document.getElementById('llm_provider').value=cfg.llm_provider;}catch(e){} }
-  if(cfg.llm_api_key)document.getElementById('llm_api_key').value=cfg.llm_api_key;
-  if(cfg.llm_base_url)document.getElementById('llm_base_url').value=cfg.llm_base_url;
-  if(cfg.llm_model)document.getElementById('llm_model').value=cfg.llm_model;
+  // 兼容旧版单模型字段（元素可能不存在，用可选链防止崩溃）
+  try { if(cfg.llm_provider) { const el=document.getElementById('llm_provider'); if(el) el.value=cfg.llm_provider; } } catch(e){}
+  try { if(cfg.llm_api_key)  { const el=document.getElementById('llm_api_key');  if(el) el.value=cfg.llm_api_key;  } } catch(e){}
+  try { if(cfg.llm_base_url) { const el=document.getElementById('llm_base_url'); if(el) el.value=cfg.llm_base_url; } } catch(e){}
+  try { if(cfg.llm_model)    { const el=document.getElementById('llm_model');    if(el) el.value=cfg.llm_model;    } } catch(e){}
   if(cfg.match_top_k){
     document.getElementById('match_top_k').value=cfg.match_top_k;
     document.getElementById('topk_val').textContent=cfg.match_top_k+'只';
@@ -3865,6 +3944,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if (ok) {
       loadStats();
       loadNews();
+      resumeBackgroundTasks();
     }
   } else {
     showLoginOverlay();

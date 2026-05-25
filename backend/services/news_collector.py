@@ -23,6 +23,34 @@ async def _is_duplicate(url: Optional[str], title: str) -> bool:
             return await cur.fetchone() is not None
 
 
+def _normalize_published_at(raw: str) -> str:
+    """统一转换 published_at 为 SQLite 标准格式 YYYY-MM-DD HH:MM:SS（UTC）"""
+    if not raw:
+        return ""
+    from email.utils import parsedate_to_datetime
+    from datetime import timezone
+    raw = raw.strip()
+    # 尝试各种格式解析
+    for parser in [
+        # ISO8601: 2026-05-25T15:03:36Z 或 2026-05-25T15:03:36+08:00
+        lambda s: __import__('datetime').datetime.fromisoformat(s.replace('Z', '+00:00')),
+        # RFC2822: Wed, 20 May 2026 04:00:41 GMT
+        lambda s: parsedate_to_datetime(s),
+        # 纯日期: 2026-05-25
+        lambda s: __import__('datetime').datetime.strptime(s[:10], '%Y-%m-%d').replace(tzinfo=timezone.utc),
+    ]:
+        try:
+            dt = parser(raw)
+            # 统一转为 UTC
+            if dt.tzinfo:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            continue
+    # 解析失败，返回原值
+    return raw
+
+
 async def _save_raw_news(items: list[dict]) -> int:
     """保存原始新闻，返回新增条数（URL + 标题双重去重）"""
     saved = 0
@@ -47,7 +75,7 @@ async def _save_raw_news(items: list[dict]) -> int:
                        (url,title,source,published_at,content,raw_source,created_at)
                        VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)""",
                     (url, title, item.get("source",""),
-                     item.get("published_at",""), item.get("content",""),
+                     _normalize_published_at(item.get("published_at","")), item.get("content",""),
                      item.get("raw_source","unknown")),
                 )
                 saved += 1
@@ -424,49 +452,58 @@ async def run_collection(sources: Optional[list[str]] = None) -> dict:
     sources = sources or ["newsapi", "rss", "llm", "trending"]
     _set_collect_progress("collecting", "正在采集新闻...", running=True, done=False)
 
-    tasks = []
-    if "newsapi" in sources:
-        tasks.append(collect_newsapi())
-    if "rss" in sources:
-        tasks.append(collect_rss())
-    if "llm" in sources:
-        tasks.append(collect_llm_search())
-    if "trending" in sources:
-        tasks.append(collect_trending())
-
-    # 总超时60秒，防止某个源（尤其是LLM搜索）永久挂起
     try:
-        all_results = await asyncio.wait_for(
-            asyncio.gather(*tasks, return_exceptions=True),
-            timeout=60
-        )
-    except asyncio.TimeoutError:
-        logger.warning("采集总超时(60s)，已获取部分结果")
-        all_results = []
-    combined = []
-    for r in all_results:
-        if isinstance(r, list):
-            combined.extend(r)
-        elif isinstance(r, Exception):
-            logger.error(f"采集任务异常: {r}")
+        # 快速源：NewsAPI/RSS/热搜，无大模型，秒级完成
+        fast_tasks = []
+        if "newsapi" in sources:
+            fast_tasks.append(collect_newsapi())
+        if "rss" in sources:
+            fast_tasks.append(collect_rss())
+        if "trending" in sources:
+            fast_tasks.append(collect_trending())
 
-    _set_collect_progress("saving", f"采集到 {len(combined)} 条，正在入库...",
-                           running=True, done=False, collected=len(combined))
-    saved = await _save_raw_news(combined)
-    logger.info(f"本次采集: 原始 {len(combined)} 条，新增 {saved} 条")
-    done_msg = f"✅ 采集完成，新增 {saved} 条" if saved > 0 else "✅ 最新新闻已采集完毕"
-    _set_collect_progress("done", done_msg,
-                           running=False, done=True, collected=len(combined), saved=saved)
+        # LLM搜索独立异步运行，不阻塞主采集进度
+        if "llm" in sources:
+            asyncio.create_task(_run_llm_search_async())
 
-    # 采集完成后是否自动分类，由「新闻采集」页「采集后自动分类」开关控制
-    if saved > 0:
-        auto_classify = await get_config("auto_classify_enabled", True)
-        if auto_classify is not False:
-            asyncio.create_task(_trigger_classify())
-        else:
-            logger.info("自动分类已关闭，跳过分类（可手动点击「立即分类」）")
+        try:
+            all_results = await asyncio.wait_for(
+                asyncio.gather(*fast_tasks, return_exceptions=True),
+                timeout=20
+            )
+        except asyncio.TimeoutError:
+            logger.warning("快速采集超时(20s)，已获取部分结果")
+            all_results = []
 
-    return {"collected": len(combined), "saved": saved}
+        combined = []
+        for r in all_results:
+            if isinstance(r, list):
+                combined.extend(r)
+            elif isinstance(r, Exception):
+                logger.error(f"采集任务异常: {r}")
+
+        _set_collect_progress("saving", f"采集到 {len(combined)} 条，正在入库...",
+                               running=True, done=False, collected=len(combined))
+        saved = await _save_raw_news(combined)
+        logger.info(f"本次采集: 原始 {len(combined)} 条，新增 {saved} 条")
+        done_msg = f"✅ 采集完成，新增 {saved} 条" if saved > 0 else "✅ 最新新闻已采集完毕"
+        _set_collect_progress("done", done_msg,
+                               running=False, done=True, collected=len(combined), saved=saved)
+
+        # 采集完成后是否自动分类，由「新闻采集」页「采集后自动分类」开关控制
+        if saved > 0:
+            auto_classify = await get_config("auto_classify_enabled", True)
+            if auto_classify is not False:
+                asyncio.create_task(_trigger_classify())
+            else:
+                logger.info("自动分类已关闭，跳过分类（可手动点击「立即分类」）")
+
+        return {"collected": len(combined), "saved": saved}
+    except Exception as e:
+        logger.exception(f"采集失败: {e}")
+        _set_collect_progress("error", f"采集失败: {e}",
+                              running=False, done=True, error=str(e))
+        return {"collected": 0, "saved": 0, "error": str(e)}
 
 
 async def _trigger_classify():

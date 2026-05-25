@@ -205,7 +205,7 @@ async def get_trending(limit: int = 20):
             async with db.execute(
                 """SELECT id, title, content, url, published_at, created_at
                    FROM news WHERE source=? AND raw_source='trending'
-                   ORDER BY created_at DESC LIMIT ?""",
+                   ORDER BY COALESCE(published_at, created_at) DESC LIMIT ?""",
                 (source, limit)
             ) as cur:
                 rows = await cur.fetchall()
@@ -245,7 +245,7 @@ async def list_news(
             f"""SELECT id, url, title, source, published_at, summary,
                        sentiment, industries, keywords, raw_source, created_at
                 FROM news WHERE raw_source != 'trending' {sent_filter}
-                ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+                ORDER BY COALESCE(published_at, created_at) DESC LIMIT ? OFFSET ?""",
             (limit, offset),
         ) as cur:
             rows = await cur.fetchall()
@@ -428,15 +428,18 @@ async def trigger_classify():
             pending = (await cur.fetchone())["cnt"]
 
     if pending == 0:
+        from backend.services.news_processor import _set_classify_progress
+        _set_classify_progress(0, 0, "✅ 最新新闻均已分类完毕", running=False, done=True)
         return APIResponse(message="所有新闻均已完成分类 ✅")
 
     async def _run():
-        from backend.services.news_processor import process_pending_news, _set_classify_progress
+        from backend.services.news_processor import process_pending_news, _set_classify_progress, get_classify_progress
         from backend.database import get_db as _gdb
         import asyncio as _aio
         total_done = 0
         _set_classify_progress(0, pending, f"开始分类 {pending} 条新闻...", running=True, done=False)
         consecutive_empty = 0  # 连续无新数据次数
+        retry_count = 0
         try:
             while True:
                 # 查当前剩余量
@@ -452,7 +455,28 @@ async def trigger_classify():
                     f"分类中 {done_count}/{pending}（剩余 {remaining} 条）", running=True, done=False)
 
                 prev_remaining = remaining
-                n = await process_pending_news(batch_size=50, _skip_reset=True)
+                try:
+                    n = await _aio.wait_for(
+                        process_pending_news(batch_size=20, _skip_reset=True),
+                        timeout=120,
+                    )
+                except _aio.TimeoutError:
+                    retry_count += 1
+                    wait = min(30 * retry_count, 300)
+                    _set_classify_progress(done_count, pending,
+                        f"分类调用超时，后台将在 {wait}s 后继续重试（第 {retry_count} 次）",
+                        running=True, done=False, error=None)
+                    await _aio.sleep(wait)
+                    continue
+                current_progress = get_classify_progress()
+                if current_progress.get("error"):
+                    retry_count += 1
+                    wait = min(30 * retry_count, 300)
+                    _set_classify_progress(done_count, pending,
+                        f"分类暂未成功：{current_progress.get('error')}，后台将在 {wait}s 后继续重试（第 {retry_count} 次）",
+                        running=True, done=False, error=None)
+                    await _aio.sleep(wait)
+                    continue
                 # 重新查剩余量，判断是否有实际进展
                 async with _gdb() as _db2:
                     async with _db2.execute("SELECT COUNT(*) as cnt FROM news WHERE summary IS NULL") as _cur2:
@@ -462,18 +486,23 @@ async def trigger_classify():
                 if remaining < prev_remaining:
                     # 有实际进展
                     consecutive_empty = 0
+                    retry_count = 0
                 else:
                     # 本批全部失败（429/超时），等待后重试
                     consecutive_empty += 1
-                    wait = min(10 * consecutive_empty, 60)
+                    retry_count += 1
+                    wait = min(30 * retry_count, 300)
                     _set_classify_progress(done_count, pending,
-                        f"⏳ 限速等待 {wait}s，剩余 {remaining} 条...", running=True, done=False)
+                        f"⏳ 本轮暂无进展，后台将在 {wait}s 后继续重试（剩余 {remaining} 条）",
+                        running=True, done=False)
                     await _aio.sleep(wait)
 
         except Exception as e:
             logger.error(f"手动分类异常: {e}")
+            await _aio.sleep(60)
             _set_classify_progress(total_done, pending,
-                f"分类异常: {e}", running=False, done=True, error=str(e))
+                f"分类异常: {e}，后台仍可再次手动触发继续处理",
+                running=False, done=True, error=str(e))
             return
         done_msg = f"✅ 分类完成，共处理 {total_done} 条" if total_done > 0 else "✅ 最新新闻均已分类完毕"
         _set_classify_progress(pending, pending, done_msg, running=False, done=True)
@@ -486,7 +515,12 @@ async def trigger_classify():
 async def classify_progress_snapshot():
     """分类进度快照（轮询用）"""
     from backend.services.news_processor import get_classify_progress
-    return APIResponse(data=get_classify_progress())
+    from fastapi.responses import JSONResponse
+    data = get_classify_progress()
+    return JSONResponse(
+        content={"success": True, "message": "ok", "data": data},
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+    )
 
 
 @app.get("/api/classify/progress-sse")
@@ -637,21 +671,65 @@ async def trigger_match():
             pending = (await cur.fetchone())["cnt"]
 
     if pending == 0:
+        from backend.services.config_service import set_config as _set_config
+        import json as _json
+        await _set_config("match_progress", _json.dumps({
+            "done": 0, "total": 0, "current": "", "finished": True,
+            "error": None, "message": "✅ 最新新闻均已匹配完毕",
+        }, ensure_ascii=False))
         return APIResponse(message="所有已分类新闻均已匹配，无需重复处理 ✅")
 
     async def _run():
-        from backend.services.matcher import match_pending_news
-        total_matched = 0
+        from backend.services.matcher import match_pending_news, _write_match_progress
+        from backend.database import get_db as _gdb
+        total_processed = 0
+        retry_count = 0
         try:
-            # 循环处理，每批20条，直到全部完成
             while True:
-                m = await match_pending_news(batch_size=20)
-                if m == 0:
+                async with _gdb() as db:
+                    async with db.execute(
+                        """SELECT COUNT(*) as cnt FROM news n
+                           LEFT JOIN match_results mr ON n.id=mr.news_id
+                           WHERE n.summary IS NOT NULL
+                             AND n.summary!='[内容审核限制]'
+                             AND mr.id IS NULL"""
+                    ) as cur:
+                        remaining = (await cur.fetchone())["cnt"]
+
+                if remaining == 0:
+                    await _write_match_progress(pending, pending, "", True)
                     break
-                total_matched += m
-            logger.info(f"手动匹配全部完成: {total_matched} 条")
+
+                done_count = pending - remaining
+                await _write_match_progress(done_count, pending,
+                                            f"剩余 {remaining} 条待匹配", False)
+                processed = await match_pending_news(batch_size=min(20, remaining))
+                total_processed += processed
+
+                async with _gdb() as db2:
+                    async with db2.execute(
+                        """SELECT COUNT(*) as cnt FROM news n
+                           LEFT JOIN match_results mr ON n.id=mr.news_id
+                           WHERE n.summary IS NOT NULL
+                             AND n.summary!='[内容审核限制]'
+                             AND mr.id IS NULL"""
+                    ) as cur2:
+                        new_remaining = (await cur2.fetchone())["cnt"]
+
+                if new_remaining < remaining:
+                    retry_count = 0
+                    continue
+
+                retry_count += 1
+                wait = min(30 * retry_count, 300)
+                await _write_match_progress(done_count, pending,
+                                            f"本轮暂无进展，后台将在 {wait}s 后继续重试（剩余 {new_remaining} 条）",
+                                            False)
+                await _asyncio.sleep(wait)
+            logger.info(f"手动匹配全部完成: {total_processed} 条")
         except Exception as e:
             logger.error(f"手动匹配异常: {e}")
+            await _write_match_progress(total_processed, pending, "", True, str(e))
     _asyncio.create_task(_run())
     return APIResponse(message=f"匹配任务已触发，待处理 {pending} 条（已匹配的自动跳过）")
 
@@ -754,7 +832,7 @@ async def history_news(
         async with db.execute(
             f"""SELECT * FROM news
                 WHERE datetime(created_at, '+8 hours') < {since_expr} {sent_where}
-                ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+                ORDER BY COALESCE(published_at, created_at) DESC LIMIT ? OFFSET ?""",
             (limit, offset)
         ) as cur:
             rows = await cur.fetchall()
@@ -842,7 +920,12 @@ async def trigger_collect():
 async def collect_progress_snapshot():
     """采集进度快照"""
     from backend.services.news_collector import get_collect_progress
-    return APIResponse(data=get_collect_progress())
+    from fastapi.responses import JSONResponse
+    data = get_collect_progress()
+    return JSONResponse(
+        content={"success": True, "message": "ok", "data": data},
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+    )
 
 
 # 静态文件 & SPA fallback（必须放最后）
