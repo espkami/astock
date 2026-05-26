@@ -1202,7 +1202,7 @@
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
           <div><div style="font-size:13px;font-weight:500">清除全部匹配结果</div><div style="font-size:12px;color:var(--text-muted)">保留新闻，清除匹配记录</div></div>
-          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['matches'], true)">清除</button>
+          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['matches'])">清除</button>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
           <div><div style="font-size:13px;font-weight:500">重置股票基础数据</div><div style="font-size:12px;color:var(--red-700)">⚠️ 全量清空：股票列表、公司简介、主营业务项目、所有标签</div></div>
@@ -1226,37 +1226,11 @@
             <span id="stockImportStatus" style="font-size:11px;color:var(--text-muted)"></span>
           </div>
         </div>
-        <!-- 新闻及匹配结果导出/导入 -->
-        <div style="padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md);border:1px solid var(--border-subtle)">
-          <div style="font-size:13px;font-weight:600;margin-bottom:var(--space-1)">📰 新闻及匹配结果</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">包含新闻内容、分类结果、龙头股匹配记录</div>
-          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center;margin-bottom:var(--space-2)">
-            <select id="newsExportDays" style="font-size:12px;padding:4px 8px;border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-base);color:var(--text-primary)">
-              <option value="0">全量导出</option>
-              <option value="7">最近7天</option>
-              <option value="30">最近30天</option>
-              <option value="90">最近90天</option>
-            </select>
-            <button class="btn btn-primary btn-sm" onclick="exportNewsData()">⬇️ 导出新闻数据</button>
-            <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
-              ⬆️ 导入新闻数据
-              <input type="file" accept=".json" style="display:none" onchange="importNewsData(this)">
-            </label>
-          </div>
-          <span id="newsImportStatus" style="font-size:11px;color:var(--text-muted)"></span>
-        </div>
-        <!-- 全量数据导出/导入 -->
+        <!-- 全量数据导出 -->
         <div style="padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md);border:1px solid var(--border-subtle)">
           <div style="font-size:13px;font-weight:600;margin-bottom:var(--space-1)">🗄️ 全量数据</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">包含新闻、匹配结果、股票数据（兼容旧版格式与新版格式）</div>
-          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center">
-            <button class="btn btn-secondary btn-sm" onclick="exportData()">⬇️ 导出全量数据 JSON</button>
-            <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
-              ⬆️ 导入全量数据
-              <input type="file" accept=".json" style="display:none" onchange="importAllData(this)">
-            </label>
-            <span id="allImportStatus" style="font-size:11px;color:var(--text-muted)"></span>
-          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">包含新闻、匹配结果、股票数据</div>
+          <button class="btn btn-secondary btn-sm" onclick="exportData()">⬇️ 导出全量数据 JSON</button>
         </div>
       </div>
     </div>
@@ -3580,131 +3554,11 @@ function _pollProgressFallback(){
 //  数据管理
 // ══════════════════════════════════════════════════════
 async function loadDataMgmtConfig(){const cfg=(await api('/api/config')).data||{};if(cfg.data_retention_days)document.getElementById('data_retention_days').value=cfg.data_retention_days;setToggle('auto_clean',cfg.auto_clean!==false);loadHistoryStats();loadUsers();}
-function confirmClean(targets, forceAllMatches) {
-  // forceAllMatches=true 时全量清除匹配结果（不受 days 限制）
-  const days = forceAllMatches ? 0 : (parseInt(document.getElementById('data_retention_days').value) || 30);
-  let bodyHtml;
-  if (forceAllMatches) {
-    bodyHtml = '将<strong>全量清除所有匹配结果</strong>，新闻数据保留不变。<br><br>此操作不可撤销。';
-  } else {
-    const names = targets.map(t => ({news: '新闻数据', matches: '关联匹配结果'})[t]).join('、');
-    bodyHtml = `将清除 <strong>${days} 天前</strong>的 <strong>${names}</strong>，此操作不可撤销。`;
-  }
-  document.getElementById('confirmTitle').textContent = '确认清除';
-  document.getElementById('confirmBody').innerHTML = bodyHtml;
-  document.getElementById('confirmOkBtn').onclick = () => { closeModal(); doClean(targets, days); };
-  document.getElementById('confirmModal').classList.add('open');
-}
+function confirmClean(targets){const days=parseInt(document.getElementById('data_retention_days').value)||30;const names=targets.map(t=>({news:'新闻数据',matches:'匹配结果'})[t]).join('、');document.getElementById('confirmTitle').textContent='确认清除';document.getElementById('confirmBody').innerHTML=`将清除 <strong>${days} 天前</strong>的 <strong>${names}</strong>，此操作不可撤销。`;document.getElementById('confirmOkBtn').onclick=()=>{closeModal();doClean(targets,days);};document.getElementById('confirmModal').classList.add('open');}
 function confirmCleanStocks(){document.getElementById('confirmTitle').textContent='确认重置股票数据';document.getElementById('confirmBody').innerHTML='将<strong>全量清空</strong>股票列表、公司简介、主营业务项目及所有标签数据。<br><br>重置后需重新执行「立即更新全量股票」才能恢复数据，此操作不可撤销。';document.getElementById('confirmOkBtn').onclick=()=>{closeModal();doClean(['stocks'],0);};document.getElementById('confirmModal').classList.add('open');}
-async function doClean(targets, days) {
-  try {
-    const result = await api('/api/data/clean', { method: 'POST', body: JSON.stringify({ days, targets }) });
-    const d = result.data || {};
-    const parts = [];
-    if (d.news !== undefined) parts.push(`新闻 ${d.news} 条`);
-    if (d.matches !== undefined) parts.push(`匹配结果 ${d.matches} 条`);
-    if (d.stocks) parts.push('股票数据已重置');
-    toast('清除完成：' + (parts.join('、') || '0 条'), 'success');
-    loadStats();
-  } catch(e) {
-    toast('清除失败: ' + e.message, 'error');
-  }
-}
+async function doClean(targets,days){try{await api('/api/data/clean',{method:'POST',body:JSON.stringify({days,targets})});toast('清除完成','success');loadStats();}catch(e){toast('清除失败: '+e.message,'error');}}
 function closeModal(){document.getElementById('confirmModal').classList.remove('open');}
 function exportData(){window.open(API+'/api/data/export','_blank');}
-
-async function importAllData(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const status = document.getElementById('allImportStatus');
-  status.textContent = '读取文件中...';
-  input.value = '';
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-
-    // 判断格式：新版格式含 version 字段，旧版不含
-    const isNewFormat = !!data.version;
-    let newsResult = null, stockResult = null;
-
-    // ── 导入新闻 & 匹配结果 ──
-    const newsPayload = isNewFormat
-      ? data  // 新版格式直接含 news/matches
-      : { news: data.news || [], matches: data.matches || [] };
-
-    if ((newsPayload.news || []).length > 0 || (newsPayload.matches || []).length > 0) {
-      status.textContent = `导入新闻中... (${(newsPayload.news||[]).length}条)`;
-      newsResult = await api('/api/data/import/news', {
-        method: 'POST',
-        body: JSON.stringify(newsPayload),
-      });
-    }
-
-    // ── 导入股票数据 ──
-    const stockPayload = isNewFormat
-      ? data  // 新版格式含 stocks/stock_profile/stock_tags/stock_board_tags
-      : { stocks: data.stocks || [], stock_profile: [], stock_tags: [], stock_board_tags: [] };
-
-    if ((stockPayload.stocks || []).length > 0) {
-      status.textContent = `导入股票中... (${stockPayload.stocks.length}只)`;
-      stockResult = await api('/api/data/import/stocks', {
-        method: 'POST',
-        body: JSON.stringify(stockPayload),
-      });
-    }
-
-    // ── 汇总结果 ──
-    const parts = [];
-    if (newsResult) {
-      const c = newsResult.data || {};
-      parts.push(`新闻+${c.news||0}(跳过${c.news_skipped||0}) 匹配+${c.matches||0}(跳过${c.matches_skipped||0})`);
-    }
-    if (stockResult) {
-      const c = stockResult.data || {};
-      parts.push(`股票+${c.stocks||0} 简介+${c.profiles||0} 标签+${c.tags||0} 板块+${c.board_tags||0}`);
-    }
-    if (parts.length === 0) {
-      status.textContent = '⚠️ 文件中无可导入数据';
-    } else {
-      status.textContent = '✅ ' + parts.join(' | ');
-      toast('全量数据导入完成', 'success');
-      setTimeout(() => loadHistoryStats(), 1000);
-    }
-  } catch(e) {
-    status.textContent = '❌ 导入失败: ' + e.message;
-    toast('导入失败: ' + e.message, 'error');
-  }
-}
-
-
-function exportNewsData(){
-  const days = document.getElementById('newsExportDays').value || '0';
-  const url = API + '/api/data/export/news?days=' + days;
-  window.open(url, '_blank');
-}
-
-async function importNewsData(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const status = document.getElementById('newsImportStatus');
-  status.textContent = '读取文件中...';
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    const newsCount = (data.news || []).length;
-    const matchCount = (data.matches || []).length;
-    status.textContent = `导入中... (${newsCount}条新闻, ${matchCount}条匹配结果)`;
-    const r = await api('/api/data/import/news', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    status.textContent = '✅ ' + (r.message || '导入完成');
-    setTimeout(() => loadHistoryStats(), 1000);
-  } catch(e) {
-    status.textContent = '❌ 导入失败: ' + e.message;
-  }
-  input.value = '';
-}
 
 function exportStockData(){window.open(API+'/api/data/export/stocks','_blank');}
 
