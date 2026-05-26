@@ -10,33 +10,33 @@ router = APIRouter(prefix="/api/data", tags=["data"])
 
 @router.post("/clean")
 async def clean_data(req: CleanRequest):
-    from fastapi import HTTPException
-    # 防止全量清除新闻（news 必须指定 days > 0）
-    if req.days <= 0 and "news" in req.targets:
-        raise HTTPException(status_code=400, detail="清除新闻数据必须指定保留天数（days > 0）")
     deleted = {}
     async with get_db() as db:
         if "news" in req.targets:
-            # 按天数清除历史新闻（days > 0）
-            cur = await db.execute(
-                "DELETE FROM news WHERE created_at < datetime('now', ? || ' days')",
-                (f"-{req.days}",),
-            )
+            if req.days <= 0:
+                # days=0：全量清除新闻
+                cur = await db.execute("DELETE FROM news")
+            else:
+                # days>0：清除N天前的新闻
+                cur = await db.execute(
+                    "DELETE FROM news WHERE created_at < datetime('now', ? || ' days')",
+                    (f"-{req.days}",),
+                )
             deleted["news"] = cur.rowcount
         if "matches" in req.targets:
             if req.days <= 0:
                 # days=0：全量清除匹配结果
                 cur = await db.execute("DELETE FROM match_results")
             else:
-                # days>0：只清除N天前的匹配结果
+                # days>0：清除N天前的匹配结果
                 cur = await db.execute(
                     "DELETE FROM match_results WHERE created_at < datetime('now', ? || ' days')",
                     (f"-{req.days}",),
                 )
             deleted["matches"] = cur.rowcount
         if "stocks" in req.targets:
-            await db.execute("DELETE FROM stock_tags")        # 主营标签
-            await db.execute("DELETE FROM stock_board_tags")  # 板块标签
+            await db.execute("DELETE FROM stock_tags")
+            await db.execute("DELETE FROM stock_board_tags")
             await db.execute("DELETE FROM stock_profile")
             await db.execute("DELETE FROM stocks")
             deleted["stocks"] = True

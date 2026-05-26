@@ -1198,7 +1198,7 @@
       <div style="display:flex;flex-direction:column;gap:var(--space-3)">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
           <div><div style="font-size:13px;font-weight:500">清除历史新闻数据</div><div style="font-size:12px;color:var(--text-muted)">清除新闻及分类结果</div></div>
-          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['news','matches'])">清除</button>
+          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['news','matches'], true)">清除</button>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
           <div><div style="font-size:13px;font-weight:500">清除全部匹配结果</div><div style="font-size:12px;color:var(--text-muted)">保留新闻，清除匹配记录</div></div>
@@ -3580,12 +3580,20 @@ function _pollProgressFallback(){
 //  数据管理
 // ══════════════════════════════════════════════════════
 async function loadDataMgmtConfig(){const cfg=(await api('/api/config')).data||{};if(cfg.data_retention_days)document.getElementById('data_retention_days').value=cfg.data_retention_days;setToggle('auto_clean',cfg.auto_clean!==false);loadHistoryStats();loadUsers();}
-function confirmClean(targets, forceAllMatches) {
-  // forceAllMatches=true 时全量清除匹配结果（不受 days 限制）
-  const days = forceAllMatches ? 0 : (parseInt(document.getElementById('data_retention_days').value) || 30);
+function confirmClean(targets, forceAll) {
+  // forceAll=true：全量清除（不受 days 限制）
+  const days = forceAll ? 0 : (parseInt(document.getElementById('data_retention_days').value) || 30);
   let bodyHtml;
-  if (forceAllMatches) {
-    bodyHtml = '将<strong>全量清除所有匹配结果</strong>，新闻数据保留不变。<br><br>此操作不可撤销。';
+  if (forceAll) {
+    const hasNews = targets.includes('news');
+    const hasMatches = targets.includes('matches');
+    if (hasNews && hasMatches) {
+      bodyHtml = '将<strong>全量清除所有新闻及匹配结果</strong>，此操作不可撤销。';
+    } else if (hasMatches) {
+      bodyHtml = '将<strong>全量清除所有匹配结果</strong>，新闻数据保留不变。<br><br>此操作不可撤销。';
+    } else {
+      bodyHtml = '将<strong>全量清除所有新闻数据</strong>，此操作不可撤销。';
+    }
   } else {
     const names = targets.map(t => ({news: '新闻数据', matches: '关联匹配结果'})[t]).join('、');
     bodyHtml = `将清除 <strong>${days} 天前</strong>的 <strong>${names}</strong>，此操作不可撤销。`;
