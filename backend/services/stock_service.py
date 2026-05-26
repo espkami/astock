@@ -364,7 +364,15 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
             timeout=12
         )
         if df_xq is not None and not df_xq.empty:
-            xq = dict(zip(df_xq['item'], df_xq['value']))
+            # 兼容不同列名结构（部分股票返回格式不同）
+            if 'item' in df_xq.columns and 'value' in df_xq.columns:
+                xq = dict(zip(df_xq['item'], df_xq['value']))
+            elif len(df_xq.columns) >= 2:
+                xq = dict(zip(df_xq.iloc[:, 0], df_xq.iloc[:, 1]))
+            else:
+                xq = {}
+                logger.debug(f"雪球 {ts_code} 返回列名异常: {list(df_xq.columns)}")
+
             main_biz = str(xq.get('main_operation_business', '') or '').strip()
             intro    = str(xq.get('org_cn_introduction', '') or '').strip()
             aff_ind  = xq.get('affiliate_industry', {})
@@ -382,7 +390,7 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
                 else:
                     found_desc = main_biz
     except Exception as e:
-        logger.debug(f"雪球 {ts_code} 失败: {e}")
+        logger.warning(f"雪球 {ts_code} 失败: {e}")
 
     # ── ② AKShare stock_zyjs_ths（同花顺主营介绍）────────────────────────
     if not found_desc and profile_source in ("eastmoney", "both"):
@@ -399,7 +407,7 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
                     if prod and not found_ind:
                         found_ind = prod.split("、")[0].strip()[:20]
         except Exception as e:
-            logger.debug(f"AKShare zyjs_ths {ts_code} 失败: {e}")
+            logger.warning(f"AKShare同花顺 {ts_code} 主营业务获取失败: {e}")
 
     # ── ③ 巨潮（主营业务 + 标准行业分类）────────────────────────────────
     if profile_source in ("cninfo", "both"):
@@ -418,7 +426,7 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
                     if main_biz2 and len(main_biz2) > 5:
                         found_desc = main_biz2 + (" " + intro2 if intro2 and len(main_biz2) < 50 else "")
         except Exception as e:
-            logger.debug(f"巨潮 {ts_code} 失败: {e}")
+            logger.warning(f"巨潮 {ts_code} 主营业务获取失败: {e}")
 
     if found_desc and len(found_desc) > 5:
         kws = list(dict.fromkeys(
@@ -427,11 +435,12 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
         return found_desc, [found_ind] if found_ind else [], kws, False, found_ind
 
     # ── ④ LLM 兜底 ───────────────────────────────────────────────────────
+    _client = None
     try:
         from backend.services.llm_client import get_llm_client as _get_llm
         _client = await _get_llm()
-    except Exception:
-        _client = None
+    except Exception as e:
+        logger.warning(f"LLM兜底 {ts_code} {name}：client 初始化失败，跳过兜底 ({e})")
 
     if _client:
         prompt = (f'请为A股上市公司"{name}"（行业：{found_ind or "未知"}）提供简短主营业务描述。'
@@ -444,8 +453,14 @@ async def _get_stock_profile(ts_code, name, industry, client=None) -> tuple:
             desc = data.get("business_desc", "")
             if desc:
                 return desc, data.get("domains", []), data.get("keywords", []), True, found_ind
+            else:
+                logger.warning(f"LLM兜底 {ts_code} {name}：响应解析成功但 business_desc 为空")
+        except json.JSONDecodeError as e:
+            logger.warning(f"LLM兜底 {ts_code} {name}：JSON解析失败 ({e})，原始响应: {resp[:100] if 'resp' in dir() else 'N/A'}")
         except Exception as e:
-            logger.debug(f"LLM兜底 {name} 失败: {e}")
+            logger.warning(f"LLM兜底 {ts_code} {name}：请求失败 ({e})")
+    else:
+        logger.warning(f"LLM兜底 {ts_code} {name}：client 不可用，三源均失败，该股票主营业务将留空")
 
     return None, None, None, None, None
 

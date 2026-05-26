@@ -82,7 +82,7 @@ async def _fetch_em_mainbz(ts_code: str) -> str:
                     return "；".join(lines)
         return ""
     except Exception as e:
-        logger.debug(f"AKShare 主营构成获取失败 {ts_code}: {e}")
+        logger.warning(f"AKShare 主营构成获取失败 {ts_code}: {e}")
         return ""
 
 
@@ -273,7 +273,7 @@ async def generate_tags_for_stock(ts_code: str, name: str, industry: str,
             "all_tags":  all_tags,
         }
     except Exception as e:
-        logger.debug(f"标签生成失败 {ts_code}: {e}")
+        logger.warning(f"标签生成失败 {ts_code}: {e}")
         return None
 
 

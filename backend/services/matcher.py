@@ -56,8 +56,8 @@ async def _write_match_progress(done: int, total: int, current_title: str = "",
             "error": error,
             "message": msg,
         }))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"写入匹配进度失败: {e}")
 
 
 async def match_pending_news(batch_size: int = 10) -> int:

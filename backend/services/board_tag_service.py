@@ -88,7 +88,14 @@ async def generate_board_tags() -> dict:
                     timeout=12
                 )
                 if df is not None and not df.empty:
-                    xq = dict(zip(df['item'], df['value']))
+                    # 兼容不同列名结构
+                    if 'item' in df.columns and 'value' in df.columns:
+                        xq = dict(zip(df['item'], df['value']))
+                    elif len(df.columns) >= 2:
+                        xq = dict(zip(df.iloc[:, 0], df.iloc[:, 1]))
+                    else:
+                        xq = {}
+                        logger.warning(f"雪球板块 {ts_code} 返回列名异常: {list(df.columns)}")
                     aff = xq.get('affiliate_industry', {})
                     ind_name = aff.get('ind_name', '') if isinstance(aff, dict) else ''
                     if ind_name:
@@ -104,7 +111,7 @@ async def generate_board_tags() -> dict:
             except Exception as e:
                 async with lock:
                     fail_count += 1
-                logger.debug(f"雪球板块 {ts_code} 失败: {e}")
+                logger.warning(f"雪球板块 {ts_code} 获取失败: {e}")
             finally:
                 async with lock:
                     done = success_count + fail_count
@@ -173,8 +180,8 @@ async def _generate_board_tags_from_stock_tags() -> dict:
                 if p and len(p) >= 2: add_tag(ts_code, p, "concepts")
             for t in json.loads(row["themes"] or "[]"):
                 if t and len(t) >= 2: add_tag(ts_code, t, "concepts")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"板块标签处理异常 [{i}]: {e}")
         if i % 500 == 0:
             _set_board_progress(i, total, f"处理标签数据 {i}/{total}...")
 
