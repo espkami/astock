@@ -322,9 +322,13 @@ async def get_match_schedule_api():
 async def set_match_schedule_api(body: dict):
     """设置定时匹配时间点，body: {"times": ["08:00","20:00"]}"""
     times = body.get("times", [])
-    # 验证格式
+    # 验证格式：HH:MM，小时 0-23，分钟 0-59
     import re
-    valid = [t for t in times if re.match("[0-9]{1,2}:[0-9]{2}", t)]
+    def _valid_time(t):
+        m = re.fullmatch(r"([0-9]{1,2}):([0-9]{2})", str(t).strip())
+        if not m: return False
+        return 0 <= int(m.group(1)) <= 23 and 0 <= int(m.group(2)) <= 59
+    valid = [t.strip() for t in times if _valid_time(t)]
     from backend.services.config_service import set_config as _sc
     from backend.services.scheduler import update_match_schedule
     await _sc("match_schedule_times", valid)
