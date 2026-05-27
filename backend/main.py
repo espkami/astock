@@ -450,9 +450,14 @@ async def trigger_classify():
                 if remaining == 0:
                     break  # 全部分类完成
 
+                # 采集任务可能持续新增新闻，动态更新 pending 上限保证进度不超出
+                pending = max(pending, remaining)
                 done_count = max(0, pending - remaining)
+                from backend.services.llm_client import get_last_failover_msg as _glfm
+                _fo_msg = _glfm()
+                _base_msg = f"分类中 {done_count}/{pending}（剩余 {remaining} 条）"
                 _set_classify_progress(done_count, pending,
-                    f"分类中 {done_count}/{pending}（剩余 {remaining} 条）", running=True, done=False)
+                    f"{_fo_msg}  {_base_msg}" if _fo_msg else _base_msg, running=True, done=False)
 
                 prev_remaining = remaining
                 try:
@@ -700,9 +705,13 @@ async def trigger_match():
                     await _write_match_progress(pending, pending, "", True)
                     break
 
-                done_count = pending - remaining
-                await _write_match_progress(done_count, pending,
-                                            f"剩余 {remaining} 条待匹配", False)
+                # 分类任务可能持续新增已分类新闻，动态更新 pending 上限
+                pending = max(pending, remaining)
+                done_count = max(0, pending - remaining)
+                from backend.services.llm_client import get_last_failover_msg as _glfm2
+                _fo_msg2 = _glfm2()
+                _match_msg = f"{_fo_msg2}  剩余 {remaining} 条待匹配" if _fo_msg2 else f"剩余 {remaining} 条待匹配"
+                await _write_match_progress(done_count, pending, _match_msg, False)
                 processed = await match_pending_news(batch_size=min(20, remaining))
                 total_processed += processed
 

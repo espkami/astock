@@ -2234,8 +2234,10 @@ function startCollectPolling() {
       const p = r.data || {};
       const txt = document.getElementById('collectProgressTxt');
       const bar = document.getElementById('collectProgressBar');
-      if (txt) txt.textContent = p.message || '运行中...';
-      // 真实阶段进度
+      // 显示实际数量
+      let collectMsg = p.message || '运行中...';
+      if (p.stage === 'saving' && p.collected > 0) collectMsg = `采集到 ${p.collected} 条，入库中...`;
+      if (txt) txt.textContent = collectMsg;
       const pct = p.stage === 'collecting' ? 40 : p.stage === 'saving' ? 80 : p.done ? 100 : 20;
       if (bar) bar.style.width = pct + '%';
       const timedOut = Date.now() - collectStartedAt >= COLLECT_TIMEOUT_MS;

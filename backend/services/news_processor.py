@@ -97,33 +97,26 @@ async def process_pending_news(batch_size: int = 20, _skip_reset: bool = False) 
             n = await _classify_batch(client, role_desc, sentiment_addon, chunk)
             processed += n
         except Exception as e:
-            logger.error(f"批量分类失败（条目 {chunk_start}-{chunk_start+len(chunk)}）: {e}")
+            err_str = str(e)
+            logger.warning(f"批量分类失败（条目 {chunk_start}-{chunk_start+len(chunk)}）: {err_str[:80]}，降级为单条处理")
+            # chat() 内部已处理故障转移，这里直接单条 fallback
             for row in chunk:
-                retry = 0
-                while retry < 3:
-                    try:
-                        ok = await _classify_one_fallback(client, role_desc, sentiment_addon,
-                                                           row["id"], row["title"], row["content"] or "")
-                        if ok:
-                            processed += 1
-                        break
-                    except Exception as e2:
-                        err_str = str(e2)
-                        if "400" in err_str:
-                            await _mark_blocked(row["id"])
-                            break
-                        elif "429" in err_str or "rate" in err_str.lower():
-                            retry += 1
-                            wait = 10 * retry
-                            logger.warning(f"分类 429 限速，等待 {wait}s 后重试（{retry}/3）")
-                            await asyncio.sleep(wait)
-                        else:
-                            logger.warning(f"单条分类跳过 {row['id']}: {type(e2).__name__}")
-                            break
-        # 更新进度
-        done_so_far = min(chunk_start + BATCH, total)
-        _set_classify_progress(done_so_far, total,
-            f"分类中 {done_so_far}/{total}（已完成 {processed} 条）")
+                try:
+                    ok = await _classify_one_fallback(client, role_desc, sentiment_addon,
+                                                       row["id"], row["title"], row["content"] or "")
+                    if ok:
+                        processed += 1
+                except Exception as e2:
+                    err_str2 = str(e2)
+                    if "400" in err_str2:
+                        await _mark_blocked(row["id"])
+                    else:
+                        logger.warning(f"单条分类跳过 {row['id']}: {err_str2[:60]}")
+        # 更新进度（_skip_reset=True 时外层 main.py 负责进度，内部不覆盖）
+        if not _skip_reset:
+            done_so_far = min(chunk_start + BATCH, total)
+            _set_classify_progress(done_so_far, total,
+                f"分类中 {done_so_far}/{total}（已完成 {processed} 条）")
         # 批次间短暂等待，避免 429
         if chunk_start + BATCH < total:
             await asyncio.sleep(2)

@@ -82,6 +82,8 @@ async def match_pending_news(batch_size: int = 10) -> int:
     top_k = await get_config("match_top_k", 5)
     # 分析匹配模型：只做 LLM 精排
     client = await get_llm_client()
+    if not client:
+        logger.warning("立即匹配：未配置分析匹配模型，LLM精排跳过，仅使用TF-IDF/语义匹配")
     # Embedding 专用模型：独立配置，支持 OpenAI/Qwen 免费额度
     from backend.services.llm_client import get_embed_client
     embed_client = await get_embed_client()
@@ -510,5 +512,5 @@ async def _llm_rerank(client, title: str, summary: str, candidates: list[dict], 
                 results.append(item)
         return results[:top_k]
     except Exception as e:
-        logger.warning(f"大模型精排失败: {e}")
+        logger.warning(f"大模型精排失败（所有模型均已尝试）: {e}，降级为候选结果")
         return []

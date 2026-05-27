@@ -6,6 +6,15 @@ from loguru import logger
 
 # 当前使用的 Key 索引（轮询用）
 _key_index: dict = {}  # {provider_type: int}
+# 最近一次故障切换消息（供进度显示用）
+_last_failover_msg: list = [""]  # 用list以便引用传递
+
+def get_last_failover_msg() -> str:
+    """获取并清除最近一次故障切换消息"""
+    msg = _last_failover_msg[0]
+    _last_failover_msg[0] = ""
+    return msg
+
 
 PROVIDERS = {
     "anthropic": {
@@ -43,8 +52,38 @@ class LLMClient:
         return PROVIDERS.get(provider, {}).get("base_url", "")
 
     async def chat(self, messages: list[dict], json_mode: bool = False, timeout: int = 30) -> str:
-        """统一对话接口，返回文本内容。遇到 429 自动轮换到下一个 Key"""
-        for attempt in range(2):
+        """统一对话接口，返回文本内容。
+        故障转移策略：遇到 429/5xx/超时，自动切换到下一个已开启的模型，
+        轮完所有模型仍失败才抛出异常。
+        """
+        from backend.services.config_service import get_config as _gc
+        # 获取当前所有开启的模型列表（用于故障转移）
+        models_cfg = await _gc("llm_models", [])
+        active = [m for m in models_cfg if m.get("enabled") is not False
+                  and m.get("provider") and m.get("api_key") and m.get("model")]
+        if not active:
+            active = [{"provider": self.provider, "api_key": self.api_key,
+                       "model": self.model, "base_url": self.base_url}]
+
+        # 找当前模型在列表中的位置，作为起点
+        try:
+            start_idx = next(i for i, m in enumerate(active)
+                             if m["api_key"] == self.api_key and m["model"] == self.model)
+        except StopIteration:
+            start_idx = 0
+
+        last_err = None
+        for attempt in range(len(active)):
+            idx = (start_idx + attempt) % len(active)
+            m = active[idx]
+            # 切换到当前尝试的模型
+            if attempt > 0:
+                self.provider = m["provider"]
+                self.api_key  = m["api_key"]
+                self.model    = m["model"]
+                self.base_url = m.get("base_url") or LLMClient._default_base_url(m["provider"])
+                logger.info(f"LLM 故障转移 → {self.provider}/{self.model} ({self.api_key[:8]}...)")
+                await asyncio.sleep(1)
             try:
                 if self.provider == "anthropic":
                     return await self._call_anthropic(messages, json_mode, timeout)
@@ -52,26 +91,41 @@ class LLMClient:
                     return await self._call_openai_compat(messages, json_mode, timeout)
             except Exception as e:
                 err_str = str(e)
-                # 400 = 内容审核拒绝，直接跳过不重试
-                if "400" in err_str and attempt == 0:
+                last_err = e
+                # 400 内容审核拒绝：不是模型故障，直接抛出不转移
+                if "400" in err_str:
                     logger.warning(f"LLM 内容被拒(400)，跳过: {err_str[:80]}")
                     raise
-                if "429" in err_str and attempt == 0:
-                    # 429 限速：尝试切换到下一个模型配置
-                    switched = await _rotate_to_next_model(self)
-                    if switched:
-                        await asyncio.sleep(1)
-                        continue
-                    else:
-                        logger.warning("LLM 429 限速，无更多可用模型，等待 3s 重试")
-                        await asyncio.sleep(3)
-                        continue
-                if attempt == 0:
+                # 判断是否值得转移：429限速 / 5xx服务错误 / 超时
+                is_failover = (
+                    "429" in err_str or
+                    "500" in err_str or "502" in err_str or "503" in err_str or
+                    "timeout" in err_str.lower() or "timed out" in err_str.lower()
+                )
+                if is_failover and attempt < len(active) - 1:
+                    logger.warning(f"LLM [{m['provider']}/{m['model']}] 故障({err_str[:60]})，切换下一个模型")
+                    # 记录切换信息供进度回调使用
+                    next_m = active[(start_idx + attempt + 1) % len(active)]
+                    _last_failover_msg[0] = f"⚡ 模型故障切换 → {next_m['provider']}/{next_m['model']}"
+                    continue
+                elif not is_failover and attempt == 0:
+                    # 非故障类错误，原模型重试一次
                     logger.warning(f"LLM 调用失败，重试: {e}")
                     await asyncio.sleep(1)
+                    try:
+                        if self.provider == "anthropic":
+                            return await self._call_anthropic(messages, json_mode, timeout)
+                        else:
+                            return await self._call_openai_compat(messages, json_mode, timeout)
+                    except Exception as e2:
+                        last_err = e2
+                        logger.error(f"LLM 调用最终失败: {e2}")
+                        raise
                 else:
-                    logger.error(f"LLM 调用最终失败: {e}")
+                    logger.error(f"LLM 所有模型均失败，最后错误: {err_str[:100]}")
                     raise
+        logger.error(f"LLM 所有 {len(active)} 个模型均故障，放弃: {last_err}")
+        raise last_err
 
     async def _call_anthropic(self, messages: list[dict], json_mode: bool, timeout: int) -> str:
         import anthropic
@@ -210,27 +264,8 @@ async def _record_token_usage(input_tokens: int, output_tokens: int):
 
 
 async def _rotate_to_next_model(client: "LLMClient") -> bool:
-    """遇到 429 时轮换到下一个可用模型配置，返回是否成功切换"""
-    from backend.services.config_service import get_config
-    models_cfg = await get_config("llm_models", [])
-    active = [m for m in models_cfg if m.get("enabled") is not False
-              and m.get("provider") and m.get("api_key") and m.get("model")]
-    if len(active) <= 1:
-        return False
-    # 找当前配置位置
-    try:
-        idx = next(i for i, m in enumerate(active)
-                   if m["api_key"] == client.api_key and m["model"] == client.model)
-        next_idx = (idx + 1) % len(active)
-    except StopIteration:
-        next_idx = 0
-    nxt = active[next_idx]
-    client.provider = nxt["provider"]
-    client.api_key  = nxt["api_key"]
-    client.model    = nxt["model"]
-    client.base_url = nxt.get("base_url") or LLMClient._default_base_url(nxt["provider"])
-    logger.info(f"LLM 429 切换 → {nxt['provider']}/{nxt['model']} ({nxt['api_key'][:8]}...)")
-    return True
+    """已由 chat() 内部故障转移逻辑替代，保留此函数仅供兼容"""
+    return False
 
 
 async def get_llm_client() -> Optional[LLMClient]:
