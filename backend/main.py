@@ -450,7 +450,7 @@ async def trigger_classify():
                 if remaining == 0:
                     break  # 全部分类完成
 
-                done_count = pending - remaining
+                done_count = max(0, pending - remaining)
                 _set_classify_progress(done_count, pending,
                     f"分类中 {done_count}/{pending}（剩余 {remaining} 条）", running=True, done=False)
 
@@ -787,6 +787,27 @@ async def news_window(
         ) as cur:
             history_count = (await cur.fetchone())["cnt"]
 
+        # 窗口内匹配结果数
+        async with db.execute(
+            f"""SELECT COUNT(*) as cnt FROM match_results mr
+                JOIN news n ON mr.news_id = n.id
+                WHERE n.raw_source != 'trending'
+                AND datetime(n.created_at, '+8 hours') >= {since_expr}""",
+        ) as cur:
+            match_count = (await cur.fetchone())["cnt"]
+
+        # 窗口内利好/利空数
+        async with db.execute(
+            f"""SELECT sentiment, COUNT(*) as cnt FROM news
+                WHERE raw_source != 'trending'
+                AND datetime(created_at, '+8 hours') >= {since_expr}
+                AND sentiment IN ('positive','negative')
+                GROUP BY sentiment""",
+        ) as cur:
+            sent_rows = await cur.fetchall()
+        pos_count = next((r["cnt"] for r in sent_rows if r["sentiment"] == "positive"), 0)
+        neg_count = next((r["cnt"] for r in sent_rows if r["sentiment"] == "negative"), 0)
+
     items = []
     for row in rows:
         items.append({
@@ -802,6 +823,9 @@ async def news_window(
         "total": total, "offset": offset, "limit": limit,
         "has_more": (offset + limit) < total,
         "count": total, "history_count": history_count,
+        "match_count": match_count,
+        "positive_count": pos_count,
+        "negative_count": neg_count,
         "items": items,
     }
 

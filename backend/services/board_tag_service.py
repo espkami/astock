@@ -228,5 +228,3 @@ async def fetch_concept_members_em(concept_name: str) -> list[str]:
     return []
 
 
-async def get_board_progress() -> dict:
-    return get_board_progress()

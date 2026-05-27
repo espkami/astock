@@ -447,6 +447,17 @@ def _set_collect_progress(stage: str, message: str, running: bool = True,
     })
 
 
+async def _run_llm_search_async() -> None:
+    """后台异步执行 LLM 搜索采集，结果直接入库，不阻塞主采集流程"""
+    try:
+        items = await collect_llm_search()
+        if items:
+            saved = await _save_raw_news(items)
+            logger.info(f"LLM搜索后台采集: 获取 {len(items)} 条，新增 {saved} 条")
+    except Exception as e:
+        logger.warning(f"LLM搜索后台采集异常: {e}")
+
+
 async def run_collection(sources: Optional[list[str]] = None) -> dict:
     """执行采集，返回统计"""
     sources = sources or ["newsapi", "rss", "llm", "trending"]

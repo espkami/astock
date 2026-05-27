@@ -526,12 +526,12 @@
         </div>
         <div id="st-news-history" style="font-size:11px;color:var(--text-muted);margin-top:3px"></div>
       </div>
+      <div class="stat-card"><div class="stat-label">匹配利好 / 利空</div><div class="stat-value" id="st-sentiment">—</div><div class="stat-sub">基于匹配结果</div></div>
       <div class="stat-card">
         <div class="stat-label">匹配结果</div>
         <div class="stat-value" id="st-matches">—</div>
         <button class="stat-btn" onclick="showAllResults()">查看匹配结果 →</button>
       </div>
-      <div class="stat-card"><div class="stat-label">匹配利好 / 利空</div><div class="stat-value" id="st-sentiment">—</div><div class="stat-sub">基于匹配结果</div></div>
       <div class="stat-card"><div class="stat-label">股票库</div><div class="stat-value" id="st-stocks">—</div></div>
       <div class="stat-card"><div class="stat-label">当前模型</div><div class="stat-value" style="font-size:13px;margin-top:4px" id="st-model">—</div><div class="stat-sub" id="st-last-collect"></div></div>
     </div>
@@ -1727,6 +1727,9 @@ async function loadWindowNews() {
     document.getElementById('st-news-label').textContent = r.label;
     const histEl = document.getElementById('st-news-history');
     histEl.textContent = r.history_count > 0 ? `另有 ${r.history_count} 条历史数据` : '';
+    // 同步匹配结果 & 利好/利空
+    if (r.match_count !== undefined) document.getElementById('st-matches').textContent = r.match_count;
+    if (r.positive_count !== undefined) document.getElementById('st-sentiment').textContent = `${r.positive_count} / ${r.negative_count}`;
     // 用窗口数据刷新新闻列表
     _newsData = r.items;
     if (_leftMode === 'news') renderNewsList(_newsData);
@@ -1781,6 +1784,8 @@ async function loadNews() {
     document.getElementById('st-news-label').textContent = r.label;
     const histEl = document.getElementById('st-news-history');
     if (histEl) histEl.textContent = r.history_count > 0 ? `另有 ${r.history_count} 条历史数据` : '';
+    if (r.match_count !== undefined) document.getElementById('st-matches').textContent = r.match_count;
+    if (r.positive_count !== undefined) document.getElementById('st-sentiment').textContent = `${r.positive_count} / ${r.negative_count}`;
     renderNewsList(_newsData, false);
     // 绑定滚动加载更多
     _bindNewsScroll();
