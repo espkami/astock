@@ -447,6 +447,7 @@ async def trigger_classify():
         return APIResponse(message="所有新闻均已完成分类 ✅")
 
     async def _run():
+        nonlocal pending  # pending 在外层定义，_run 内部有赋值操作，必须声明 nonlocal
         from backend.services.news_processor import process_pending_news, _set_classify_progress, get_classify_progress
         from backend.database import get_db as _gdb
         import asyncio as _aio
