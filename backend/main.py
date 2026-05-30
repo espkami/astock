@@ -7,6 +7,16 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
+# ── 持久化日志（写文件，10MB 切割，保留 7 天）────────────────────────────────
+os.makedirs("logs", exist_ok=True)
+logger.add(
+    "logs/app.log",
+    rotation="10 MB",
+    retention="7 days",
+    level="INFO",
+    encoding="utf-8",
+)
+
 from backend.database import init_db
 from backend.services.scheduler import start_scheduler, stop_scheduler, is_running
 from backend.services.config_service import get_config
