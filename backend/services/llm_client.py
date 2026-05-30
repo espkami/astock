@@ -76,19 +76,21 @@ class LLMClient:
         for attempt in range(len(active)):
             idx = (start_idx + attempt) % len(active)
             m = active[idx]
-            # 切换到当前尝试的模型
+            # 当次尝试用的配置存入局部变量，不修改 self，避免污染下次调用的起点
+            cur_provider = m["provider"]
+            cur_api_key  = m["api_key"]
+            cur_model    = m["model"]
+            cur_base_url = m.get("base_url") or LLMClient._default_base_url(cur_provider)
             if attempt > 0:
-                self.provider = m["provider"]
-                self.api_key  = m["api_key"]
-                self.model    = m["model"]
-                self.base_url = m.get("base_url") or LLMClient._default_base_url(m["provider"])
-                logger.info(f"LLM 故障转移 → {self.provider}/{self.model} ({self.api_key[:8]}...)")
+                logger.info(f"LLM 故障转移 → {cur_provider}/{cur_model} ({cur_api_key[:8]}...)")
                 await asyncio.sleep(1)
             try:
-                if self.provider == "anthropic":
-                    return await self._call_anthropic(messages, json_mode, timeout)
+                if cur_provider == "anthropic":
+                    return await self._call_anthropic_with(messages, json_mode, timeout,
+                                                           cur_api_key, cur_model)
                 else:
-                    return await self._call_openai_compat(messages, json_mode, timeout)
+                    return await self._call_openai_compat_with(messages, json_mode, timeout,
+                                                               cur_api_key, cur_model, cur_base_url)
             except Exception as e:
                 err_str = str(e)
                 last_err = e
@@ -113,10 +115,12 @@ class LLMClient:
                     logger.warning(f"LLM 调用失败，重试: {e}")
                     await asyncio.sleep(1)
                     try:
-                        if self.provider == "anthropic":
-                            return await self._call_anthropic(messages, json_mode, timeout)
+                        if cur_provider == "anthropic":
+                            return await self._call_anthropic_with(messages, json_mode, timeout,
+                                                                   cur_api_key, cur_model)
                         else:
-                            return await self._call_openai_compat(messages, json_mode, timeout)
+                            return await self._call_openai_compat_with(messages, json_mode, timeout,
+                                                                       cur_api_key, cur_model, cur_base_url)
                     except Exception as e2:
                         last_err = e2
                         logger.error(f"LLM 调用最终失败: {e2}")
@@ -128,19 +132,22 @@ class LLMClient:
         raise last_err
 
     async def _call_anthropic(self, messages: list[dict], json_mode: bool, timeout: int) -> str:
+        return await self._call_anthropic_with(messages, json_mode, timeout, self.api_key, self.model)
+
+    async def _call_anthropic_with(self, messages: list[dict], json_mode: bool, timeout: int,
+                                    api_key: str, model: str) -> str:
         import anthropic
-        client = anthropic.AsyncAnthropic(api_key=self.api_key)
+        client = anthropic.AsyncAnthropic(api_key=api_key)
         system_msg = next((m["content"] for m in messages if m["role"] == "system"), None)
         user_msgs = [m for m in messages if m["role"] != "system"]
         kwargs: dict[str, Any] = {
-            "model": self.model,
+            "model": model,
             "max_tokens": 2048,
             "messages": user_msgs,
         }
         if system_msg:
             kwargs["system"] = system_msg
         resp = await asyncio.wait_for(client.messages.create(**kwargs), timeout=timeout)
-        # 累计 token 消耗
         if hasattr(resp, "usage") and resp.usage:
             asyncio.ensure_future(_record_token_usage(
                 getattr(resp.usage, "input_tokens", 0),
@@ -149,13 +156,18 @@ class LLMClient:
         return resp.content[0].text
 
     async def _call_openai_compat(self, messages: list[dict], json_mode: bool, timeout: int) -> str:
+        return await self._call_openai_compat_with(messages, json_mode, timeout,
+                                                    self.api_key, self.model, self.base_url)
+
+    async def _call_openai_compat_with(self, messages: list[dict], json_mode: bool, timeout: int,
+                                        api_key: str, model: str, base_url: str) -> str:
         import httpx
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         payload: dict[str, Any] = {
-            "model": self.model,
+            "model": model,
             "messages": messages,
             "max_tokens": 2048,
             "temperature": 0.3,
@@ -164,13 +176,12 @@ class LLMClient:
             payload["response_format"] = {"type": "json_object"}
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
-                f"{self.base_url}/chat/completions",
+                f"{base_url}/chat/completions",
                 headers=headers,
                 json=payload,
             )
             resp.raise_for_status()
             data = resp.json()
-            # 累计 token 消耗
             usage = data.get("usage", {})
             if usage:
                 asyncio.ensure_future(_record_token_usage(

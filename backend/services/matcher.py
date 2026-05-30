@@ -80,20 +80,16 @@ async def match_pending_news(batch_size: int = 10) -> int:
 
     total = len(rows)
     top_k = await get_config("match_top_k", 5)
-    # 分析匹配模型：只做 LLM 精排
     client = await get_llm_client()
     if not client:
         logger.warning("立即匹配：未配置分析匹配模型，LLM精排跳过，仅使用TF-IDF/语义匹配")
-    # Embedding 专用模型：独立配置，支持 OpenAI/Qwen 免费额度
     from backend.services.llm_client import get_embed_client
     embed_client = await get_embed_client()
     matched = 0
 
-    # 初始化进度
     await _write_match_progress(0, total, "", False)
 
     for i, row in enumerate(rows):
-        # 更新当前进度
         await _write_match_progress(i, total, row["title"], False)
         try:
             result = await _match_one_news(
@@ -119,7 +115,6 @@ async def match_pending_news(batch_size: int = 10) -> int:
         except Exception as e:
             logger.error(f"匹配新闻 {row['id']} 失败: {e}")
 
-    # 完成
     await _write_match_progress(total, total, "", True)
     logger.info(f"匹配完成: {matched}/{total}")
     return matched
@@ -131,7 +126,7 @@ async def _match_one_news(
     sentiment: str, top_k: int, client, embed_client=None
 ) -> Optional[list[dict]]:
 
-    # ── 阶段一：行业粗筛 ──────────────────────────────────────────────────────
+    # ── 阶段一：标签粗筛 ──────────────────────────────────────────────────────
     candidates = await _industry_filter(industries, keywords)
     if not candidates:
         logger.debug(f"新闻 {news_id}: 无候选股票")
@@ -139,7 +134,6 @@ async def _match_one_news(
 
     # ── 阶段二：向量语义匹配 ──────────────────────────────────────────────────
     query_text = f"{title} {summary} {' '.join(keywords)}"
-    # doc 文本：名称 + 描述，描述为空时重复名称增加权重
     doc_texts = []
     for c in candidates:
         desc     = c.get('business_desc') or ''
@@ -154,18 +148,16 @@ async def _match_one_news(
                 return ''
 
         domains    = _jl('domains', 4)
-        all_tags   = _jl('all_tags', 8)      # 扩展后的通用词（军工/黄金/避险等）
-        products   = _jl('products', 6)      # 核心产品（动力电池/光刻机等）
-        techs      = _jl('techs', 4)         # 核心技术（IGBT/HBM等）
-        themes     = _jl('themes', 4)        # 热点主题（AI算力/新能源等）
-        chain_pos  = _jl('chain_pos', 2)     # 产业链位置（上游/中游/下游）
+        all_tags   = _jl('all_tags', 8)
+        products   = _jl('products', 6)
+        techs      = _jl('techs', 4)
+        themes     = _jl('themes', 4)
+        chain_pos  = _jl('chain_pos', 2)
 
-        # 构建丰富的语义文本：名称×2 + 行业 + 简介 + 产品 + 技术 + 主题 + 标签
         text = f"{name} {name} {industry} {desc} {products} {techs} {themes} {chain_pos} {domains} {all_tags}".strip()
         doc_texts.append(text if text else name)
 
     semantic_scores = [0.0] * len(candidates)
-    # 优先用 Embedding 专用模型，fallback 到分析匹配模型（仅 openai/qwen 支持）
     _embed = embed_client or client
     if _embed:
         embeddings = await _embed.embed([query_text] + doc_texts)
@@ -179,31 +171,29 @@ async def _match_one_news(
         logger.debug("无可用 Embedding 模型，使用 TF-IDF")
         semantic_scores = _tfidf_similarity(query_text, doc_texts)
 
-    # 综合评分：tag_score（标签命中）+ semantic_score（语义）
+    # 综合评分：tag_score 权重 40%，semantic_score 权重 60%
     for i, c in enumerate(candidates):
         c["semantic_score"] = semantic_scores[i]
         tag_s = c.get("tag_score", 0.0)
-        # 标签命中权重 40%，语义权重 60%（有 Embedding 时）
-        # 标签命中的股票即使语义分稍低也能进入精排
         c["combined_score"] = tag_s * 0.4 + semantic_scores[i] * 0.6
     candidates.sort(key=lambda x: x["combined_score"], reverse=True)
-    top_candidates = candidates[:top_k * 3]  # 标签体系下扩大精排候选
+    top_candidates = candidates[:top_k * 3]
 
     # ── 阶段三：大模型精排 ────────────────────────────────────────────────────
     if client and top_candidates:
-        llm_results = await _llm_rerank(client, title, summary, top_candidates, top_k, sentiment)
+        llm_results = await _llm_rerank(
+            client, title, summary, keywords, top_candidates, top_k, sentiment
+        )
         if llm_results:
             return llm_results
 
-    # fallback: 优先保留标签强命中(tag_score>=2.0)，其次看语义分
-    # TF-IDF fallback时阈值更低（embedding缺失时分数天然偏低）
+    # fallback: 保留 tag_score>=2.0 或语义分足够的股票
     MIN_SEMANTIC_SCORE = 0.05
     qualified = [c for c in top_candidates if c.get("tag_score", 0) >= 2.0
                  or c.get("semantic_score", 0) >= MIN_SEMANTIC_SCORE]
     if not qualified:
         logger.debug(f"新闻 {news_id}: 候选语义分均低于 {MIN_SEMANTIC_SCORE}，跳过匹配")
         return []
-    # tag_score优先重排，兜底时标签命中的股票排在前面
     qualified.sort(key=lambda x: (x.get("tag_score", 0), x.get("semantic_score", 0)), reverse=True)
 
     results = []
@@ -211,10 +201,8 @@ async def _match_one_news(
         name = c["name"]
         desc = c.get("business_desc") or ""
         industry = c.get("industry") or ""
-        # 找与新闻关键词重叠的业务描述片段
         matched_kws = [kw for kw in keywords if kw in desc or kw in name]
         if matched_kws and desc:
-            # 截取包含关键词的描述片段
             snippet = desc[:40].rstrip("，。、")
             reason = f"{name}主营「{snippet}」，与新闻{'/'.join(matched_kws[:2])}方向直接相关"
         elif desc:
@@ -233,14 +221,13 @@ async def _match_one_news(
     return results
 
 
-# 通用词黑名单：这些词出现在几乎所有公司描述里，用于搜索会产生大量噪音
+# 通用词黑名单：出现在几乎所有公司描述里，用于搜索会产生大量噪音
 _GENERIC_TERMS = {
     "上市公司", "市场", "市场活力", "高质量发展", "创新", "发展", "体系",
     "全链条", "支持", "改革", "政策", "监管", "规范", "制度", "管理",
     "服务", "业务", "企业", "公司", "经营", "运营", "投资", "金融",
     "经济", "产业", "行业", "市场化", "国际化", "数字化", "智能化",
     "资本", "资产", "收益", "利润", "增长", "规模", "战略", "布局",
-    # 行业大类泛词（industries字段常见，粒度太粗不宜直接匹配）
     "农业", "食品", "食品行业", "工业", "制造业", "消费", "零售",
     "医疗", "医药", "教育", "地产", "房地产", "能源", "交通", "物流",
     "科技", "互联网", "电商", "传媒", "文化", "旅游", "餐饮",
@@ -251,23 +238,21 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
     优先级0 — 股票标签精确匹配（最精准，直接命中产品/技术标签）
     优先级1 — 股票名称精确包含关键词
     优先级2 — stock_profile 关键词/描述匹配
-    兜底   — 返回随机 150 只股票供语义排序
+    兜底   — 仅在有标签命中的前提下补足候选，不再随机拉取无关股票
     """
-    # 过滤掉通用词，只保留有区分度的词
     raw_terms = list(set(industries + keywords))
     search_terms = [t for t in raw_terms if t not in _GENERIC_TERMS and len(t) >= 2]
 
     results = []
-    tag_hit_codes = set()  # 标签命中的股票，标记为高优先级
+    tag_hit_codes = set()
 
     # ── 优先级0：股票标签精确匹配（stock_tags + stock_board_tags 双路）──────
     if search_terms:
-        tag_conds = " OR ".join(["st.all_tags LIKE ?" for _ in search_terms])
+        tag_conds   = " OR ".join(["st.all_tags LIKE ?" for _ in search_terms])
         board_conds = " OR ".join(["sbt.all_board_tags LIKE ?" for _ in search_terms])
-        # 子串匹配：允许 "水稻" 命中 "水稻种子"，"大米" 命中 "稻谷、大米及米糠"
-        tag_params = [f'%{t}%' for t in search_terms]
+        tag_params  = [f'%{t}%' for t in search_terms]
 
-        # 0a. 主营标签匹配（products/sectors）
+        # 0a. 主营标签匹配
         async with get_db() as db:
             async with db.execute(
                 f"""SELECT s.ts_code, s.name, COALESCE(s.industry,'') as industry,
@@ -294,7 +279,7 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
             results.append(d)
             tag_hit_codes.add(r["ts_code"])
 
-        # 0b. 板块标签匹配（概念/行业板块名）
+        # 0b. 板块标签匹配
         async with get_db() as db:
             async with db.execute(
                 f"""SELECT s.ts_code, s.name, COALESCE(s.industry,'') as industry,
@@ -309,16 +294,16 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
                 tag_params
             ) as cur:
                 board_rows = await cur.fetchall()
+
         existing = {r["ts_code"] for r in results}
         for r in board_rows:
             if r["ts_code"] not in existing:
                 d = dict(r)
-                d["tag_score"] = 1.8  # 板块标签略低于主营标签
+                d["tag_score"] = 1.8
                 d["all_tags"] = "[]"
                 results.append(d)
                 tag_hit_codes.add(r["ts_code"])
             else:
-                # 已在主营标签里，提升分数（双重命中）
                 for res in results:
                     if res["ts_code"] == r["ts_code"]:
                         res["tag_score"] = min(res["tag_score"] + 0.5, 3.0)
@@ -327,7 +312,7 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
         if results:
             logger.debug(f"标签匹配命中 {len(results)} 只（主营+板块）: {search_terms}")
 
-    # 扩展同义词：确保关键行业词都能覆盖
+    # 扩展同义词
     EXPAND_MAP = {
         "半导体": ["半导体", "芯片", "集成电路", "晶圆", "代工", "封测"],
         "AI算力": ["AI", "算力", "人工智能", "GPU", "训练", "推理"],
@@ -343,12 +328,12 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
         for key, synonyms in EXPAND_MAP.items():
             if any(s in term for s in synonyms):
                 expanded.extend(synonyms)
-    search_terms = list(dict.fromkeys(expanded))  # 去重保序
+    search_terms = list(dict.fromkeys(expanded))
 
-    # ── 阶段1：股票名称匹配（不依赖 profile）──
-    existing_codes = {r['ts_code'] for r in results}  # 已有标签命中的股票
+    # ── 阶段1：股票名称匹配 ──
+    existing_codes = {r['ts_code'] for r in results}
     if search_terms:
-        name_conds = " OR ".join(["s.name LIKE ?" for _ in search_terms])
+        name_conds  = " OR ".join(["s.name LIKE ?" for _ in search_terms])
         params_name = [f"%{t}%" for t in search_terms]
         async with get_db() as db:
             async with db.execute(
@@ -389,7 +374,6 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
                 params_prof
             ) as cur:
                 rows = await cur.fetchall()
-        # 去重合并
         for r in rows:
             if r['ts_code'] not in existing_codes:
                 d = dict(r)
@@ -397,38 +381,32 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
                 results.append(d)
                 existing_codes.add(r['ts_code'])
 
-    # ── 兜底：候选不足 20 只时，补充随机股票供语义排序 ──
-    if len(results) < 20:
-        async with get_db() as db:
-            async with db.execute(
-                """SELECT s.ts_code, s.name, COALESCE(s.industry,'') as industry,
-                          COALESCE(s.market,'') as market,
-                          COALESCE(sp.business_desc,'') as business_desc,
-                          COALESCE(sp.domains,'[]') as domains,
-                          COALESCE(sp.keywords,'[]') as kw_text
-                   FROM stocks s LEFT JOIN stock_profile sp ON s.ts_code=sp.ts_code
-                   ORDER BY RANDOM() LIMIT 150"""
-            ) as cur:
-                rows = await cur.fetchall()
-        existing = {r['ts_code'] for r in results}
-        for r in rows:
-            if r['ts_code'] not in existing:
-                d = dict(r)
-                d["tag_score"] = 0.0
-                results.append(d)
+    # ── 修复点③：移除随机兜底 ─────────────────────────────────────────────────
+    # 原代码：候选不足 20 只时，塞入 150 只随机股票（tag_score=0）
+    # 这是"匹配到不相关股票"的直接元凶：随机股票进入 Embedding 排序后，
+    # 语义分略高就能混进精排候选，LLM 看到了错误的候选池，输出了不相关结果。
+    #
+    # 修改：不再随机补充。候选不足时记录日志，宁可返回少量高质量结果，
+    # 也不用随机股票稀释候选池的精准度。
+    if len(results) == 0:
+        logger.debug(f"标签/描述匹配无结果，跳过该新闻匹配，search_terms={search_terms}")
 
-    # 按 tag_score 排序：标签命中的优先进入候选池
+    # 按 tag_score 排序
     results.sort(key=lambda x: x.get("tag_score", 0), reverse=True)
     return results[:300]
 
 
-async def _llm_rerank(client, title: str, summary: str, candidates: list[dict], top_k: int, sentiment: str) -> list[dict]:
+async def _llm_rerank(
+    client, title: str, summary: str, keywords: list[str],
+    candidates: list[dict], top_k: int, sentiment: str
+) -> list[dict]:
     """大模型精排"""
+    # 修复点④：精排时向 LLM 传入 keywords，给足信息量
+    # 原来只传了 title 和 60 字 summary，LLM 缺乏精准判断的上下文
     stock_list = "\n".join([
         f"{i+1}. {c['ts_code']} {c['name']}（{c.get('industry','')}）- {c.get('business_desc','')[:120]}"
         for i, c in enumerate(candidates)
     ])
-    # 根据企业类型偏好调整 prompt
     from backend.services.config_service import get_config as _gc
     company_type = await _gc("match_company_type", "leader")
 
@@ -440,10 +418,12 @@ async def _llm_rerank(client, title: str, summary: str, candidates: list[dict], 
     }
     type_hint = type_instructions.get(company_type, type_instructions["leader"])
 
+    # 修复点④：新增【新闻关键词】字段，让 LLM 有精准的匹配锚点
     prompt = f"""以下是一条 A 股新闻和候选股票列表。
 
 【新闻标题】{title}
 【新闻摘要】{summary}
+【新闻关键词】{', '.join(keywords)}
 【情感倾向】{sentiment}
 
 【候选股票】
@@ -482,17 +462,18 @@ async def _llm_rerank(client, title: str, summary: str, candidates: list[dict], 
                 text = text[4:]
         raw = json.loads(text)
 
-        # 兼容两种返回格式：
-        # 1. 对象数组 [{ts_code, name, score, reason, sentiment_impact}, ...]
-        # 2. 字符串数组 ["000001.SZ", "600000.SH", ...]（部分 LLM 简化返回）
         code_to_candidate = {c["ts_code"]: c for c in candidates}
         code_to_semantic  = {c["ts_code"]: c.get("semantic_score", 0.0) for c in candidates}
         results = []
         for item in raw:
             if isinstance(item, str):
-                # 字符串格式：ts_code 直接是字符串
                 ts_code = item.strip()
-                cand = code_to_candidate.get(ts_code, {})
+                # 修复点⑤：LLM 返回字符串格式时，必须验证该 ts_code 确实在候选池里
+                # 原来没有这个校验，LLM 可能幻觉出不在候选池里的股票代码
+                if ts_code not in code_to_candidate:
+                    logger.debug(f"LLM 返回了不在候选池中的代码 {ts_code}，已过滤")
+                    continue
+                cand = code_to_candidate[ts_code]
                 results.append({
                     "ts_code": ts_code,
                     "name": cand.get("name", ts_code),
@@ -504,11 +485,18 @@ async def _llm_rerank(client, title: str, summary: str, candidates: list[dict], 
                 })
             elif isinstance(item, dict):
                 ts_code = item.get("ts_code", "")
+                # 修复点⑤：dict 格式同样校验候选池归属
+                if ts_code not in code_to_candidate:
+                    logger.debug(f"LLM 返回了不在候选池中的代码 {ts_code}，已过滤")
+                    continue
                 item["semantic_score"] = code_to_semantic.get(ts_code, 0.0)
                 item["industry_score"] = 0.6
-                item["score"] = round(
-                    item["semantic_score"] * 0.4 + float(item.get("score", 0.5)) * 0.5 + 0.5 * 0.1, 4
-                )
+                # 修复点⑥：原来 score 重算引入固定加成 0.5*0.1=0.05，所有股票一样，
+                # 导致 LLM 打的分数被稀释、区分度变差。
+                # 改为：直接用 LLM 分数（主导）+ 语义分（辅助），去掉固定项。
+                llm_score = float(item.get("score", 0.5))
+                sem_score = item["semantic_score"]
+                item["score"] = round(llm_score * 0.7 + sem_score * 0.3, 4)
                 results.append(item)
         return results[:top_k]
     except Exception as e:

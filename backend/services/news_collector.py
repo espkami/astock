@@ -169,12 +169,18 @@ async def collect_rss() -> list[dict]:
         try:
             parsed = await asyncio.to_thread(feedparser.parse, feed_item["url"])
             for entry in parsed.entries[:50]:
+                # 财经 RSS 的 summary 常常只是标题重复或1-2句话；
+                # feedparser 会把全文放在 entry.content[0].value，优先取用。
+                full_content = ""
+                if entry.get("content"):
+                    full_content = entry["content"][0].get("value", "")
+                rss_content = (full_content or entry.get("summary", ""))[:2000]
                 results.append({
                     "url": entry.get("link", ""),
                     "title": entry.get("title", ""),
                     "source": feed_item.get("name", feed_item["url"]),
                     "published_at": entry.get("published", ""),
-                    "content": entry.get("summary", "")[:2000],
+                    "content": rss_content,
                     "raw_source": "rss",
                 })
             logger.info(f"RSS [{feed_item.get('name','')}] 采集 {len(parsed.entries)} 条")
@@ -278,12 +284,12 @@ async def collect_llm_search() -> list[dict]:
 请整理今日财经市场的重要资讯。
 要求：
 - 涉及市场：A股、美股、加密货币、大宗商品、宏观政策
-- 每条新闻摘要格式：发生了什么 + 可能影响（合计不超过 50 字）
+- 每条新闻 content 格式：【事件】一句话说明发生了什么（20字内）。【受益产业链】列出2-4个具体受益行业或产业链关键词，例如：储能、光伏逆变器、氢燃料电池、国产替代芯片。
 - 剔除无实质内容的行情播报，聚焦有影响力的事件
 - 返回最多 {{count}} 条，按市场影响力排序
 
 返回严格 JSON 数组（不加 markdown 代码块）：
-[{{"title":"新闻标题","source":"来源媒体","published_at":"{today}","content":"发生了什么+可能影响（50字内）","url":"原文链接或空字符串"}}]""",
+[{{"title":"新闻标题","source":"来源媒体","published_at":"{today}","content":"【事件】...【受益产业链】关键词1、关键词2、关键词3","url":"原文链接或空字符串"}}]""",
         },
     ]
 
@@ -343,12 +349,18 @@ async def collect_trending() -> list[dict]:
                 for i, word in enumerate(words[:20]):
                     score = scores[i] if i < len(scores) else "0"
                     desc  = descs[i]  if i < len(descs)  else ""
+                    # content 优先用抓到的 desc；没有时用标题本身构造一句话描述，
+                    # 避免纯热度数字进入 keywords 提取，产生无意义词。
+                    if desc:
+                        content = f"{word}：{desc[:200]}"
+                    else:
+                        content = f"{word}（百度热搜，热度{score}）——{word}相关事件正在引发广泛关注。"
                     results.append({
                         "url": f"https://www.baidu.com/s?wd={word}",
                         "title": word,
                         "source": "百度热搜",
                         "published_at": today,
-                        "content": desc[:200] if desc else f"百度热搜第{i+1}位，热度{score}",
+                        "content": content,
                         "raw_source": "trending",
                     })
                     count += 1
@@ -378,12 +390,16 @@ async def collect_trending() -> list[dict]:
                     label = item.get("label_name", "")
                     if not word:
                         continue
+                    # content 用词条名构造一句话描述，label（热/爆/新）作为补充信号，
+                    # 避免纯热度数字进入 keywords 提取，产生无意义词。
+                    label_str = f"【{label}】" if label else ""
+                    content = f"{label_str}{word}正在微博热搜，热度{num}，相关话题引发大量讨论。"
                     results.append({
                         "url": f"https://s.weibo.com/weibo?q=%23{word}%23",
                         "title": word,
                         "source": "微博热搜",
                         "published_at": today,
-                        "content": f"微博热搜第{i+1}位，热度{num}" + (f"，{label}" if label else ""),
+                        "content": content,
                         "raw_source": "trending",
                     })
                     count += 1
@@ -478,12 +494,21 @@ async def run_collection(sources: Optional[list[str]] = None) -> dict:
             asyncio.create_task(_run_llm_search_async())
 
         try:
-            all_results = await asyncio.wait_for(
-                asyncio.gather(*fast_tasks, return_exceptions=True),
-                timeout=20
-            )
-        except asyncio.TimeoutError:
-            logger.warning("快速采集超时(20s)，已获取部分结果")
+            tasks = [asyncio.ensure_future(t) for t in fast_tasks]
+            done_set, pending_set = await asyncio.wait(tasks, timeout=20)
+            if pending_set:
+                logger.warning(f"快速采集超时(20s)，{len(pending_set)} 个任务未完成，已回收 {len(done_set)} 个结果")
+                for t in pending_set:
+                    t.cancel()
+            all_results = []
+            for t in done_set:
+                exc = t.exception()
+                if exc:
+                    logger.error(f"采集任务异常: {exc}")
+                else:
+                    all_results.append(t.result())
+        except Exception as _gather_err:
+            logger.error(f"采集任务调度异常: {_gather_err}")
             all_results = []
 
         combined = []

@@ -195,8 +195,8 @@ def get_match_schedule() -> list[str]:
             trigger = job.trigger
             # CronTrigger → 提取 hour/minute
             try:
-                h = str(trigger.fields[5]).zfill(2)   # hour field
-                m = str(trigger.fields[6]).zfill(2)   # minute field
+                h = next((str(f) for f in trigger.fields if f.name == "hour"),   "0").zfill(2)
+                m = next((str(f) for f in trigger.fields if f.name == "minute"), "0").zfill(2)
                 times.append(f"{h}:{m}")
             except Exception:
                 pass

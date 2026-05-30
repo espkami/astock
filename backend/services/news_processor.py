@@ -39,6 +39,17 @@ SENTIMENT_ADDONS = {
 
 DEFAULT_CLASSIFY_PROMPT = FOCUS_PROMPTS["balanced"]  # 向后兼容
 
+# ── keywords 规则（抽取为常量，批量和单条 fallback 共用，保持一致）────────────
+# 修复点①：原来 fallback 单条 prompt 里没有 keywords 规则，导致 fallback 质量急剧下降
+_KEYWORDS_RULES = """
+keywords 规则（严格遵守）：
+① 只提取能直接匹配A股公司主营业务的**名词词根**，2-6字
+② 同一概念必须拆成多个词根：大米相关→["大米","水稻","稻谷","粮食","种子"]；芯片相关→["芯片","半导体","集成电路","晶圆"]
+③ 禁止描述性词组：禁止"风味下降""品种变化""选育方向""口感变化""品质问题"等
+④ 禁止通用词：禁止"上市公司""市场""发展""创新""政策""行业""企业"
+⑤ 与A股无直接关联则返回[]
+示例：新闻"大米越来越难吃，水稻品种选育问题"→keywords:["大米","水稻","稻谷","粮食","种子","粮食加工"]"""
+
 # ── 批量分类 Prompt ────────────────────────────────────────────────────────────
 BATCH_PROMPT_TEMPLATE = """{role_desc}
 
@@ -47,14 +58,11 @@ BATCH_PROMPT_TEMPLATE = """{role_desc}
 {news_list}
 
 每条格式：{{"id":序号,"summary":"不超过60字","sentiment":"positive/negative/neutral","industries":["行业"],"event_type":"政策利好/技术突破/业绩超预期/利空消息/行业动态/其他","keywords":["词1","词2","词3"]}}{sentiment_addon}
+{keywords_rules}"""
 
-keywords 规则（严格遵守）：
-① 只提取能直接匹配A股公司主营业务的**名词词根**，2-6字
-② 同一概念必须拆成多个词根：大米相关→["大米","水稻","稻谷","粮食","种子"]；芯片相关→["芯片","半导体","集成电路","晶圆"]
-③ 禁止描述性词组：禁止"风味下降""品种变化""选育方向""口感变化""品质问题"等
-④ 禁止通用词：禁止"上市公司""市场""发展""创新""政策""行业""企业"
-⑤ 与A股无直接关联则返回[]
-示例：新闻"大米越来越难吃，水稻品种选育问题"→keywords:["大米","水稻","稻谷","粮食","种子","粮食加工"]"""
+# 修复点②：content 截取从 150 字提升到 500 字
+# 原来 150 字严重不够，产业链受益逻辑（如"赛力斯制造/宁德配套"）全在正文里，截断后 LLM 只能猜
+_CONTENT_LIMIT = 500
 
 
 async def process_pending_news(batch_size: int = 20, _skip_reset: bool = False) -> int:
@@ -99,7 +107,6 @@ async def process_pending_news(batch_size: int = 20, _skip_reset: bool = False) 
         except Exception as e:
             err_str = str(e)
             logger.warning(f"批量分类失败（条目 {chunk_start}-{chunk_start+len(chunk)}）: {err_str[:80]}，降级为单条处理")
-            # chat() 内部已处理故障转移，这里直接单条 fallback
             for row in chunk:
                 try:
                     ok = await _classify_one_fallback(client, role_desc, sentiment_addon,
@@ -112,12 +119,10 @@ async def process_pending_news(batch_size: int = 20, _skip_reset: bool = False) 
                         await _mark_blocked(row["id"])
                     else:
                         logger.warning(f"单条分类跳过 {row['id']}: {err_str2[:60]}")
-        # 更新进度（_skip_reset=True 时外层 main.py 负责进度，内部不覆盖）
         if not _skip_reset:
             done_so_far = min(chunk_start + BATCH, total)
             _set_classify_progress(done_so_far, total,
                 f"分类中 {done_so_far}/{total}（已完成 {processed} 条）")
-        # 批次间短暂等待，避免 429
         if chunk_start + BATCH < total:
             await asyncio.sleep(2)
 
@@ -125,16 +130,15 @@ async def process_pending_news(batch_size: int = 20, _skip_reset: bool = False) 
         _set_classify_progress(total, total,
             f"✅ 分类完成，共处理 {processed} 条" if processed > 0 else "✅ 最新新闻均已分类完毕", running=False, done=True)
     logger.info(f"新闻分类完成: {processed}/{total}")
-    # 返回尝试处理的条数（total），而非成功数（processed）
-    # 这样外层能正确判断是否还有待处理数据（返回0才表示没有更多）
     return total
 
 
 async def _classify_batch(client, role_desc: str, sentiment_addon: str, rows: list) -> int:
     """批量分类：多条新闻合并为一次 LLM 调用"""
     count = len(rows)
+    # 修复点②：content 截取提升到 _CONTENT_LIMIT（500字）
     news_list = "\n\n".join([
-        f"【新闻{i+1}】标题：{row['title']}\n内容：{(row['content'] or '')[:150]}"
+        f"【新闻{i+1}】标题：{row['title']}\n内容：{(row['content'] or '')[:_CONTENT_LIMIT]}"
         for i, row in enumerate(rows)
     ])
 
@@ -143,6 +147,7 @@ async def _classify_batch(client, role_desc: str, sentiment_addon: str, rows: li
         count=count,
         news_list=news_list,
         sentiment_addon=sentiment_addon,
+        keywords_rules=_KEYWORDS_RULES,  # 修复点①：规则抽出为常量复用
     )
 
     resp = await client.chat([
@@ -178,7 +183,7 @@ async def _classify_batch(client, role_desc: str, sentiment_addon: str, rows: li
                         json.dumps(item.get("industries", []), ensure_ascii=False),
                         item.get("event_type", ""),
                         json.dumps(item.get("keywords", []), ensure_ascii=False),
-                        0.9,  # confidence 固定值，不再从 LLM output 解析
+                        0.9,
                         news_id,
                     ),
                 )
@@ -192,13 +197,15 @@ async def _classify_batch(client, role_desc: str, sentiment_addon: str, rows: li
 async def _classify_one_fallback(client, role_desc: str, sentiment_addon: str,
                                   news_id: int, title: str, content: str) -> bool:
     """单条分类 fallback（批量失败时使用）"""
+    # 修复点①②：content 提升至 500 字，且加入与批量版相同的 keywords 规则
     prompt = f"""{role_desc}
 
 分析新闻，返回JSON（不加markdown）：
 标题：{title}
-内容：{content[:150]}
+内容：{content[:_CONTENT_LIMIT]}
 
-格式：{{"summary":"不超过60字","sentiment":"positive/negative/neutral","industries":["行业"],"event_type":"政策利好/技术突破/业绩超预期/利空消息/行业动态/其他","keywords":["词1","词2","词3"]}}{sentiment_addon}"""
+格式：{{"summary":"不超过60字","sentiment":"positive/negative/neutral","industries":["行业"],"event_type":"政策利好/技术突破/业绩超预期/利空消息/行业动态/其他","keywords":["词1","词2","词3"]}}{sentiment_addon}
+{_KEYWORDS_RULES}"""
 
     resp = await client.chat([
         {"role": "system", "content": "只返回 JSON，不加任何说明。"},
@@ -219,7 +226,7 @@ async def _classify_one_fallback(client, role_desc: str, sentiment_addon: str,
              json.dumps(data.get("industries",[]), ensure_ascii=False),
              data.get("event_type",""),
              json.dumps(data.get("keywords",[]), ensure_ascii=False),
-             float(data.get("confidence",0.0)), news_id),
+             float(data.get("confidence", 0.9)), news_id),
         )
         await db.commit()
     return True
@@ -233,5 +240,3 @@ async def _mark_blocked(news_id: int):
             ("[内容审核限制]", "neutral", "[]", "[]", 0.0, news_id)
         )
         await db.commit()
-
-
