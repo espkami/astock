@@ -477,8 +477,8 @@ async def trigger_classify():
                 prev_remaining = remaining
                 try:
                     n = await _aio.wait_for(
-                        process_pending_news(batch_size=20, _skip_reset=True),
-                        timeout=120,
+                        process_pending_news(batch_size=10, _skip_reset=True),
+                        timeout=300,
                     )
                 except _aio.TimeoutError:
                     retry_count += 1
