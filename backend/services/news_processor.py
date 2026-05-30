@@ -65,7 +65,7 @@ BATCH_PROMPT_TEMPLATE = """{role_desc}
 _CONTENT_LIMIT = 500
 
 
-async def process_pending_news(batch_size: int = 20, _skip_reset: bool = False) -> int:
+async def process_pending_news(batch_size: int = 10, _skip_reset: bool = False) -> int:
     """处理未分类的新闻，批量调用大模型，返回处理条数"""
     from backend.services.llm_client import get_llm_client
 
@@ -97,7 +97,7 @@ async def process_pending_news(batch_size: int = 20, _skip_reset: bool = False) 
         _set_classify_progress(0, total, f"准备分类 {total} 条新闻...")
 
     # ── 批量处理：每次最多 20 条合并为一个请求 ──────────────────────────────
-    BATCH = 20
+    BATCH = 10
     processed = 0
     for chunk_start in range(0, total, BATCH):
         chunk = rows[chunk_start: chunk_start + BATCH]
