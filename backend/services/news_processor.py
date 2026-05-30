@@ -119,12 +119,13 @@ async def process_pending_news(batch_size: int = 10, _skip_reset: bool = False) 
                         await _mark_blocked(row["id"])
                     else:
                         logger.warning(f"单条分类跳过 {row['id']}: {err_str2[:60]}")
+                await asyncio.sleep(5)
         if not _skip_reset:
             done_so_far = min(chunk_start + BATCH, total)
             _set_classify_progress(done_so_far, total,
                 f"分类中 {done_so_far}/{total}（已完成 {processed} 条）")
         if chunk_start + BATCH < total:
-            await asyncio.sleep(2)
+            await asyncio.sleep(20)
 
     if not _skip_reset:
         _set_classify_progress(total, total,
