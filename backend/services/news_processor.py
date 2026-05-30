@@ -153,7 +153,7 @@ async def _classify_batch(client, role_desc: str, sentiment_addon: str, rows: li
     resp = await client.chat([
         {"role": "system", "content": "只返回 JSON 数组，不加任何说明。"},
         {"role": "user",   "content": prompt},
-    ], json_mode=False)
+    ], json_mode=False, timeout=180)
 
     # 解析响应
     text = resp.strip()
@@ -210,7 +210,7 @@ async def _classify_one_fallback(client, role_desc: str, sentiment_addon: str,
     resp = await client.chat([
         {"role": "system", "content": "只返回 JSON，不加任何说明。"},
         {"role": "user",   "content": prompt},
-    ], json_mode=False)
+    ], json_mode=False, timeout=180)
 
     text = resp.strip()
     if text.startswith("```"):
