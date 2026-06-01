@@ -350,14 +350,14 @@
       .topbar-actions { gap: 6px; }
 
       /* 操作按钮缩小 */
-      #collectBtn, #directMatchAllBtn {
+      #collectBtn, #classifyBtn, #matchBtn {
         font-size: 11px;
         padding: 4px 8px;
       }
       #navUsername, #statusText { display: none; }
       .status-dot { display: none; }
       /* 操作按钮在手机 topbar 里隐藏，移到页面内 */
-      #collectBtn, #directMatchAllBtn { display: none; }
+      #collectBtn, #classifyBtn, #matchBtn { display: none; }
       .mobile-action-bar { display: flex !important; }
 
       /* 仪表盘页面 */
@@ -414,7 +414,7 @@
       .topbar-logo { font-size: 13px; }
       .nav-link { font-size: 12px; padding: var(--space-1) var(--space-2); }
       /* 操作按钮极度压缩 */
-      #collectBtn, #directMatchAllBtn {
+      #collectBtn, #classifyBtn, #matchBtn {
         font-size: 11px;
         padding: 4px 6px;
         letter-spacing: -0.2px;
@@ -483,7 +483,8 @@
         <span id="tokenVal" style="font-weight:600">0</span>
       </div>
       <button class="btn btn-secondary btn-sm" onclick="triggerCollect()" id="collectBtn">立即采集</button>
-      <button class="btn btn-primary btn-sm" onclick="triggerDirectMatchAll()" id="directMatchAllBtn">立即匹配</button>
+      <button class="btn btn-secondary btn-sm" onclick="triggerClassify()" id="classifyBtn">立即分类</button>
+      <button class="btn btn-primary btn-sm" onclick="triggerMatch()" id="matchBtn">立即匹配</button>
 
       <span id="navUsername" style="font-size:12px;color:var(--text-muted)"></span>
       <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="退出登录">退出</button>
@@ -497,7 +498,8 @@
     <!-- 移动端操作栏（手机端显示，桌面端隐藏） -->
     <div class="mobile-action-bar">
       <button class="btn btn-secondary btn-sm" onclick="triggerCollect()" id="collectBtnM">立即采集</button>
-      <button class="btn btn-primary btn-sm" onclick="triggerDirectMatchAll()" id="directMatchAllBtnM">立即匹配</button>
+      <button class="btn btn-secondary btn-sm" onclick="triggerClassify()" id="classifyBtnM">立即分类</button>
+      <button class="btn btn-primary btn-sm" onclick="triggerMatch()" id="matchBtnM">立即匹配</button>
     </div>
 
     <!-- 统计栏 -->
@@ -524,12 +526,12 @@
         </div>
         <div id="st-news-history" style="font-size:11px;color:var(--text-muted);margin-top:3px"></div>
       </div>
-      <div class="stat-card"><div class="stat-label">匹配利好 / 利空</div><div class="stat-value" id="st-sentiment">—</div><div class="stat-sub">基于匹配结果</div></div>
       <div class="stat-card">
         <div class="stat-label">匹配结果</div>
         <div class="stat-value" id="st-matches">—</div>
         <button class="stat-btn" onclick="showAllResults()">查看匹配结果 →</button>
       </div>
+      <div class="stat-card"><div class="stat-label">匹配利好 / 利空</div><div class="stat-value" id="st-sentiment">—</div><div class="stat-sub">基于匹配结果</div></div>
       <div class="stat-card"><div class="stat-label">股票库</div><div class="stat-value" id="st-stocks">—</div></div>
       <div class="stat-card"><div class="stat-label">当前模型</div><div class="stat-value" style="font-size:13px;margin-top:4px" id="st-model">—</div><div class="stat-sub" id="st-last-collect"></div></div>
     </div>
@@ -596,10 +598,7 @@
   <div class="cfg-page" id="page-news-config">
     <div class="config-section">
       <div class="config-section-title"><span>🔑 NewsAPI.ai</span>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-secondary btn-sm" onclick="triggerCollectNewsapi()" id="newsapiCollectBtn" style="font-size:11px;padding:3px 10px">立即采集</button>
-          <label class="toggle-switch"><input type="checkbox" id="newsapi_enabled" onchange="saveToggle('newsapi_enabled',this.checked)"><span class="toggle-slider"></span></label>
-        </div>
+        <label class="toggle-switch"><input type="checkbox" id="newsapi_enabled" onchange="saveToggle('newsapi_enabled',this.checked)"><span class="toggle-slider"></span></label>
       </div>
       <div class="form-row"><label>API Key 列表</label>
         <div class="list-manager" id="newsapiKeyList"></div>
@@ -734,7 +733,23 @@
 
       </div>
     </div>
-
+    <div class="config-section">
+      <div class="config-section-title">🤖 采集后自动分类</div>
+      <div class="form-row" style="flex-direction:row;align-items:flex-start;justify-content:space-between;gap:var(--space-4)">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500;margin-bottom:4px">采集完成后自动调用大模型分类</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+            <b>开启</b>：每次采集到新闻后自动提取摘要、情感、行业标签，无需手动点击「立即分类」。会持续消耗 Token。<br>
+            <b>关闭</b>：采集只入库，需要手动点击顶部「立即分类」按钮触发分类。Token 消耗完全可控。
+          </div>
+        </div>
+        <label class="toggle-switch" style="flex-shrink:0;margin-top:2px">
+          <input type="checkbox" id="auto_classify_enabled"
+            onchange="onAutoClassifyChange(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
 
     <div class="config-section">
       <div class="config-section-title">⚙️ 采集间隔设置</div>
@@ -876,22 +891,61 @@
       <div style="font-size:11px;color:var(--text-muted)">常用：08:00 开盘前 · 12:00 午间 · 15:30 收盘后 · 20:00 晚间</div>
     </div>
     <div class="config-section">
-      <div class="config-section-title">🧠 匹配方法论</div>
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-3)">
-        选择直接推理时大模型使用的分析框架，可自由添加自定义方法论。
+      <div class="config-section-title">📊 新闻分析偏好</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-4)">
+        控制大模型如何解读新闻、提取行业标签和情感判断。
       </p>
 
-      <!-- 方法论列表 -->
-      <div id="methodologyList" style="display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-3)"></div>
+      <div class="form-row">
+        <label>分析侧重</label>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2)" id="analysisFocusList">
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="focus_opt_stock">
+            <input type="radio" name="analysis_focus" value="stock" style="margin-top:2px;flex-shrink:0" onchange="onFocusChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">📈 股票影响优先</div>
+              <div style="font-size:12px;color:var(--text-muted)">重点判断对 A 股个股或板块的利好/利空影响，适合短线关注</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="focus_opt_industry">
+            <input type="radio" name="analysis_focus" value="industry" style="margin-top:2px;flex-shrink:0" onchange="onFocusChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">🏭 行业趋势优先</div>
+              <div style="font-size:12px;color:var(--text-muted)">重点提取行业动态和产业链变化，适合中长线研究</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="focus_opt_macro">
+            <input type="radio" name="analysis_focus" value="macro" style="margin-top:2px;flex-shrink:0" onchange="onFocusChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">🌐 宏观政策优先</div>
+              <div style="font-size:12px;color:var(--text-muted)">重点关注政策面、宏观经济对市场的影响，适合政策敏感型投资</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:var(--space-2);cursor:pointer;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid var(--border-default);transition:all var(--transition-fast)" id="focus_opt_balanced">
+            <input type="radio" name="analysis_focus" value="balanced" checked style="margin-top:2px;flex-shrink:0" onchange="onFocusChange(this.value)">
+            <div>
+              <div style="font-size:13px;font-weight:500">⚖️ 综合均衡（默认）</div>
+              <div style="font-size:12px;color:var(--text-muted)">全面提取行业、情感、关键词，适合大多数场景</div>
+            </div>
+          </label>
+        </div>
+      </div>
 
-      <!-- 添加自定义方法论 -->
-      <div style="border:1px dashed var(--border-default);border-radius:var(--radius-md);padding:var(--space-3)">
-        <div style="font-size:12px;font-weight:500;margin-bottom:var(--space-2)">➕ 添加自定义方法论</div>
-        <input class="input" id="newMethodName" placeholder="方法论名称（如：龙头策略）" style="margin-bottom:var(--space-2)">
-        <textarea class="input" id="newMethodContent" rows="4"
-          placeholder="描述你的分析框架，大模型会按此逻辑推理受益股票..."
-          style="width:100%;resize:vertical;font-size:12px;margin-bottom:var(--space-2)"></textarea>
-        <button class="btn btn-secondary btn-sm" onclick="addMethodology()">保存方法论</button>
+      <div class="form-row" style="margin-top:var(--space-3)">
+        <label>情感判断标准</label>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+          <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+            <input type="radio" name="sentiment_standard" value="strict" onchange="saveCfg('sentiment_standard',this.value)">
+            <div><span style="font-size:13px;font-weight:500">严格</span> <span style="font-size:12px;color:var(--text-muted)">— 只有明确利好/利空才标注，其余归中性（减少误判）</span></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+            <input type="radio" name="sentiment_standard" value="normal" checked onchange="saveCfg('sentiment_standard',this.value)">
+            <div><span style="font-size:13px;font-weight:500">标准（默认）</span> <span style="font-size:12px;color:var(--text-muted)">— 综合标题和内容判断情感倾向</span></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+            <input type="radio" name="sentiment_standard" value="sensitive" onchange="saveCfg('sentiment_standard',this.value)">
+            <div><span style="font-size:13px;font-weight:500">敏感</span> <span style="font-size:12px;color:var(--text-muted)">— 对潜在影响也进行判断，利好/利空比例更高</span></div>
+          </label>
+        </div>
       </div>
     </div>
     <div class="config-section">
@@ -1144,11 +1198,11 @@
       <div style="display:flex;flex-direction:column;gap:var(--space-3)">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
           <div><div style="font-size:13px;font-weight:500">清除历史新闻数据</div><div style="font-size:12px;color:var(--text-muted)">清除新闻及分类结果</div></div>
-          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['news','matches'], true)">清除</button>
+          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['news','matches'])">清除</button>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
           <div><div style="font-size:13px;font-weight:500">清除全部匹配结果</div><div style="font-size:12px;color:var(--text-muted)">保留新闻，清除匹配记录</div></div>
-          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['matches'], true)">清除</button>
+          <button class="btn btn-secondary btn-sm" onclick="confirmClean(['matches'])">清除</button>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md)">
           <div><div style="font-size:13px;font-weight:500">重置股票基础数据</div><div style="font-size:12px;color:var(--red-700)">⚠️ 全量清空：股票列表、公司简介、主营业务项目、所有标签</div></div>
@@ -1191,18 +1245,11 @@
           </div>
           <span id="newsImportStatus" style="font-size:11px;color:var(--text-muted)"></span>
         </div>
-        <!-- 全量数据导出/导入 -->
+        <!-- 全量数据导出（旧版兼容） -->
         <div style="padding:var(--space-3);background:var(--surface-base);border-radius:var(--radius-md);border:1px solid var(--border-subtle)">
           <div style="font-size:13px;font-weight:600;margin-bottom:var(--space-1)">🗄️ 全量数据</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">包含新闻、匹配结果、股票数据（兼容旧版格式与新版格式）</div>
-          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center">
-            <button class="btn btn-secondary btn-sm" onclick="exportData()">⬇️ 导出全量数据 JSON</button>
-            <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
-              ⬆️ 导入全量数据
-              <input type="file" accept=".json" style="display:none" onchange="importAllData(this)">
-            </label>
-            <span id="allImportStatus" style="font-size:11px;color:var(--text-muted)"></span>
-          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-3)">包含新闻、匹配结果、股票数据（旧版格式）</div>
+          <button class="btn btn-secondary btn-sm" onclick="exportData()">⬇️ 导出全量数据 JSON</button>
         </div>
       </div>
     </div>
@@ -1673,9 +1720,6 @@ async function loadWindowNews() {
     document.getElementById('st-news-label').textContent = r.label;
     const histEl = document.getElementById('st-news-history');
     histEl.textContent = r.history_count > 0 ? `另有 ${r.history_count} 条历史数据` : '';
-    // 同步匹配结果 & 利好/利空
-    if (r.match_count !== undefined) document.getElementById('st-matches').textContent = r.match_count;
-    if (r.positive_count !== undefined) document.getElementById('st-sentiment').textContent = `${r.positive_count} / ${r.negative_count}`;
     // 用窗口数据刷新新闻列表
     _newsData = r.items;
     if (_leftMode === 'news') renderNewsList(_newsData);
@@ -1730,8 +1774,6 @@ async function loadNews() {
     document.getElementById('st-news-label').textContent = r.label;
     const histEl = document.getElementById('st-news-history');
     if (histEl) histEl.textContent = r.history_count > 0 ? `另有 ${r.history_count} 条历史数据` : '';
-    if (r.match_count !== undefined) document.getElementById('st-matches').textContent = r.match_count;
-    if (r.positive_count !== undefined) document.getElementById('st-sentiment').textContent = `${r.positive_count} / ${r.negative_count}`;
     renderNewsList(_newsData, false);
     // 绑定滚动加载更多
     _bindNewsScroll();
@@ -2025,12 +2067,7 @@ async function showMatchResult(newsId) {
   if (!_matchedIds.has(newsId)) {
     document.getElementById('rightPanelTitle').textContent = '龙头股匹配';
     document.getElementById('rightPanelSub').textContent = '';
-    rightBody.innerHTML = `<div class="match-empty">该新闻暂无匹配结果
-      <div style="display:flex;gap:8px;margin-top:10px;justify-content:center;flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" onclick="singleDirectMatch(${newsId})">🧠 直接推理</button>
-        <button class="btn btn-secondary btn-sm" onclick="triggerMatch()">⚡ 批量匹配</button>
-      </div>
-    </div>`;
+    rightBody.innerHTML = `<div class="match-empty">该新闻暂无匹配结果<br><span style="font-size:11px;margin-top:4px;display:block">请点击「立即匹配」批量处理</span></div>`;
     return;
   }
 
@@ -2079,17 +2116,13 @@ async function showMatchResult(newsId) {
 
   // 股票列表
   const stocksHtml = stocks.length
-    ? `<div class="stocks-label" style="display:flex;align-items:center;justify-content:space-between">
-        <span>匹配龙头股 · ${stocks.length} 只${stocks[0]?.match_mode==='direct'?' 🧠 直接推理':''}</span>
-        <button class="btn btn-secondary" style="font-size:11px;padding:2px 8px;height:24px" onclick="singleDirectMatch(${newsId})">🧠 重新推理</button>
-      </div>` +
+    ? `<div class="stocks-label">匹配龙头股 · ${stocks.length} 只</div>` +
       stocks.map((s,i) => `
         <div class="stock-item ${i===0?'rank-1':'rank-other'}">
           <div class="stock-item-header">
             <div class="rank-num">${i+1}</div>
             <span class="stock-name">${esc(s.name)}</span>
             <span class="stock-code">${esc(s.ts_code)}</span>
-            ${s.benefit_tier ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:${s.benefit_tier.includes('第一')?'var(--green-100)':s.benefit_tier.includes('第二')?'var(--blue-100)':'var(--surface-base)'};color:${s.benefit_tier.includes('第一')?'var(--green-700)':s.benefit_tier.includes('第二')?'var(--blue-700)':'var(--text-muted)'}">${esc(s.benefit_tier)}</span>` : ''}
             <span class="badge-s ${sentClass(s.sentiment_impact)}" style="margin-left:auto">${sentLabel(s.sentiment_impact)}</span>
           </div>
           <div class="score-row">
@@ -2112,31 +2145,6 @@ async function showMatchResult(newsId) {
 // ══════════════════════════════════════════════════════
 //  顶部按钮
 // ══════════════════════════════════════════════════════
-async function singleDirectMatch(newsId) {
-  const rightBody = document.getElementById('rightBody');
-  rightBody.innerHTML = `<div class="match-empty"><span class="loading"></span><br><span style="font-size:11px;margin-top:8px;display:block">🧠 直接推理中，LLM按方法论主动推理受益股...</span></div>`;
-  try {
-    const methodology = getActiveMethodology();
-    const r = await api(`/api/news/${newsId}/direct-match`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ methodology: methodology.content })
-    });
-    if (r.success) {
-      _matchedIds.add(newsId);
-      _matchCache[newsId] = r.matched_stocks;
-      await showMatchResult(newsId);
-      toast(`直接推理完成，找到 ${r.total} 只受益股`, 'success');
-    } else {
-      rightBody.innerHTML = `<div class="match-empty">推理失败: ${esc(r.message||'未知错误')}</div>`;
-      toast('直接推理失败: ' + (r.message||''), 'error');
-    }
-  } catch(e) {
-    rightBody.innerHTML = `<div class="match-empty">推理失败: ${esc(e.message)}</div>`;
-    toast('直接推理失败: '+e.message, 'error');
-  }
-}
-
 async function triggerCollect() {
   const btns = [document.getElementById('collectBtn'), document.getElementById('collectBtnM')].filter(Boolean);
   btns.forEach(b=>{ b.disabled=true; b.textContent='采集中...'; });
@@ -2150,7 +2158,8 @@ async function triggerCollect() {
 let _classifyPollTimer = null;
 
 async function triggerClassify() {
-  const btns = [];
+  const btns = [document.getElementById('classifyBtn'), document.getElementById('classifyBtnM')].filter(Boolean);
+  btns.forEach(b=>{ b.disabled=true; b.textContent='分类中...'; });
   try {
     await api('/api/classify',{method:'POST'});
     startClassifyPolling(btns);
@@ -2162,34 +2171,15 @@ async function triggerClassify() {
 
 let _matchPollTimer = null;
 
-// triggerMatch 已由 triggerDirectMatchAll 替代
-
-async function triggerCollectNewsapi() {
-  const doneLabel = 'NewsAPI';
-  const btns = [document.getElementById('newsapiCollectBtn')].filter(Boolean);
-  btns.forEach(b=>{ b.disabled=true; b.textContent='采集中...'; });
+async function triggerMatch() {
+  const btns = [document.getElementById('matchBtn'), document.getElementById('matchBtnM')].filter(Boolean);
+  btns.forEach(b=>{ b.disabled=true; b.textContent='匹配中...'; });
   try {
-    const res = await api('/api/collect/newsapi',{method:'POST'});
-    toast(res.message || 'NewsAPI 采集已启动', 'success');
-    startCollectPolling();
-    setTimeout(()=>{ btns.forEach(b=>{ b.disabled=false; b.textContent=doneLabel; }); }, 3000);
+    await api('/api/match',{method:'POST'});
+    startMatchPolling(btns);
   } catch(e) {
     toast('触发失败: '+e.message,'error');
-    btns.forEach(b=>{ b.disabled=false; b.textContent=doneLabel; });
-  }
-}
-
-async function triggerDirectMatchAll() {
-  const doneLabel = '立即匹配';
-  const btns = [document.getElementById('directMatchAllBtn'), document.getElementById('directMatchAllBtnM')].filter(Boolean);
-  btns.forEach(b=>{ b.disabled=true; b.textContent='推理中...'; });
-  try {
-    const res = await api('/api/direct-match-all',{method:'POST'});
-    toast(res.message || '直接推理已启动', 'success');
-    startMatchPolling(btns, doneLabel);
-  } catch(e) {
-    toast('触发失败: '+e.message,'error');
-    btns.forEach(b=>{ b.disabled=false; b.textContent=doneLabel; });
+    btns.forEach(b=>{ b.disabled=false; b.textContent='立即匹配'; });
   }
 }
 
@@ -2232,10 +2222,8 @@ function startCollectPolling() {
       const p = r.data || {};
       const txt = document.getElementById('collectProgressTxt');
       const bar = document.getElementById('collectProgressBar');
-      // 显示实际数量
-      let collectMsg = p.message || '运行中...';
-      if (p.stage === 'saving' && p.collected > 0) collectMsg = `采集到 ${p.collected} 条，入库中...`;
-      if (txt) txt.textContent = collectMsg;
+      if (txt) txt.textContent = p.message || '运行中...';
+      // 真实阶段进度
       const pct = p.stage === 'collecting' ? 40 : p.stage === 'saving' ? 80 : p.done ? 100 : 20;
       if (bar) bar.style.width = pct + '%';
       const timedOut = Date.now() - collectStartedAt >= COLLECT_TIMEOUT_MS;
@@ -2325,8 +2313,7 @@ function hideMatchProgress() {
   _hideTaskOverlayIfDone();
 }
 
-function startMatchPolling(btns, doneLabel) {
-  doneLabel = doneLabel || '立即全部匹配';
+function startMatchPolling(btns) {
   if (_taskPollers.match) {
     if (typeof _taskPollers.match === 'object') _taskPollers.match.cancelled = true;
     else clearInterval(_taskPollers.match);
@@ -2384,15 +2371,17 @@ async function resumeBackgroundTasks() {
   try {
     const classify = (await apiWithTimeout('/api/classify/progress', {}, 5000)).data || {};
     if (classify.running && !classify.done) {
-      startClassifyPolling([]);
+      const btns = [document.getElementById('classifyBtn'), document.getElementById('classifyBtnM')].filter(Boolean);
+      btns.forEach(b => { b.disabled = true; b.textContent = `分类 ${(classify.percent||0).toFixed(0)}%`; });
+      startClassifyPolling(btns);
     }
   } catch(e) {}
   try {
     const match = await apiWithTimeout('/api/match/progress', {}, 5000);
     if (match && match.finished !== true) {
-      const btns = [document.getElementById('directMatchAllBtn'), document.getElementById('directMatchAllBtnM')].filter(Boolean);
-      btns.forEach(b => { b.disabled = true; b.textContent = '推理中...'; });
-      startMatchPolling(btns, '立即匹配');
+      const btns = [document.getElementById('matchBtn'), document.getElementById('matchBtnM')].filter(Boolean);
+      btns.forEach(b => { b.disabled = true; b.textContent = '匹配中...'; });
+      startMatchPolling(btns);
     }
   } catch(e) {}
 }
@@ -2411,11 +2400,14 @@ async function loadNewsConfig() {
   setToggle('douyin_trending_enabled', cfg.douyin_trending_enabled !== false);
   if (cfg.trending_interval) { const el=document.getElementById('trending_interval'); if(el){el.value=cfg.trending_interval;onIntervalInput('trending');} }
   // 自动分类开关（默认开启）
+  const autoClassify = cfg.auto_classify_enabled !== false;
+  setToggle('auto_classify_enabled', autoClassify);
+  updateClassifyBtnVisibility(autoClassify);
 
   if (cfg.newsapi_page_size) document.getElementById('newsapi_page_size').value = cfg.newsapi_page_size;
-  const ni=cfg.newsapi_interval||1800; document.getElementById('newsapi_interval').value=ni; onIntervalInput('newsapi');
-  const ri=cfg.rss_interval||300; document.getElementById('rss_interval').value=ri; onIntervalInput('rss');
-  const li=cfg.llm_search_interval||3600; document.getElementById('llm_search_interval').value=li; onIntervalInput('llm_search');
+  const ni=cfg.newsapi_interval||1800; document.getElementById('newsapi_interval').value=ni; document.getElementById('newsapi_interval_val').textContent=fmtInterval(ni);
+  const ri=cfg.rss_interval||300; document.getElementById('rss_interval').value=ri; document.getElementById('rss_interval_val').textContent=fmtInterval(ri);
+  const li=cfg.llm_search_interval||3600; document.getElementById('llm_search_interval').value=li; document.getElementById('llm_search_interval_val').textContent=fmtInterval(li);
   renderKeyList('newsapiKeyList', cfg.newsapi_keys||[], 'newsapi_keys');
   renderKwList('newsapiKwList', cfg.newsapi_keywords||[], 'newsapi_keywords');
   initIntervalHints();
@@ -2433,9 +2425,22 @@ async function loadNewsConfig() {
     if (el) el.value = [gc, tc, fc][i];
   });
 }
-// onAutoClassifyChange 已移除
+function onAutoClassifyChange(enabled) {
+  saveCfg('auto_classify_enabled', enabled);
+  updateClassifyBtnVisibility(enabled);
+}
 
-function updateClassifyBtnVisibility(autoClassify) { /* 立即分类已移除 */ }
+function updateClassifyBtnVisibility(autoClassify) {
+  // 始终显示「立即分类」按钮，无论自动分类是否开启
+  const btns = [
+    document.getElementById('classifyBtn'),
+    document.getElementById('classifyBtnM'),
+  ];
+  btns.forEach(btn => {
+    if (!btn) return;
+    btn.style.display = '';  // 始终显示
+  });
+}
 
 function setToggle(id,val){const el=document.getElementById(id);if(el)el.checked=!!val;}
 function renderKeyList(cId,items,cfgKey){document.getElementById(cId).innerHTML=items.map((item,i)=>`<div class="list-item"><label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" ${item.enabled?'checked':''} onchange="updateListItem('${cfgKey}',${i},'enabled',this.checked)"><span class="toggle-slider"></span></label><input type="password" value="${esc(item.key||'')}" placeholder="API Key" onchange="updateListItem('${cfgKey}',${i},'key',this.value)"><button class="list-item-del" onclick="removeListItem('${cfgKey}',${i})">×</button></div>`).join('');}
@@ -2687,7 +2692,6 @@ async function loadLLMConfig() {
   renderSearchLlmModelList(searchModels);
 
   const r=await api('/api/config/match-schedule').catch(()=>({data:{times:[]}}));
-  loadMethodologies();
   renderMatchTimes(r.data?.times||[]);
 }
 // 旧版单模型配置函数（已由多模型卡片列表取代）
@@ -3569,110 +3573,11 @@ function _pollProgressFallback(){
 //  数据管理
 // ══════════════════════════════════════════════════════
 async function loadDataMgmtConfig(){const cfg=(await api('/api/config')).data||{};if(cfg.data_retention_days)document.getElementById('data_retention_days').value=cfg.data_retention_days;setToggle('auto_clean',cfg.auto_clean!==false);loadHistoryStats();loadUsers();}
-function confirmClean(targets, forceAll) {
-  // forceAll=true：全量清除（不受 days 限制）
-  const days = forceAll ? 0 : (parseInt(document.getElementById('data_retention_days').value) || 30);
-  let bodyHtml;
-  if (forceAll) {
-    const hasNews = targets.includes('news');
-    const hasMatches = targets.includes('matches');
-    if (hasNews && hasMatches) {
-      bodyHtml = '将<strong>全量清除所有新闻及匹配结果</strong>，此操作不可撤销。';
-    } else if (hasMatches) {
-      bodyHtml = '将<strong>全量清除所有匹配结果</strong>，新闻数据保留不变。<br><br>此操作不可撤销。';
-    } else {
-      bodyHtml = '将<strong>全量清除所有新闻数据</strong>，此操作不可撤销。';
-    }
-  } else {
-    const names = targets.map(t => ({news: '新闻数据', matches: '关联匹配结果'})[t]).join('、');
-    bodyHtml = `将清除 <strong>${days} 天前</strong>的 <strong>${names}</strong>，此操作不可撤销。`;
-  }
-  document.getElementById('confirmTitle').textContent = '确认清除';
-  document.getElementById('confirmBody').innerHTML = bodyHtml;
-  document.getElementById('confirmOkBtn').onclick = () => { closeModal(); doClean(targets, days); };
-  document.getElementById('confirmModal').classList.add('open');
-}
+function confirmClean(targets){const days=parseInt(document.getElementById('data_retention_days').value)||30;const names=targets.map(t=>({news:'新闻数据',matches:'匹配结果'})[t]).join('、');document.getElementById('confirmTitle').textContent='确认清除';document.getElementById('confirmBody').innerHTML=`将清除 <strong>${days} 天前</strong>的 <strong>${names}</strong>，此操作不可撤销。`;document.getElementById('confirmOkBtn').onclick=()=>{closeModal();doClean(targets,days);};document.getElementById('confirmModal').classList.add('open');}
 function confirmCleanStocks(){document.getElementById('confirmTitle').textContent='确认重置股票数据';document.getElementById('confirmBody').innerHTML='将<strong>全量清空</strong>股票列表、公司简介、主营业务项目及所有标签数据。<br><br>重置后需重新执行「立即更新全量股票」才能恢复数据，此操作不可撤销。';document.getElementById('confirmOkBtn').onclick=()=>{closeModal();doClean(['stocks'],0);};document.getElementById('confirmModal').classList.add('open');}
-async function doClean(targets, days) {
-  try {
-    const result = await api('/api/data/clean', { method: 'POST', body: JSON.stringify({ days, targets }) });
-    const d = result.data || {};
-    const parts = [];
-    if (d.news !== undefined) parts.push(`新闻 ${d.news} 条`);
-    if (d.matches !== undefined) parts.push(`匹配结果 ${d.matches} 条`);
-    if (d.stocks) parts.push('股票数据已重置');
-    toast('清除完成：' + (parts.join('、') || '0 条'), 'success');
-    loadStats();
-  } catch(e) {
-    toast('清除失败: ' + e.message, 'error');
-  }
-}
+async function doClean(targets,days){try{await api('/api/data/clean',{method:'POST',body:JSON.stringify({days,targets})});toast('清除完成','success');loadStats();}catch(e){toast('清除失败: '+e.message,'error');}}
 function closeModal(){document.getElementById('confirmModal').classList.remove('open');}
 function exportData(){window.open(API+'/api/data/export','_blank');}
-
-async function importAllData(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const status = document.getElementById('allImportStatus');
-  status.textContent = '读取文件中...';
-  input.value = '';
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-
-    // 判断格式：新版格式含 version 字段，旧版不含
-    const isNewFormat = !!data.version;
-    let newsResult = null, stockResult = null;
-
-    // ── 导入新闻 & 匹配结果 ──
-    const newsPayload = isNewFormat
-      ? data  // 新版格式直接含 news/matches
-      : { news: data.news || [], matches: data.matches || [] };
-
-    if ((newsPayload.news || []).length > 0 || (newsPayload.matches || []).length > 0) {
-      status.textContent = `导入新闻中... (${(newsPayload.news||[]).length}条)`;
-      newsResult = await api('/api/data/import/news', {
-        method: 'POST',
-        body: JSON.stringify(newsPayload),
-      });
-    }
-
-    // ── 导入股票数据 ──
-    const stockPayload = isNewFormat
-      ? data  // 新版格式含 stocks/stock_profile/stock_tags/stock_board_tags
-      : { stocks: data.stocks || [], stock_profile: [], stock_tags: [], stock_board_tags: [] };
-
-    if ((stockPayload.stocks || []).length > 0) {
-      status.textContent = `导入股票中... (${stockPayload.stocks.length}只)`;
-      stockResult = await api('/api/data/import/stocks', {
-        method: 'POST',
-        body: JSON.stringify(stockPayload),
-      });
-    }
-
-    // ── 汇总结果 ──
-    const parts = [];
-    if (newsResult) {
-      const c = newsResult.data || {};
-      parts.push(`新闻+${c.news||0}(跳过${c.news_skipped||0}) 匹配+${c.matches||0}(跳过${c.matches_skipped||0})`);
-    }
-    if (stockResult) {
-      const c = stockResult.data || {};
-      parts.push(`股票+${c.stocks||0} 简介+${c.profiles||0} 标签+${c.tags||0} 板块+${c.board_tags||0}`);
-    }
-    if (parts.length === 0) {
-      status.textContent = '⚠️ 文件中无可导入数据';
-    } else {
-      status.textContent = '✅ ' + parts.join(' | ');
-      toast('全量数据导入完成', 'success');
-      setTimeout(() => loadHistoryStats(), 1000);
-    }
-  } catch(e) {
-    status.textContent = '❌ 导入失败: ' + e.message;
-    toast('导入失败: ' + e.message, 'error');
-  }
-}
-
 
 function exportNewsData(){
   const days = document.getElementById('newsExportDays').value || '0';
@@ -3757,131 +3662,6 @@ function highlightMatchType(value) {
 function onFocusChange(value) {
   saveCfg('analysis_focus', value);
   highlightFocusOption(value);
-}
-
-// ══ 匹配方法论管理 ══════════════════════════════════════
-const DEFAULT_METHODOLOGY = {
-  id: 'builtin_default',
-  name: '年化30%高手方法论',
-  builtin: true,
-  content: `你是一位A股投资专家，每年年化收益超过30%，请按照以下方法论选股：
-
-第一步：判断新闻级别（高/中/低）
-第二步：提炼核心关键词（行业+技术+地区+动作+量化）
-第三步：资金流向分析——钱最终花到哪里？
-  - 运力/工具层：配送扩张→电动两轮车；工厂自动化→工业机器人
-  - 基础设施层：互联网扩张→IDC数据中心；数字化→ERP/SaaS
-  - 消耗品层：配送量增加→快递包装/锂电池
-  - 上游材料：汽车扩产→锂电池/铝合金；地产松绑→水泥/钢铁
-第四步：产业链映射——直接受益 > 上下游配套 > 概念炒作
-第五步：严格排除新闻主体的同行竞争对手
-第五步补充：只选A股（沪深京），严禁推荐港股、美股及境外上市公司
-第六步：判断新闻性质（客观事实，非主观情绪）
-  - positive（利好）：有明确受益方，资金有流向
-  - negative（利空）：有明确受损方
-  - neutral（中性）：无明确资金方向
-第七步：优先选择行业龙头
-第八步：区分时间维度（短线/中线/长线）`
-};
-
-function loadMethodologies() {
-  const saved = JSON.parse(localStorage.getItem('astock_methodologies') || '[]');
-  const all = [DEFAULT_METHODOLOGY, ...saved];
-  const activeId = localStorage.getItem('astock_active_methodology') || 'builtin_default';
-  renderMethodologyList(all, activeId);
-}
-
-function renderMethodologyList(list, activeId) {
-  const container = document.getElementById('methodologyList');
-  if (!container) return;
-  container.innerHTML = list.map(m => `
-    <div style="display:flex;align-items:flex-start;gap:var(--space-2);padding:var(--space-2) var(--space-3);
-      border-radius:var(--radius-md);border:2px solid ${m.id===activeId?'var(--blue-500)':'var(--border-default)'};
-      background:${m.id===activeId?'var(--blue-50)':'var(--surface-base)'};cursor:pointer;transition:all .15s"
-      onclick="selectMethodology('${m.id}')">
-      <input type="radio" name="methodology" ${m.id===activeId?'checked':''} style="margin-top:3px;flex-shrink:0" onclick="selectMethodology('${m.id}')">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:13px;font-weight:600">${esc(m.name)}</span>
-          ${m.builtin?'<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:var(--green-100);color:var(--green-700)">内置</span>':''}
-          ${m.id===activeId?'<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:var(--blue-100);color:var(--blue-700)">使用中</span>':''}
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.5;white-space:pre-wrap;word-break:break-all"
-          id="method-content-${m.id}"
-          onclick="toggleMethodContent('${m.id}',event)"
-          data-expanded="false"
-          data-full="${esc(m.content)}"
-          style="font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.5;max-height:52px;overflow:hidden;cursor:pointer;white-space:pre-wrap"
-        >${esc(m.content.slice(0,120))}${m.content.length>120?'<span style="color:var(--blue-link)"> …展开</span>':''}</div>
-      </div>
-      ${!m.builtin?`<button class="btn btn-ghost btn-sm" style="color:var(--red-500);flex-shrink:0;padding:2px 6px" onclick="deleteMethodology('${m.id}',event)">删除</button>`:''}
-    </div>`).join('');
-}
-
-function selectMethodology(id) {
-  localStorage.setItem('astock_active_methodology', id);
-  const saved = JSON.parse(localStorage.getItem('astock_methodologies') || '[]');
-  const all = [DEFAULT_METHODOLOGY, ...saved];
-  const m = all.find(x => x.id === id) || DEFAULT_METHODOLOGY;
-  renderMethodologyList(all, id);
-  // 同时把选中方法论的完整内容存到后端，供批量推理使用
-  saveCfg('active_methodology_id', id);
-  saveCfg('selected_methodology_content', id === 'builtin_default' ? '' : m.content);
-  toast('已切换方法论: ' + m.name, 'success');
-}
-
-function getActiveMethodology() {
-  const id = localStorage.getItem('astock_active_methodology') || 'builtin_default';
-  if (id === 'builtin_default') return DEFAULT_METHODOLOGY;
-  const saved = JSON.parse(localStorage.getItem('astock_methodologies') || '[]');
-  return saved.find(m => m.id === id) || DEFAULT_METHODOLOGY;
-}
-
-function addMethodology() {
-  const name = document.getElementById('newMethodName').value.trim();
-  const methodContent = document.getElementById('newMethodContent').value.trim();
-  if (!name || !methodContent) { toast('请填写名称和内容', 'error'); return; }
-  const saved = JSON.parse(localStorage.getItem('astock_methodologies') || '[]');
-  const newM = { id: 'custom_' + Date.now(), name, content: methodContent, builtin: false };
-  saved.push(newM);
-  localStorage.setItem('astock_methodologies', JSON.stringify(saved));
-  document.getElementById('newMethodName').value = '';
-  document.getElementById('newMethodContent').value = '';
-  const activeId = localStorage.getItem('astock_active_methodology') || 'builtin_default';
-  renderMethodologyList([DEFAULT_METHODOLOGY, ...saved], activeId);
-  toast('方法论已保存', 'success');
-}
-
-function deleteMethodology(id, e) {
-  e.stopPropagation();
-  const saved = JSON.parse(localStorage.getItem('astock_methodologies') || '[]');
-  const filtered = saved.filter(m => m.id !== id);
-  localStorage.setItem('astock_methodologies', JSON.stringify(filtered));
-  const activeId = localStorage.getItem('astock_active_methodology') || 'builtin_default';
-  if (activeId === id) localStorage.setItem('astock_active_methodology', 'builtin_default');
-  renderMethodologyList([DEFAULT_METHODOLOGY, ...filtered],
-    activeId === id ? 'builtin_default' : activeId);
-  toast('已删除', 'info');
-}
-
-function toggleMethodContent(id, e) {
-  e.stopPropagation();
-  const el = document.getElementById('method-content-' + id);
-  if (!el) return;
-  const expanded = el.dataset.expanded === 'true';
-  if (expanded) {
-    el.style.maxHeight = '52px';
-    el.style.overflow = 'hidden';
-    el.dataset.expanded = 'false';
-    const full = el.dataset.full || '';
-    el.innerHTML = esc(full.slice(0,120)) + (full.length>120?'<span style="color:var(--blue-link)"> …展开</span>':'');
-  } else {
-    el.style.maxHeight = 'none';
-    el.style.overflow = 'visible';
-    el.dataset.expanded = 'true';
-    const full = el.dataset.full || '';
-    el.innerHTML = esc(full) + '<span style="color:var(--blue-link)"> 收起</span>';
-  }
 }
 
 function highlightFocusOption(value) {
@@ -4098,8 +3878,11 @@ async function doLogin() {
     _storage.setItem('astock_user',  _authUser);
     document.getElementById('navUsername').textContent = '👤 ' + _authUser;
     hideLoginOverlay();
+    // 同步自动分类开关状态，决定「立即分类」按钮是否显示
     api('/api/config').then(r => {
-          }).catch(()=>{});
+      const autoClassify = (r.data||{}).auto_classify_enabled !== false;
+      updateClassifyBtnVisibility(autoClassify);
+    }).catch(()=>{});
     loadStats(); loadNews();
   } catch(e) {
     errEl.textContent = '网络错误: ' + e.message;
@@ -4130,7 +3913,9 @@ async function checkAuth() {
     hideLoginOverlay();
     // 同步「立即分类」按钮
     api('/api/config').then(r => {
-          }).catch(()=>{});
+      const autoClassify = (r.data||{}).auto_classify_enabled !== false;
+      updateClassifyBtnVisibility(autoClassify);
+    }).catch(()=>{});
     return true;
   } catch(e) {
     // token 失效才清除，网络错误不清除（避免离线时被踢出）

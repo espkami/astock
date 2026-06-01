@@ -35,26 +35,7 @@ async def _stock_update_task():
     await update_stock_list()
 
 
-def _process_task():
-    """后台分类任务（仅分类，不匹配）"""
-    import asyncio
-    async def _run():
-        from backend.services.news_processor import process_pending_news
-        try:
-            n = await process_pending_news(batch_size=10)
-            if n > 0:
-                logger.info(f"后台分类: {n} 条")
-        except Exception as e:
-            logger.error(f"后台处理异常: {e}")
-    try:
-        from backend.services import scheduler as _self
-        loop = _self._MAIN_LOOP
-        if loop and loop.is_running():
-            asyncio.run_coroutine_threadsafe(_run(), loop)
-        else:
-            logger.warning("后台处理：event loop 未就绪，跳过本次")
-    except Exception as e:
-        logger.error(f"后台处理调度失败: {e}")
+# _process_task 已移除：分类由直接推理统一完成
 
 
 def start_scheduler():
@@ -162,20 +143,21 @@ def update_match_schedule(times: list[str]):
 
 
 def _match_task():
-    """定时匹配任务（同步包装）"""
+    """定时匹配任务 — 使用直接推理（方法论驱动）"""
     import asyncio
 
     async def _run():
-        from backend.services.news_processor import process_pending_news
-        from backend.services.matcher import match_pending_news
         try:
-            logger.info("定时匹配开始")
-            n = await process_pending_news(batch_size=50)
-            if n > 0:
-                logger.info(f"定时分类: {n} 条")
-                await asyncio.sleep(2)
-            m = await match_pending_news(batch_size=50)
-            logger.info(f"定时匹配完成: {m} 条")
+            logger.info("定时匹配开始（直接推理模式）")
+            import httpx
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    "http://localhost:8000/api/direct-match-all",
+                    json={},
+                    timeout=10
+                )
+                data = resp.json()
+                logger.info(f"定时匹配已触发: {data.get('message','')}")
         except Exception as e:
             logger.error(f"定时匹配异常: {e}")
 

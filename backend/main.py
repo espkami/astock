@@ -25,6 +25,34 @@ from backend.routers import news, stocks, config_router, data_router
 from backend.models import APIResponse, DashboardStats
 
 
+async def _resume_direct_match():
+    """服务重启后自动恢复未完成的直接推理任务"""
+    import asyncio as _asyncio
+    await _asyncio.sleep(2)  # 等待服务完全就绪
+    try:
+        from backend.database import get_db as _get_db
+        async with _get_db() as db:
+            async with db.execute(
+                "SELECT COUNT(*) as cnt FROM news n LEFT JOIN match_results mr ON n.id=mr.news_id WHERE mr.id IS NULL"
+            ) as cur:
+                pending = (await cur.fetchone())["cnt"]
+        if pending > 0:
+            from backend.services.config_service import set_config as _sc
+            import json as _json
+            await _sc("match_progress", _json.dumps({
+                "done": 0, "total": pending, "current": "", "finished": False,
+                "error": None, "message": f"恢复推理，共 {pending} 条待处理...",
+            }, ensure_ascii=False))
+            # 触发推理（复用 direct-match-all 逻辑）
+            import httpx as _httpx
+            async with _httpx.AsyncClient() as client:
+                await client.post("http://localhost:7777/api/direct-match-all",
+                                  json={}, timeout=10)
+    except Exception as e:
+        from loguru import logger as _log
+        _log.warning(f"自动恢复推理失败: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动
@@ -62,6 +90,20 @@ async def lifespan(app: FastAPI):
         from backend.services.scheduler import update_match_schedule
         update_match_schedule(match_times)
         logger.info(f"定时匹配已恢复: {match_times}")
+    # 启动时检查是否有未完成的推理任务，自动恢复
+    try:
+        import json as _json
+        from backend.services.config_service import get_config as _gc
+        prog_str = await _gc("match_progress", "{}")
+        if isinstance(prog_str, str):
+            prog = _json.loads(prog_str)
+        else:
+            prog = prog_str or {}
+        if not prog.get("finished", True) and prog.get("total", 0) > 0:
+            logger.info(f"检测到未完成推理任务（{prog.get('done',0)}/{prog.get('total',0)}），自动恢复...")
+            _asyncio.create_task(_resume_direct_match())
+    except Exception as _e:
+        logger.warning(f"恢复推理任务检查失败: {_e}")
     logger.info("系统就绪")
     yield
     # 关闭
@@ -352,13 +394,12 @@ async def match_news_now(news_id: int):
     import json as _json
     from backend.database import get_db
     from backend.services.llm_client import get_llm_client
-    from backend.services.news_processor import process_pending_news, _classify_one_fallback as _classify_one
     from backend.services.matcher import _match_one_news
     from backend.services.config_service import get_config
 
     async with get_db() as db:
         async with db.execute(
-            "SELECT id, title, content, summary, industries, keywords, sentiment FROM news WHERE id=?",
+            "SELECT id, title, content, summary, industries, keywords, sentiment, beneficiary_chain, news_level, time_horizon FROM news WHERE id=?",
             (news_id,)
         ) as cur:
             row = await cur.fetchone()
@@ -370,26 +411,7 @@ async def match_news_now(news_id: int):
     from backend.services.llm_client import get_embed_client
     embed_client = await get_embed_client()
 
-    # Step 1: 如果未分类，先分类
-    if not row["summary"]:
-        if not client:
-            return {"success": False, "message": "未配置大模型，无法分类"}
-        from backend.services.config_service import get_config as _gc
-        from backend.services.news_processor import DEFAULT_CLASSIFY_PROMPT
-        prompt_tpl = await _gc("classify_prompt", DEFAULT_CLASSIFY_PROMPT)
-        try:
-            await _classify_one(client, prompt_tpl, "", news_id, row["title"], row["content"] or "")
-        except Exception as e:
-            logger.error(f"即时分类失败: {e}")
-            return {"success": False, "message": f"分类失败: {e}"}
-        # 重新读取分类结果
-        async with get_db() as db:
-            async with db.execute(
-                "SELECT id, title, summary, industries, keywords, sentiment FROM news WHERE id=?",
-                (news_id,)
-            ) as cur:
-                row = await cur.fetchone()
-
+    # Step 1: 分类已移除，直接执行匹配
     # Step 2: 执行匹配
     top_k = await get_config("match_top_k", 5)
     try:
@@ -403,6 +425,9 @@ async def match_news_now(news_id: int):
             top_k=top_k,
             client=client,
             embed_client=embed_client,
+            beneficiary_chain=_json.loads(row["beneficiary_chain"] or "[]"),
+            news_level=row["news_level"] or "medium",
+            time_horizon=row["time_horizon"] or "short",
         )
         if result:
             async with get_db() as db:
@@ -423,118 +448,169 @@ async def match_news_now(news_id: int):
         return {"success": False, "message": f"匹配失败: {e}"}
 
 
-@app.post("/api/classify", response_model=APIResponse)
-async def trigger_classify():
-    """手动触发：对未分类新闻执行大模型分类（提取摘要/情感/行业/关键词）"""
-    import asyncio as _asyncio
-    from backend.database import get_db as _get_db
-    from backend.services.news_processor import get_classify_progress
+@app.post("/api/news/{news_id}/direct-match")
+async def direct_match_news(news_id: int, body: dict = None):
+    """直接推理模式：新闻全文+方法论 → LLM主动推理受益股票 → 库里验证存在性
+    body 可选字段：methodology（自定义方法论文本）
+    """
+    import json as _json
+    from backend.database import get_db
+    from backend.services.llm_client import get_llm_client
+    from backend.services.config_service import get_config
+    from fastapi import Body
 
-    # 如果已在运行，直接返回当前进度
-    prog = get_classify_progress()
-    if prog.get("running"):
-        return APIResponse(message=f"分类任务正在运行中... {prog.get('message','')}")
+    body = body or {}
+    custom_methodology = body.get("methodology", "")  # 前端传入选中的方法论
 
-    async with _get_db() as db:
+    async with get_db() as db:
         async with db.execute(
-            "SELECT COUNT(*) as cnt FROM news WHERE summary IS NULL"
+            "SELECT id, title, content, summary, sentiment FROM news WHERE id=?",
+            (news_id,)
         ) as cur:
-            pending = (await cur.fetchone())["cnt"]
+            row = await cur.fetchone()
 
-    if pending == 0:
-        from backend.services.news_processor import _set_classify_progress
-        _set_classify_progress(0, 0, "✅ 最新新闻均已分类完毕", running=False, done=True)
-        return APIResponse(message="所有新闻均已完成分类 ✅")
+    if not row:
+        return {"success": False, "message": "新闻不存在"}
 
-    async def _run():
-        nonlocal pending  # pending 在外层定义，_run 内部有赋值操作，必须声明 nonlocal
-        from backend.services.news_processor import process_pending_news, _set_classify_progress, get_classify_progress
-        from backend.database import get_db as _gdb
-        import asyncio as _aio
-        total_done = 0
-        _set_classify_progress(0, pending, f"开始分类 {pending} 条新闻...", running=True, done=False)
-        consecutive_empty = 0  # 连续无新数据次数
-        retry_count = 0
-        try:
-            while True:
-                # 查当前剩余量
-                async with _gdb() as _db:
-                    async with _db.execute("SELECT COUNT(*) as cnt FROM news WHERE summary IS NULL") as _cur:
-                        remaining = (await _cur.fetchone())["cnt"]
+    client = await get_llm_client()
+    if not client:
+        return {"success": False, "message": "未配置大模型"}
 
-                if remaining == 0:
-                    break  # 全部分类完成
+    top_k = await get_config("match_top_k", 5)
+    company_type = await get_config("match_company_type", "leader")
 
-                # 采集任务可能持续新增新闻，动态更新 pending 上限保证进度不超出
-                pending = max(pending, remaining)
-                done_count = max(0, pending - remaining)
-                from backend.services.llm_client import get_last_failover_msg as _glfm
-                _fo_msg = _glfm()
-                _base_msg = f"分类中 {done_count}/{pending}（剩余 {remaining} 条）"
-                _set_classify_progress(done_count, pending,
-                    f"{_fo_msg}  {_base_msg}" if _fo_msg else _base_msg, running=True, done=False)
+    type_hints = {
+        "leader": f"优先选择行业龙头（市值最大、知名度最高），共{top_k}只",
+        "direct": f"选择与新闻直接相关、业务最契合的企业，共{top_k}只",
+        "chain":  f"同时考虑直接受益方及产业链上下游，共{top_k}只",
+        "broad":  f"覆盖整个受益行业，共{top_k}只",
+    }
+    type_hint = type_hints.get(company_type, type_hints["leader"])
 
-                prev_remaining = remaining
-                try:
-                    n = await _aio.wait_for(
-                        process_pending_news(batch_size=10, _skip_reset=True),
-                        timeout=300,
-                    )
-                except _aio.TimeoutError:
-                    retry_count += 1
-                    wait = min(30 * retry_count, 300)
-                    _set_classify_progress(done_count, pending,
-                        f"分类调用超时，后台将在 {wait}s 后继续重试（第 {retry_count} 次）",
-                        running=True, done=False, error=None)
-                    await _aio.sleep(wait)
-                    continue
-                current_progress = get_classify_progress()
-                if current_progress.get("error"):
-                    retry_count += 1
-                    wait = min(30 * retry_count, 300)
-                    _set_classify_progress(done_count, pending,
-                        f"分类暂未成功：{current_progress.get('error')}，后台将在 {wait}s 后继续重试（第 {retry_count} 次）",
-                        running=True, done=False, error=None)
-                    await _aio.sleep(wait)
-                    continue
-                # 重新查剩余量，判断是否有实际进展
-                async with _gdb() as _db2:
-                    async with _db2.execute("SELECT COUNT(*) as cnt FROM news WHERE summary IS NULL") as _cur2:
-                        remaining = (await _cur2.fetchone())["cnt"]
-                total_done += max(0, prev_remaining - remaining)
+    # 使用前端选中的方法论，没有则用内置默认
+    DEFAULT_METHOD = """你是一位A股投资专家，每年年化收益超过30%，请按照以下方法论选股：
 
-                if remaining < prev_remaining:
-                    # 有实际进展
-                    consecutive_empty = 0
-                    retry_count = 0
-                else:
-                    # 本批全部失败（429/超时），等待后重试
-                    consecutive_empty += 1
-                    retry_count += 1
-                    wait = min(30 * retry_count, 300)
-                    _set_classify_progress(done_count, pending,
-                        f"⏳ 本轮暂无进展，后台将在 {wait}s 后继续重试（剩余 {remaining} 条）",
-                        running=True, done=False)
-                    await _aio.sleep(wait)
+第一步：判断新闻级别（高/中/低）
+第二步：提炼核心关键词（行业+技术+地区+动作+量化）
+第三步：资金流向分析——钱最终花到哪里？
+  - 运力/工具层：配送扩张→电动两轮车；工厂自动化→工业机器人
+  - 基础设施层：互联网扩张→IDC数据中心；数字化→ERP/SaaS
+  - 消耗品层：配送量增加→快递包装/锂电池
+  - 上游材料：汽车扩产→锂电池/铝合金；地产松绑→水泥/钢铁
+第四步：产业链映射——直接受益 > 上下游配套 > 概念炒作
+第五步：严格排除新闻主体的同行竞争对手
+第五步补充：只选A股（沪深京），严禁推荐港股、美股及境外上市公司
+第六步：判断新闻性质（客观事实，非主观情绪）
+  - positive（利好）：有明确受益方，资金有流向，如政策支持、订单落地、扩产投资
+  - negative（利空）：有明确受损方，如竞争加剧、成本上升、政策收紧、需求萎缩
+  - neutral（中性）：事实陈述，无明确资金方向，或影响尚不明确
+第七步：区分时间维度（短线/中线/长线）"""
+    active_methodology = custom_methodology.strip() if custom_methodology.strip() else DEFAULT_METHOD
 
-        except Exception as e:
-            logger.error(f"手动分类异常: {e}")
-            await _aio.sleep(60)
-            _set_classify_progress(total_done, pending,
-                f"分类异常: {e}，后台仍可再次手动触发继续处理",
-                running=False, done=True, error=str(e))
-            return
-        done_msg = f"✅ 分类完成，共处理 {total_done} 条" if total_done > 0 else "✅ 最新新闻均已分类完毕"
-        _set_classify_progress(pending, pending, done_msg, running=False, done=True)
-        logger.info(f"手动分类全部完成: {total_done} 条")
-    _asyncio.create_task(_run())
-    return APIResponse(message=f"分类任务已触发，待处理 {pending} 条未分类新闻")
+    # 全文传入，保证信息完整性，不截断
+    news_content = row["content"] or row["title"]
+    prompt = (
+        "你是一位A股投研专家。请严格按照以下方法论逐步分析新闻，输出分析结果。\n\n"
+        "【新闻内容】\n" + news_content + "\n\n"
+        "【匹配方法论】\n" + active_methodology + "\n\n"
+        f"【选股偏好】{type_hint}\n\n"
+        '请返回严格JSON对象（不加markdown）：\n'
+        '{\n'
+        '  "news_sentiment": "positive/negative/neutral",\n'
+        '  "news_level": "高/中/低",\n'
+        '  "news_summary": "一句话摘要（不超过60字）",\n'
+        '  "stocks": [\n'
+        '    {\n'
+        '      "name": "公司名称（A股上市公司全称）",\n'
+        '      "ts_code": "股票代码（如000001.SZ，不确定可留空）",\n'
+        '      "benefit_tier": "第一梯队/第二梯队/第三梯队",\n'
+        '      "reason": "受益逻辑（说明资金流向和直接关联，不超过50字）",\n'
+        '      "time_horizon": "short/medium/long",\n'
+        '      "sentiment_impact": "positive/negative/neutral"\n'
+        '    }\n'
+        '  ]\n'
+        '}\n'
+        "只返回JSON，不加任何说明。"
+    )
 
+    try:
+        resp = await client.chat([
+            {"role": "system", "content": "你是A股投研专家，只返回JSON对象。只推荐A股（沪深京交易所上市股票，代码以.SH/.SZ/.BJ结尾），严禁推荐港股（.HK）、美股及任何境外上市公司。"},
+            {"role": "user", "content": prompt},
+        ], timeout=60, no_failover=True)
+        text = resp.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        llm_output = _json.loads(text)
+        # 兼容直接返回数组的旧格式
+        if isinstance(llm_output, list):
+            llm_results = llm_output
+            news_sentiment = "neutral"
+            news_level = "medium"
+            news_summary = ""
+        else:
+            llm_results = llm_output.get("stocks", [])
+            news_sentiment = llm_output.get("news_sentiment", "neutral")
+            news_level = llm_output.get("news_level", "medium")
+            news_summary = llm_output.get("news_summary", "")
+        if not isinstance(llm_results, list):
+            raise ValueError("非数组格式")
+    except Exception as e:
+        logger.error(f"直接推理失败: {e}")
+        return {"success": False, "message": f"LLM推理失败: {e}"}
+
+    # 直接使用 LLM 推理结果，不做股票库验证
+    verified = []
+    for item in llm_results:
+        verified.append({
+            "ts_code":          item.get("ts_code", ""),
+            "name":             item.get("name", ""),
+            "industry":         item.get("industry", ""),
+            "score":            0.9 if item.get("benefit_tier","") == "第一梯队"
+                                else 0.75 if "第二" in item.get("benefit_tier","")
+                                else 0.6,
+            "benefit_tier":     item.get("benefit_tier", ""),
+            "reason":           item.get("reason", ""),
+            "time_horizon":     item.get("time_horizon", "short"),
+            "sentiment_impact": item.get("sentiment_impact", "positive"),
+            "match_mode":       "direct",
+        })
+
+    if not verified:
+        return {"success": False, "message": "LLM未推理出受益股票"}
+
+    # 写入匹配结果 + 同步更新 news 表的情感/摘要/级别
+    async with get_db() as db:
+        await db.execute("DELETE FROM match_results WHERE news_id=?", (news_id,))
+        await db.execute(
+            "INSERT INTO match_results(news_id, matched_stocks) VALUES(?,?)",
+            (news_id, _json.dumps(verified, ensure_ascii=False)),
+        )
+        # 把情感判断和摘要写回 news 表，让前端展示正确
+        if news_sentiment or news_summary:
+            await db.execute(
+                """UPDATE news SET sentiment=?, summary=COALESCE(NULLIF(summary,''), ?),
+                   news_level=? WHERE id=?""",
+                (news_sentiment, news_summary, news_level, news_id)
+            )
+        await db.commit()
+
+    return {
+        "success":       True,
+        "news_id":       news_id,
+        "news_title":    row["title"],
+        "news_sentiment": news_sentiment,
+        "news_summary":  news_summary,
+        "news_level":    news_level,
+        "match_mode":    "direct",
+        "total":         len(verified),
+        "matched_stocks": verified,
+    }
+
+
+# /api/classify 端点已移除：分类由直接推理统一完成
 
 @app.get("/api/classify/progress")
 async def classify_progress_snapshot():
     """分类进度快照（轮询用）"""
-    from backend.services.news_processor import get_classify_progress
     from fastapi.responses import JSONResponse
     data = get_classify_progress()
     return JSONResponse(
@@ -546,7 +622,6 @@ async def classify_progress_snapshot():
 @app.get("/api/classify/progress-sse")
 async def classify_progress_sse():
     """分类进度 SSE 流"""
-    from backend.services.news_processor import get_classify_progress
     from fastapi.responses import StreamingResponse
     import json as _json
     async def event_stream():
@@ -675,6 +750,269 @@ async def get_match_progress():
         return {"done": 0, "total": 0, "current": "", "finished": True}
 
 
+
+@app.post("/api/direct-match-all", response_model=APIResponse)
+async def trigger_direct_match_all():
+    """批量直接推理：对所有未匹配的新闻用直接推理方式匹配，已匹配的跳过"""
+    from backend.database import get_db as _get_db
+    from backend.services.config_service import get_config as _gc, set_config as _sc
+    from backend.services.llm_client import get_llm_client as _get_llm
+    import asyncio as _asyncio
+    import json as _json
+
+    # 统计未匹配数量
+    async with _get_db() as db:
+        async with db.execute(
+            """SELECT COUNT(*) as cnt FROM news n
+               LEFT JOIN match_results mr ON n.id=mr.news_id
+               WHERE mr.id IS NULL"""
+        ) as cur:
+            pending = (await cur.fetchone())["cnt"]
+
+    if pending == 0:
+        await _sc("match_progress", _json.dumps({
+            "done": 0, "total": 0, "current": "", "finished": True,
+            "error": None, "message": "✅ 所有新闻均已匹配完毕",
+        }, ensure_ascii=False))
+        return APIResponse(message="所有新闻均已匹配，无需重复处理 ✅")
+
+    async def _run():
+        import asyncio as _asyncio
+        client = await _get_llm()
+        if not client:
+            await _sc("match_progress", _json.dumps({
+                "done": 0, "total": pending, "current": "", "finished": True,
+                "error": "未配置大模型", "message": "❌ 未配置大模型",
+            }, ensure_ascii=False))
+            return
+
+        top_k = await _gc("match_top_k", 5)
+        company_type = await _gc("match_company_type", "leader")
+        custom_methodology = await _gc("selected_methodology_content", "")
+
+        type_hints = {
+            "leader": f"优先选择行业龙头（市值最大、知名度最高），共{top_k}只",
+            "direct": f"选择与新闻直接相关、业务最契合的企业，共{top_k}只",
+            "chain":  f"同时考虑直接受益方及产业链上下游，共{top_k}只",
+            "broad":  f"覆盖整个受益行业，共{top_k}只",
+        }
+        type_hint = type_hints.get(company_type, type_hints["leader"])
+
+        DEFAULT_METHOD = """你是一位A股投资专家，每年年化收益超过30%，请按照以下方法论选股：
+
+第一步：判断新闻级别（高/中/低）
+第二步：提炼核心关键词（行业+技术+地区+动作+量化）
+第三步：资金流向分析——钱最终花到哪里？
+  - 运力/工具层：配送扩张→电动两轮车；工厂自动化→工业机器人
+  - 基础设施层：互联网扩张→IDC数据中心；数字化→ERP/SaaS
+  - 消耗品层：配送量增加→快递包装/锂电池
+  - 上游材料：汽车扩产→锂电池/铝合金；地产松绑→水泥/钢铁
+第四步：产业链映射——直接受益 > 上下游配套 > 概念炒作
+第五步：严格排除新闻主体的同行竞争对手
+第五步补充：只选A股（沪深京），严禁推荐港股、美股及境外上市公司
+第六步：判断新闻性质（客观事实，非主观情绪）
+  - positive（利好）：有明确受益方，资金有流向，如政策支持、订单落地、扩产投资
+  - negative（利空）：有明确受损方，如竞争加剧、成本上升、政策收紧、需求萎缩
+  - neutral（中性）：事实陈述，无明确资金方向，或影响尚不明确
+第七步：区分时间维度（短线/中线/长线）"""
+        active_methodology = custom_methodology.strip() if custom_methodology.strip() else DEFAULT_METHOD
+
+        # 拉取所有未匹配新闻
+        async with _get_db() as db:
+            async with db.execute(
+                """SELECT n.id, n.title, n.content FROM news n
+                   LEFT JOIN match_results mr ON n.id=mr.news_id
+                   WHERE mr.id IS NULL ORDER BY n.id DESC"""
+            ) as cur:
+                rows = await cur.fetchall()
+
+        total = len(rows)
+        done = 0
+        failed_ids = []  # 失败的新闻ID，最后重试
+        await _sc("match_progress", _json.dumps({
+            "done": 0, "total": total, "current": "", "finished": False,
+            "error": None, "message": f"准备直接推理 {total} 条...",
+        }, ensure_ascii=False))
+
+        for row in rows:
+            news_id = row["id"]
+            title   = row["title"]
+            news_content = row["content"] or title
+
+            await _sc("match_progress", _json.dumps({
+                "done": done, "total": total,
+                "current": title[:40], "finished": False,
+                "error": None, "message": f"推理中 {done}/{total}: {title[:30]}",
+            }, ensure_ascii=False))
+
+            prompt = (
+                "你是一位A股投研专家。请严格按照以下方法论逐步分析新闻，输出分析结果。\n\n"
+                "【新闻内容】\n" + news_content + "\n\n"
+                "【匹配方法论】\n" + active_methodology + "\n\n"
+                f"【选股偏好】{type_hint}\n\n"
+                '请返回严格JSON对象（不加markdown）：\n'
+                '{\n'
+                '  "news_sentiment": "positive/negative/neutral",\n'
+                '  "news_level": "高/中/低",\n'
+                '  "news_summary": "一句话摘要（不超过60字）",\n'
+                '  "stocks": [\n'
+                '    {\n'
+                '      "name": "公司名称（A股上市公司全称）",\n'
+                '      "ts_code": "股票代码（如000001.SZ，不确定可留空）",\n'
+                '      "benefit_tier": "第一梯队/第二梯队/第三梯队",\n'
+                '      "reason": "受益逻辑（说明资金流向和直接关联，不超过50字）",\n'
+                '      "time_horizon": "short/medium/long",\n'
+                '      "sentiment_impact": "positive/negative/neutral"\n'
+                '    }\n'
+                '  ]\n'
+                '}\n'
+                "只返回JSON，不加任何说明。"
+            )
+
+            try:
+                resp = await _asyncio.wait_for(
+                    client.chat([
+                        {"role": "system", "content": "你是A股投研专家，只返回JSON对象。只推荐A股（沪深京交易所上市股票，代码以.SH/.SZ/.BJ结尾），严禁推荐港股（.HK）、美股及任何境外上市公司。"},
+                        {"role": "user",   "content": prompt},
+                    ], timeout=60, no_failover=True),
+                    timeout=75  # 双重保护，最多等75秒
+                )
+                text = resp.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+                llm_output = _json.loads(text)
+                if isinstance(llm_output, list):
+                    llm_results = llm_output
+                    news_sentiment, news_level, news_summary = "neutral", "中", ""
+                else:
+                    llm_results  = llm_output.get("stocks", [])
+                    news_sentiment = llm_output.get("news_sentiment", "neutral")
+                    news_level     = llm_output.get("news_level", "中")
+                    news_summary   = llm_output.get("news_summary", "")
+
+                verified = []
+                for item in llm_results:
+                    verified.append({
+                        "ts_code":          item.get("ts_code", ""),
+                        "name":             item.get("name", ""),
+                        "industry":         item.get("industry", ""),
+                        "score":            0.9 if item.get("benefit_tier","") == "第一梯队"
+                                            else 0.75 if "第二" in item.get("benefit_tier","")
+                                            else 0.6,
+                        "benefit_tier":     item.get("benefit_tier", ""),
+                        "reason":           item.get("reason", ""),
+                        "time_horizon":     item.get("time_horizon", "short"),
+                        "sentiment_impact": item.get("sentiment_impact", "positive"),
+                        "match_mode":       "direct",
+                    })
+
+                async with _get_db() as db:
+                    await db.execute("DELETE FROM match_results WHERE news_id=?", (news_id,))
+                    await db.execute(
+                        "INSERT INTO match_results(news_id, matched_stocks) VALUES(?,?)",
+                        (news_id, _json.dumps(verified, ensure_ascii=False)),
+                    )
+                    if verified and (news_sentiment or news_summary):
+                        # 只有有受益股时才写 sentiment/summary
+                        await db.execute(
+                            """UPDATE news SET sentiment=?,
+                               summary=COALESCE(NULLIF(summary,''), ?),
+                               news_level=? WHERE id=?""",
+                            (news_sentiment, news_summary, news_level, news_id)
+                        )
+                    await db.commit()
+            except Exception as e:
+                logger.warning(f"直接推理批量: news_id={news_id} 失败，加入重试队列: {e}")
+                failed_ids.append(news_id)
+
+            done += 1
+
+        # ── 重试失败的新闻（排到最后，只重试一次）────────────────────────────
+        if failed_ids:
+            retry_total = len(failed_ids)
+            logger.info(f"开始重试 {retry_total} 条失败新闻")
+            await _sc("match_progress", _json.dumps({
+                "done": done, "total": total + retry_total,
+                "current": "", "finished": False,
+                "error": None, "message": f"重试 {retry_total} 条失败新闻...",
+            }, ensure_ascii=False))
+
+            # 重新拉取失败条目的内容
+            async with _get_db() as db:
+                placeholders = ",".join(["?"]*len(failed_ids))
+                async with db.execute(
+                    f"SELECT id, title, content FROM news WHERE id IN ({placeholders})",
+                    failed_ids
+                ) as cur:
+                    retry_rows = await cur.fetchall()
+
+            for retry_row in retry_rows:
+                news_id = retry_row["id"]
+                news_content = retry_row["content"] or retry_row["title"]
+                await _sc("match_progress", _json.dumps({
+                    "done": done, "total": total + retry_total,
+                    "current": retry_row["title"][:40], "finished": False,
+                    "error": None, "message": f"重试 {done}/{total+retry_total}: {retry_row['title'][:30]}",
+                }, ensure_ascii=False))
+                prompt = (
+                    "你是一位A股投研专家。请严格按照以下方法论逐步分析新闻，输出分析结果。\\n\\n"
+                    "【新闻内容】\\n" + news_content + "\\n\\n"
+                    "【匹配方法论】\\n" + active_methodology + "\\n\\n"
+                    f"【选股偏好】{type_hint}\\n\\n"
+                    '请返回严格JSON对象（不加markdown）：\n'
+                    '{\n'
+                    '  "news_sentiment": "positive/negative/neutral",\n'
+                    '  "news_level": "高/中/低",\n'
+                    '  "news_summary": "一句话摘要（不超过60字）",\n'
+                    '  "stocks": [{"name":"公司名","ts_code":"代码","benefit_tier":"第一/二/三梯队","reason":"受益逻辑","time_horizon":"short/medium/long","sentiment_impact":"positive/negative/neutral"}]\n'
+                    '}\n'
+                    "只返回JSON，不加任何说明。"
+                )
+                try:
+                    resp = await _asyncio.wait_for(
+                        client.chat([
+                            {"role": "system", "content": "你是A股投研专家，只返回JSON对象。只推荐A股（沪深京交易所上市股票，代码以.SH/.SZ/.BJ结尾），严禁推荐港股（.HK）、美股及任何境外上市公司。"},
+                            {"role": "user",   "content": prompt},
+                        ], timeout=60, no_failover=True),
+                        timeout=75
+                    )
+                    text = resp.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+                    llm_output = _json.loads(text)
+                    llm_results  = llm_output.get("stocks", []) if isinstance(llm_output, dict) else llm_output
+                    news_sentiment = llm_output.get("news_sentiment", "neutral") if isinstance(llm_output, dict) else "neutral"
+                    news_level     = llm_output.get("news_level", "中") if isinstance(llm_output, dict) else "中"
+                    news_summary   = llm_output.get("news_summary", "") if isinstance(llm_output, dict) else ""
+                    verified = []
+                    for item in llm_results:
+                        verified.append({
+                            "ts_code": item.get("ts_code", ""), "name": item.get("name", ""),
+                            "industry": item.get("industry", ""),
+                            "score": 0.9 if "第一" in item.get("benefit_tier","") else 0.75 if "第二" in item.get("benefit_tier","") else 0.6,
+                            "benefit_tier": item.get("benefit_tier", ""), "reason": item.get("reason", ""),
+                            "time_horizon": item.get("time_horizon", "short"),
+                            "sentiment_impact": item.get("sentiment_impact", "positive"),
+                            "match_mode": "direct",
+                        })
+                    async with _get_db() as db:
+                        await db.execute("DELETE FROM match_results WHERE news_id=?", (news_id,))
+                        await db.execute("INSERT INTO match_results(news_id, matched_stocks) VALUES(?,?)",
+                            (news_id, _json.dumps(verified, ensure_ascii=False)))
+                        if verified and (news_sentiment or news_summary):
+                            await db.execute("UPDATE news SET sentiment=?, summary=COALESCE(NULLIF(summary,''),?), news_level=? WHERE id=?",
+                                (news_sentiment, news_summary, news_level, news_id))
+                        await db.commit()
+                except Exception as e2:
+                    logger.warning(f"重试失败 news_id={news_id}: {e2}，跳过")
+                done += 1
+
+        await _sc("match_progress", _json.dumps({
+            "done": done, "total": total + len(failed_ids) if failed_ids else total,
+            "current": "", "finished": True,
+            "error": None, "message": f"✅ 直接推理完成，共处理 {done} 条",
+        }, ensure_ascii=False))
+
+    _asyncio.create_task(_run())
+    return APIResponse(message=f"直接推理已启动，共 {pending} 条待处理")
+
+
 @app.post("/api/match", response_model=APIResponse)
 async def trigger_match():
     """手动触发：只对「已分类但未匹配」的新闻执行匹配，已匹配的跳过"""
@@ -700,6 +1038,7 @@ async def trigger_match():
         return APIResponse(message="所有已分类新闻均已匹配，无需重复处理 ✅")
 
     async def _run():
+        nonlocal pending
         from backend.services.matcher import match_pending_news, _write_match_progress
         from backend.database import get_db as _gdb
         total_processed = 0
@@ -942,6 +1281,27 @@ async def history_results(
     return {"total": total, "items": items}
 
 
+
+@app.post("/api/collect/newsapi", response_model=APIResponse)
+async def trigger_collect_newsapi():
+    """仅触发 NewsAPI.ai 采集"""
+    import asyncio
+    from backend.services.news_collector import get_collect_progress
+    prog = get_collect_progress()
+    if prog.get("running"):
+        return APIResponse(message=f"采集任务正在运行中... {prog.get('message','')}")
+
+    async def _run():
+        from backend.services.news_collector import run_collection
+        try:
+            await run_collection(sources=["newsapi"])
+        except Exception as e:
+            from loguru import logger
+            logger.error(f"NewsAPI采集异常: {e}")
+    asyncio.create_task(_run())
+    return APIResponse(message="NewsAPI 采集已触发")
+
+
 @app.post("/api/collect", response_model=APIResponse)
 async def trigger_collect():
     import asyncio
@@ -952,11 +1312,8 @@ async def trigger_collect():
 
     async def _full_pipeline():
         from backend.services.news_collector import run_collection
-        from backend.services.news_processor import process_pending_news, _set_classify_progress
         try:
             result = await run_collection()
-            # 采集完成后自动分类（如果有新内容且自动分类开启，collector内部已处理）
-            # 此处不再重复分类
         except Exception as e:
             from loguru import logger
             logger.error(f"流水线异常: {e}")

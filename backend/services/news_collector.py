@@ -9,6 +9,7 @@ import httpx
 from loguru import logger
 from backend.database import get_db
 from backend.services.config_service import get_config
+from backend.services.content_fetcher import enrich_content
 from backend.services.llm_client import get_llm_client
 
 
@@ -53,6 +54,8 @@ def _normalize_published_at(raw: str) -> str:
 
 async def _save_raw_news(items: list[dict]) -> int:
     """保存原始新闻，返回新增条数（URL + 标题双重去重）"""
+    # 热搜类新闻（百度/微博/抖音）不参与股票匹配，直接过滤
+    items = [i for i in items if i.get('raw_source') != 'trending']
     saved = 0
     async with get_db() as db:
         for item in items:
@@ -136,7 +139,7 @@ async def collect_newsapi() -> list[dict]:
                         "title": title,
                         "source": a.get("source", {}).get("title", ""),
                         "published_at": a.get("dateTime", ""),
-                        "content": a.get("body", "")[:2000],
+                        "content": a.get("body", ""),
                         "raw_source": "newsapi",
                     })
             logger.info(f"NewsAPI 采集 {len(articles)} 条")
@@ -174,7 +177,7 @@ async def collect_rss() -> list[dict]:
                 full_content = ""
                 if entry.get("content"):
                     full_content = entry["content"][0].get("value", "")
-                rss_content = (full_content or entry.get("summary", ""))[:2000]
+                rss_content = (full_content or entry.get("summary", ""))
                 results.append({
                     "url": entry.get("link", ""),
                     "title": entry.get("title", ""),
@@ -518,6 +521,13 @@ async def run_collection(sources: Optional[list[str]] = None) -> dict:
             elif isinstance(r, Exception):
                 logger.error(f"采集任务异常: {r}")
 
+        # ── 回源补全：对 content 不足的新闻抓取完整正文 ──────────────────
+        enrich_enabled = await get_config("content_enrich_enabled", True)
+        if enrich_enabled and combined:
+            _set_collect_progress("enriching", f"正在补全 {len(combined)} 条新闻正文...",
+                                   running=True, done=False, collected=len(combined))
+            combined = await enrich_content(combined)
+
         _set_collect_progress("saving", f"采集到 {len(combined)} 条，正在入库...",
                                running=True, done=False, collected=len(combined))
         saved = await _save_raw_news(combined)
@@ -526,13 +536,7 @@ async def run_collection(sources: Optional[list[str]] = None) -> dict:
         _set_collect_progress("done", done_msg,
                                running=False, done=True, collected=len(combined), saved=saved)
 
-        # 采集完成后是否自动分类，由「新闻采集」页「采集后自动分类」开关控制
-        if saved > 0:
-            auto_classify = await get_config("auto_classify_enabled", True)
-            if auto_classify is not False:
-                asyncio.create_task(_trigger_classify())
-            else:
-                logger.info("自动分类已关闭，跳过分类（可手动点击「立即分类」）")
+        # 自动分类已移除：情感/摘要完全由直接推理（方法论）决定
 
         return {"collected": len(combined), "saved": saved}
     except Exception as e:
@@ -542,10 +546,4 @@ async def run_collection(sources: Optional[list[str]] = None) -> dict:
         return {"collected": 0, "saved": 0, "error": str(e)}
 
 
-async def _trigger_classify():
-    """采集后触发新闻分类（提取关键词/情感），不做龙头股匹配"""
-    try:
-        from backend.services.news_processor import process_pending_news
-        await process_pending_news()
-    except Exception as e:
-        logger.error(f"触发分类失败: {e}")
+# _trigger_classify 已移除：分类由直接推理统一完成

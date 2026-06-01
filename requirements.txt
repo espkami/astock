@@ -48,3 +48,12 @@ bcrypt>=4.0.0
 
 # Debug (支持 DEBUG=1 模式)
 debugpy==1.8.9
+
+# 新闻正文回源补全（content_fetcher.py）
+trafilatura==1.12.2
+newspaper3k==0.2.8
+lxml_html_clean==0.4.1     # newspaper3k 在新版 lxml 下的必要补丁
+requests==2.32.3
+
+# 可选：JS渲染/强反爬时才需要
+# playwright（需额外执行 playwright install chromium）

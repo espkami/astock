@@ -51,7 +51,7 @@ class LLMClient:
     def _default_base_url(provider: str) -> str:
         return PROVIDERS.get(provider, {}).get("base_url", "")
 
-    async def chat(self, messages: list[dict], json_mode: bool = False, timeout: int = 30) -> str:
+    async def chat(self, messages: list[dict], json_mode: bool = False, timeout: int = 30, no_failover: bool = False) -> str:
         """统一对话接口，返回文本内容。
         故障转移策略：遇到 429/5xx/超时，自动切换到下一个已开启的模型，
         轮完所有模型仍失败才抛出异常。
@@ -100,9 +100,10 @@ class LLMClient:
                     raise
                 # 判断是否值得转移：429限速 / 5xx服务错误 / 超时
                 is_failover = (
+                    not no_failover and (
                     "429" in err_str or
                     "500" in err_str or "502" in err_str or "503" in err_str or
-                    "timeout" in err_str.lower() or "timed out" in err_str.lower()
+                    "timeout" in err_str.lower() or "timed out" in err_str.lower())
                 )
                 if is_failover and attempt < len(active) - 1:
                     logger.warning(f"LLM [{m['provider']}/{m['model']}] 故障({err_str[:60]})，切换下一个模型")

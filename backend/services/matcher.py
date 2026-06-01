@@ -64,7 +64,8 @@ async def match_pending_news(batch_size: int = 10) -> int:
     """匹配未处理的新闻，返回处理条数"""
     async with get_db() as db:
         async with db.execute(
-            """SELECT n.id, n.title, n.summary, n.industries, n.keywords, n.sentiment
+            """SELECT n.id, n.title, n.summary, n.industries, n.keywords, n.sentiment,
+                      n.beneficiary_chain, n.news_level, n.time_horizon
                FROM news n
                LEFT JOIN match_results mr ON n.id = mr.news_id
                WHERE n.summary IS NOT NULL
@@ -102,6 +103,9 @@ async def match_pending_news(batch_size: int = 10) -> int:
                 top_k=top_k,
                 client=client,
                 embed_client=embed_client,
+                beneficiary_chain=json.loads(row["beneficiary_chain"] or "[]"),
+                news_level=row["news_level"] or "medium",
+                time_horizon=row["time_horizon"] or "short",
             )
             if result is not None:
                 async with get_db() as db:
@@ -123,11 +127,18 @@ async def match_pending_news(batch_size: int = 10) -> int:
 async def _match_one_news(
     news_id: int, title: str, summary: str,
     industries: list[str], keywords: list[str],
-    sentiment: str, top_k: int, client, embed_client=None
+    sentiment: str, top_k: int, client, embed_client=None,
+    beneficiary_chain: list = None,
+    news_level: str = "medium",
+    time_horizon: str = "short",
 ) -> Optional[list[dict]]:
 
     # ── 阶段一：标签粗筛 ──────────────────────────────────────────────────────
-    candidates = await _industry_filter(industries, keywords)
+    # 合并 keywords + beneficiary_chain 扩大候选范围
+    all_search_terms = list(keywords)
+    if beneficiary_chain:
+        all_search_terms = list(dict.fromkeys(all_search_terms + list(beneficiary_chain)))
+    candidates = await _industry_filter(industries, all_search_terms)
     if not candidates:
         logger.debug(f"新闻 {news_id}: 无候选股票")
         return []
@@ -177,12 +188,15 @@ async def _match_one_news(
         tag_s = c.get("tag_score", 0.0)
         c["combined_score"] = tag_s * 0.4 + semantic_scores[i] * 0.6
     candidates.sort(key=lambda x: x["combined_score"], reverse=True)
-    top_candidates = candidates[:top_k * 3]
+    top_candidates = candidates[:top_k * 6]  # 扩大精排候选池，避免好股票被挤出
 
     # ── 阶段三：大模型精排 ────────────────────────────────────────────────────
     if client and top_candidates:
         llm_results = await _llm_rerank(
-            client, title, summary, keywords, top_candidates, top_k, sentiment
+            client, title, summary, keywords, top_candidates, top_k, sentiment,
+            beneficiary_chain=beneficiary_chain or [],
+            news_level=news_level,
+            time_horizon=time_horizon,
         )
         if llm_results:
             return llm_results
@@ -398,7 +412,10 @@ async def _industry_filter(industries: list[str], keywords: list[str]) -> list[d
 
 async def _llm_rerank(
     client, title: str, summary: str, keywords: list[str],
-    candidates: list[dict], top_k: int, sentiment: str
+    candidates: list[dict], top_k: int, sentiment: str,
+    beneficiary_chain: list = None,
+    news_level: str = "medium",
+    time_horizon: str = "short",
 ) -> list[dict]:
     """大模型精排"""
     # 修复点④：精排时向 LLM 传入 keywords，给足信息量
@@ -418,43 +435,69 @@ async def _llm_rerank(
     }
     type_hint = type_instructions.get(company_type, type_instructions["leader"])
 
-    # 修复点④：新增【新闻关键词】字段，让 LLM 有精准的匹配锚点
-    prompt = f"""以下是一条 A 股新闻和候选股票列表。
+    # 精排 prompt：三梯队受益逻辑（年化30%高手方法论）
+    beneficiary_str = "、".join(beneficiary_chain) if beneficiary_chain else "（未提取）"
+    time_map = {"short": "短线1-4周", "medium": "中线1-6月", "long": "长线1-3年"}
+    time_str = time_map.get(time_horizon, "短线")
+    level_map = {"高": "高价值新闻（政策/大额投资/重大事件）", "中": "中价值新闻（工商变更/中小投资）", "低": "低价值新闻"}
+    level_str = level_map.get(news_level, "中价值新闻")
+
+    prompt = f"""你是一位年化30%的A股高手，用产业链受益方思维筛选股票。
 
 【新闻标题】{title}
 【新闻摘要】{summary}
-【新闻关键词】{', '.join(keywords)}
+【新闻级别】{level_str}
+【产业链受益词】{beneficiary_str}
+【行业关键词】{', '.join(keywords)}
 【情感倾向】{sentiment}
+【时间维度】{time_str}
 
 【候选股票】
 {stock_list}
 
 {type_hint}
 
-判断标准（严格遵守）：
-- 必须找到候选股票主营业务与新闻**核心产品/事件**的直接关联，不能仅凭行业大类匹配
-- 例如：新闻涉及"大米"→ 必须主营水稻种植或大米加工，不能选泛"农业"或"食品"公司
-- 例如：新闻涉及"芯片"→ 必须主营芯片设计/制造，不能选泛"电子"公司
-- 若候选中无直接匹配，返回 []，不要强行凑数
+**三梯队受益分析框架：**
 
-请返回严格 JSON 数组（不加 markdown 代码块），每条包含：
+第一梯队（直接受益，逻辑最强）：
+- 新闻主体花的钱直接流向的供应商/服务商
+- 项目所需的设备商、IT系统商、基础设施提供商
+- 产业链受益词能直接命中主营业务的股票
+
+第二梯队（产业链配套，逻辑次之）：
+- 上游原材料供应商
+- 关键零部件/技术提供商
+- 下游核心客户
+
+第三梯队（概念受益，逻辑最弱）：
+- 政策/地域概念相关
+- 间接受益、需要多步推理
+
+**严格排除（最高优先级）：**
+- 与新闻主体直接竞争的同行公司，无论理由多充分，一律排除
+- 判断方法：新闻主体做什么业务，做同样业务的公司就是竞争方
+- 蜂鸟即配（即时配送平台）→ 顺丰同城、达达、美团配送等同类配送平台全部排除
+- 即使是行业龙头，只要是竞争方就排除，不要用"技术溢出""估值重塑"等理由强行入选
+- 传统快递公司（顺丰、韵达、圆通）与即时配送平台是不同赛道，也应排除或降至第三梯队
+
+请按受益梯队强度排序，返回严格JSON数组（不加markdown）：
 [
   {{
     "ts_code": "股票代码",
     "name": "股票名称",
     "score": 0.95,
-    "reason": "一句话匹配理由（说明主营业务与新闻核心产品/事件的直接关联，不超过50字）",
-    "sentiment_impact": "positive 或 negative 或 neutral"
+    "benefit_tier": "第一梯队/第二梯队/第三梯队",
+    "reason": "受益逻辑（说明属于哪个梯队、为何受益，不超过50字）",
+    "sentiment_impact": "positive/negative/neutral"
   }}
 ]
-按相关性降序排列。
-若候选股票中没有与新闻真正相关的，请返回空数组 []，不要强行匹配。"""
+若候选中无真正受益股（均为竞争方或无关），返回[]，不要强行匹配。"""
 
     try:
         resp = await client.chat([
-            {"role": "system", "content": "你是 A 股投研助手，只返回 JSON 数组。"},
+            {"role": "system", "content": "你是A股投研助手，只返回JSON数组。"},
             {"role": "user", "content": prompt},
-        ], json_mode=False, timeout=90)
+        ], json_mode=False, timeout=180)
         text = resp.strip()
         if text.startswith("```"):
             text = text.split("```")[1]
@@ -485,18 +528,17 @@ async def _llm_rerank(
                 })
             elif isinstance(item, dict):
                 ts_code = item.get("ts_code", "")
-                # 修复点⑤：dict 格式同样校验候选池归属
                 if ts_code not in code_to_candidate:
                     logger.debug(f"LLM 返回了不在候选池中的代码 {ts_code}，已过滤")
                     continue
                 item["semantic_score"] = code_to_semantic.get(ts_code, 0.0)
                 item["industry_score"] = 0.6
-                # 修复点⑥：原来 score 重算引入固定加成 0.5*0.1=0.05，所有股票一样，
-                # 导致 LLM 打的分数被稀释、区分度变差。
-                # 改为：直接用 LLM 分数（主导）+ 语义分（辅助），去掉固定项。
-                llm_score = float(item.get("score", 0.5))
-                sem_score = item["semantic_score"]
-                item["score"] = round(llm_score * 0.7 + sem_score * 0.3, 4)
+                # 第一梯队得分加成，让受益逻辑强的股票排更前
+                tier = item.get("benefit_tier", "第三梯队")
+                tier_bonus = 0.15 if "第一" in tier else 0.08 if "第二" in tier else 0.0
+                item["score"] = round(
+                    item["semantic_score"] * 0.4 + float(item.get("score", 0.5)) * 0.5 + tier_bonus, 4
+                )
                 results.append(item)
         return results[:top_k]
     except Exception as e:
