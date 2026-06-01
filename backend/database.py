@@ -17,20 +17,23 @@ CREATE TABLE IF NOT EXISTS config (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS news (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    url         TEXT UNIQUE,
-    title       TEXT NOT NULL,
-    source      TEXT,
-    published_at DATETIME,
-    content     TEXT,
-    summary     TEXT,
-    sentiment   TEXT DEFAULT 'neutral',
-    industries  TEXT,
-    event_type  TEXT,
-    keywords    TEXT,
-    confidence  REAL DEFAULT 0.0,
-    raw_source  TEXT,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    url              TEXT UNIQUE,
+    title            TEXT NOT NULL,
+    source           TEXT,
+    published_at     DATETIME,
+    content          TEXT,
+    summary          TEXT,
+    sentiment        TEXT DEFAULT 'neutral',
+    industries       TEXT,
+    event_type       TEXT,
+    keywords         TEXT,
+    confidence       REAL DEFAULT 0.0,
+    raw_source       TEXT,
+    news_level       TEXT,
+    beneficiary_chain TEXT,
+    time_horizon     TEXT,
+    created_at       DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS match_results (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,10 +89,21 @@ async def get_db():
 
 
 async def init_db():
-    """初始化数据库，建表"""
+    """初始化数据库，建表 + 自动迁移旧字段"""
     path = _db_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     async with aiosqlite.connect(path) as db:
         await db.executescript(CREATE_TABLES_SQL)
+        # 自动迁移：对旧数据库补充新字段（ADD COLUMN IF NOT EXISTS 不支持，用 try/except）
+        migrations = [
+            "ALTER TABLE news ADD COLUMN news_level TEXT",
+            "ALTER TABLE news ADD COLUMN beneficiary_chain TEXT",
+            "ALTER TABLE news ADD COLUMN time_horizon TEXT",
+        ]
+        for sql in migrations:
+            try:
+                await db.execute(sql)
+            except Exception:
+                pass  # 字段已存在则跳过
         await db.commit()
     logger.info(f"数据库初始化完成: {path}")
