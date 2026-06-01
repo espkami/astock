@@ -2149,16 +2149,7 @@ async function triggerCollect() {
 
 let _classifyPollTimer = null;
 
-async function triggerClassify() {
-  const btns = [];
-  try {
-    await api('/api/classify',{method:'POST'});
-    startClassifyPolling(btns);
-  } catch(e) {
-    toast('触发失败: '+e.message,'error');
-    btns.forEach(b=>{ b.disabled=false; b.textContent='立即分类'; });
-  }
-}
+// triggerClassify 已移除
 
 let _matchPollTimer = null;
 
@@ -2265,7 +2256,8 @@ function startCollectPolling() {
 }
 
 // ── 分类进度 ──
-function startClassifyPolling(btns) {
+function startClassifyPolling(btns) { return; // 分类功能已移除
+  /*
   if (_taskPollers.classify) return;
   document.getElementById('classifyProgressRow').style.display = 'block';
   _showTaskOverlay();

@@ -610,9 +610,9 @@ async def direct_match_news(news_id: int, body: dict = None):
 
 @app.get("/api/classify/progress")
 async def classify_progress_snapshot():
-    """分类进度快照（轮询用）"""
+    """分类进度（分类功能已移除，返回固定完成状态）"""
     from fastapi.responses import JSONResponse
-    data = get_classify_progress()
+    data = {"running": False, "done": True, "finished": True, "message": "分类功能已移除，请使用立即匹配"}
     return JSONResponse(
         content={"success": True, "message": "ok", "data": data},
         headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
@@ -621,16 +621,12 @@ async def classify_progress_snapshot():
 
 @app.get("/api/classify/progress-sse")
 async def classify_progress_sse():
-    """分类进度 SSE 流"""
+    """分类进度 SSE（分类功能已移除）"""
     from fastapi.responses import StreamingResponse
     import json as _json
     async def event_stream():
-        while True:
-            progress = get_classify_progress()
-            yield f"data: {_json.dumps(progress, ensure_ascii=False)}\n\n"
-            if progress.get("done"):
-                break
-            await asyncio.sleep(1)
+        data = {"running": False, "done": True, "finished": True, "message": "分类功能已移除"}
+        yield f"data: {_json.dumps(data, ensure_ascii=False)}\n\n"
     return StreamingResponse(event_stream(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
