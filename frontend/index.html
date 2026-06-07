@@ -2170,6 +2170,69 @@ async function triggerCollectNewsapi() {
   }
 }
 
+
+// ── 匹配进度 ──────────────────────────────────────────────────────
+function showMatchProgress() {
+  const row = document.getElementById('matchProgressRow');
+  if (row) row.style.display = 'block';
+  _showTaskOverlay();
+}
+
+function hideMatchProgress() {
+  if (_taskPollers.match) {
+    if (typeof _taskPollers.match === 'object') _taskPollers.match.cancelled = true;
+    else clearInterval(_taskPollers.match);
+    _taskPollers.match = null;
+  }
+  const row = document.getElementById('matchProgressRow');
+  if (row) row.style.display = 'none';
+  _hideTaskOverlayIfDone();
+}
+
+function startMatchPolling(btns, doneLabel) {
+  doneLabel = doneLabel || '立即匹配';
+  if (_taskPollers.match) {
+    if (typeof _taskPollers.match === 'object') _taskPollers.match.cancelled = true;
+    else clearInterval(_taskPollers.match);
+    _taskPollers.match = null;
+  }
+  showMatchProgress();
+  const poller = { cancelled: false };
+  _taskPollers.match = poller;
+  let progressErrorCount = 0;
+  const finishMatchPolling = () => {
+    poller.cancelled = true;
+    if (_taskPollers.match === poller) _taskPollers.match = null;
+  };
+  const pollMatchProgress = async () => {
+    if (poller.cancelled) return;
+    try {
+      const p = await apiWithTimeout('/api/match/progress', {}, 8000);
+      progressErrorCount = 0;
+      const done = p.done || 0;
+      const total = p.total || 0;
+      const pct = total > 0 ? Math.round(done / total * 100) : (p.finished ? 100 : 10);
+      const finished = p.finished === true;
+      const bar = document.getElementById('matchProgressBar2');
+      const txt = document.getElementById('matchProgressTxt2');
+      if (bar) bar.style.width = pct + '%';
+      if (txt) txt.textContent = finished ? '✅ 完成' : `${done}/${total} · ${(p.current||'处理中...')}`.slice(0,30);
+      if (finished) {
+        finishMatchPolling();
+        setTimeout(() => { hideMatchProgress(); _hideTaskOverlayIfDone(); loadStats(); loadNews(); }, 2000);
+        if (btns) btns.forEach(b => { b.disabled = false; b.textContent = doneLabel; });
+        return;
+      }
+    } catch(e) {
+      progressErrorCount++;
+      const txt = document.getElementById('matchProgressTxt2');
+      if (txt) txt.textContent = '进度连接异常，后台任务可能仍在继续...';
+    }
+    if (!poller.cancelled) setTimeout(pollMatchProgress, progressErrorCount ? 5000 : 2000);
+  };
+  pollMatchProgress();
+}
+
 async function triggerDirectMatchAll() {
   const doneLabel = '立即匹配';
   const btns = [document.getElementById('directMatchAllBtn'), document.getElementById('directMatchAllBtnM')].filter(Boolean);
@@ -2256,178 +2319,7 @@ function startCollectPolling() {
 }
 
 // ── 分类进度 ──
-function startClassifyPolling(btns) { return; // 分类功能已移除
-  /*
-  if (_taskPollers.classify) return;
-  document.getElementById('classifyProgressRow').style.display = 'block';
-  _showTaskOverlay();
-  const poller = { cancelled: false };
-  _taskPollers.classify = poller;
-  let progressErrorCount = 0;
-  const finishClassifyPolling = () => {
-    poller.cancelled = true;
-    if (_taskPollers.classify === poller) _taskPollers.classify = null;
-  };
-  const pollClassifyProgress = async () => {
-    if (poller.cancelled) return;
-    try {
-      const r = await apiWithTimeout('/api/classify/progress', {}, 8000);
-      progressErrorCount = 0;
-      const p = r.data || {};
-      const pct = p.percent || 0;
-      const txt = document.getElementById('classifyProgressTxt2');
-      const bar = document.getElementById('classifyProgressBar2');
-      if (txt) txt.textContent = `${pct.toFixed(0)}% · ${(p.message||'').slice(0,35)}`;
-      if (bar) bar.style.width = pct + '%';
-      if (btns) btns.forEach(b => { b.textContent = `分类 ${pct.toFixed(0)}%`; });
-      if (p.done && !p.running) {
-        finishClassifyPolling();
-        if (bar) bar.style.width = '100%';
-        if (btns) btns.forEach(b => { b.disabled = false; b.textContent = '立即分类'; });
-        setTimeout(() => { document.getElementById('classifyProgressRow').style.display = 'none'; _hideTaskOverlayIfDone(); }, 3000);
-        if (!p.error) { toast(p.message || '✅ 分类完成', 'success'); loadStats(); loadNews(); }
-        else toast('分类异常: ' + p.error, 'error');
-      }
-    } catch(e) {
-      progressErrorCount++;
-      const txt = document.getElementById('classifyProgressTxt2');
-      if (txt && progressErrorCount >= 3) {
-        txt.textContent = '进度连接异常，后台任务可能仍在继续...';
-      }
-    } finally {
-      if (!poller.cancelled) setTimeout(pollClassifyProgress, progressErrorCount ? 5000 : 2000);
-    }
-  };
-  pollClassifyProgress();
-}
-
-// ── 匹配进度（重写，使用新浮窗）──
-function showMatchProgress() {
-  document.getElementById('matchProgressRow').style.display = 'block';
-  _showTaskOverlay();
-}
-
-function hideMatchProgress() {
-  if (_taskPollers.match) {
-    if (typeof _taskPollers.match === 'object') _taskPollers.match.cancelled = true;
-    else clearInterval(_taskPollers.match);
-    _taskPollers.match = null;
-  }
-  document.getElementById('matchProgressRow').style.display = 'none';
-  _hideTaskOverlayIfDone();
-}
-
-function startMatchPolling(btns, doneLabel) {
-  doneLabel = doneLabel || '立即全部匹配';
-  if (_taskPollers.match) {
-    if (typeof _taskPollers.match === 'object') _taskPollers.match.cancelled = true;
-    else clearInterval(_taskPollers.match);
-    _taskPollers.match = null;
-  }
-  showMatchProgress();
-  const poller = { cancelled: false };
-  _taskPollers.match = poller;
-  let progressErrorCount = 0;
-  const finishMatchPolling = () => {
-    poller.cancelled = true;
-    if (_taskPollers.match === poller) _taskPollers.match = null;
-  };
-  const pollMatchProgress = async () => {
-    if (poller.cancelled) return;
-    try {
-      const p = await apiWithTimeout('/api/match/progress', {}, 8000);
-      progressErrorCount = 0;
-      const done = p.done || 0;
-      const total = p.total || 0;
-      const pct = total > 0 ? Math.round(done / total * 100) : (p.finished ? 100 : 10);
-      const finished = p.finished === true;
-
-      const bar = document.getElementById('matchProgressBar2');
-      const txt = document.getElementById('matchProgressTxt2');
-      if (bar) bar.style.width = pct + '%';
-      if (txt) txt.textContent = finished ? '✅ 完成' : `${done}/${total} · ${(p.current||'处理中...')}`.slice(0,30);
-
-      if (finished) {
-        finishMatchPolling();
-        btns.forEach(b=>{ b.disabled=false; b.textContent='立即匹配'; });
-        const finishMsg = p.error ? `匹配异常: ${p.error}` : (p.message || `匹配完成，共处理 ${total} 条`);
-        toast(finishMsg, p.error ? 'error' : 'success');
-        if (txt) txt.textContent = finishMsg || '✅ 完成';
-        setTimeout(()=>{ document.getElementById('matchProgressRow').style.display='none'; _hideTaskOverlayIfDone(); loadStats(); loadNews(); }, 2000);
-      }
-    } catch(e) {
-      progressErrorCount++;
-      const txt = document.getElementById('matchProgressTxt2');
-      if (txt && progressErrorCount >= 3) {
-        txt.textContent = '进度连接异常，后台任务可能仍在继续...';
-      }
-    } finally {
-      if (!poller.cancelled) setTimeout(pollMatchProgress, progressErrorCount ? 5000 : 2000);
-    }
-  };
-  pollMatchProgress();
-}
-
-async function resumeBackgroundTasks() {
-  try {
-    const collect = (await apiWithTimeout('/api/collect/progress', {}, 5000)).data || {};
-    if (collect.running && !collect.done) startCollectPolling();
-  } catch(e) {}
-  try {
-    const classify = (await apiWithTimeout('/api/classify/progress', {}, 5000)).data || {};
-    if (classify.running && !classify.done) {
-      startClassifyPolling([]);
-    }
-  } catch(e) {}
-  try {
-    const match = await apiWithTimeout('/api/match/progress', {}, 5000);
-    if (match && match.finished !== true) {
-      const btns = [document.getElementById('directMatchAllBtn'), document.getElementById('directMatchAllBtnM')].filter(Boolean);
-      btns.forEach(b => { b.disabled = true; b.textContent = '推理中...'; });
-      startMatchPolling(btns, '立即匹配');
-    }
-  } catch(e) {}
-}
-
-// ══════════════════════════════════════════════════════
-//  新闻采集配置
-// ══════════════════════════════════════════════════════
-async function loadNewsConfig() {
-  const cfg = (await api('/api/config')).data||{};
-  setToggle('newsapi_enabled', cfg.newsapi_enabled);
-  setToggle('rss_enabled', cfg.rss_enabled);
-  setToggle('llm_search_enabled', cfg.llm_search_enabled);
-  setToggle('trending_enabled', cfg.trending_enabled);
-  setToggle('baidu_trending_enabled', cfg.baidu_trending_enabled !== false);
-  setToggle('weibo_trending_enabled', cfg.weibo_trending_enabled !== false);
-  setToggle('douyin_trending_enabled', cfg.douyin_trending_enabled !== false);
-  if (cfg.trending_interval) { const el=document.getElementById('trending_interval'); if(el){el.value=cfg.trending_interval;onIntervalInput('trending');} }
-  // 自动分类开关（默认开启）
-
-  if (cfg.newsapi_page_size) document.getElementById('newsapi_page_size').value = cfg.newsapi_page_size;
-  const ni=cfg.newsapi_interval||1800; document.getElementById('newsapi_interval').value=ni; onIntervalInput('newsapi');
-  const ri=cfg.rss_interval||300; document.getElementById('rss_interval').value=ri; onIntervalInput('rss');
-  const li=cfg.llm_search_interval||3600; document.getElementById('llm_search_interval').value=li; onIntervalInput('llm_search');
-  renderKeyList('newsapiKeyList', cfg.newsapi_keys||[], 'newsapi_keys');
-  renderKwList('newsapiKwList', cfg.newsapi_keywords||[], 'newsapi_keywords');
-  initIntervalHints();
-  renderFeedList('rssFeedList', cfg.rss_feeds||[], 'rss_feeds');
-  renderDirList('llmDirList', cfg.llm_search_directions||[], 'llm_search_directions');
-  // 三个预设模式状态
-  setToggle('llm_general_enabled', cfg.llm_general_enabled !== false);
-  setToggle('llm_tech_enabled', cfg.llm_tech_enabled !== false);
-  setToggle('llm_finance_enabled', cfg.llm_finance_enabled !== false);
-  const gc = cfg.llm_general_count || 10;
-  const tc = cfg.llm_tech_count    || 10;
-  const fc = cfg.llm_finance_count || 10;
-  ['llm_general_count','llm_tech_count','llm_finance_count'].forEach((id, i) => {
-    const el = document.getElementById(id);
-    if (el) el.value = [gc, tc, fc][i];
-  });
-}
-// onAutoClassifyChange 已移除
-
-function updateClassifyBtnVisibility(autoClassify) { /* 立即分类已移除 */ }
+function startClassifyPolling(btns) { /* 分类功能已移除 */ }
 
 function setToggle(id,val){const el=document.getElementById(id);if(el)el.checked=!!val;}
 function renderKeyList(cId,items,cfgKey){document.getElementById(cId).innerHTML=items.map((item,i)=>`<div class="list-item"><label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" ${item.enabled?'checked':''} onchange="updateListItem('${cfgKey}',${i},'enabled',this.checked)"><span class="toggle-slider"></span></label><input type="password" value="${esc(item.key||'')}" placeholder="API Key" onchange="updateListItem('${cfgKey}',${i},'key',this.value)"><button class="list-item-del" onclick="removeListItem('${cfgKey}',${i})">×</button></div>`).join('');}

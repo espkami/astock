@@ -189,7 +189,7 @@ class LLMClient:
                     usage.get("prompt_tokens", 0),
                     usage.get("completion_tokens", 0),
                 ))
-            return data["choices"][0]["message"]["content"]
+            return data["choices"][0]["message"]["content"] or ""
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """获取文本嵌入向量，自动分批（避免超出接口单次上限），失败时返回空列表"""

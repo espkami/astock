@@ -539,6 +539,9 @@ async def direct_match_news(news_id: int, body: dict = None):
             {"role": "user", "content": prompt},
         ], timeout=60, no_failover=True)
         text = resp.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        if not text:
+            logger.error(f"直接推理：LLM返回空响应")
+            return {"success": False, "message": "LLM返回空响应，请检查模型配置或稍后重试"}
         llm_output = _json.loads(text)
         # 兼容直接返回数组的旧格式
         if isinstance(llm_output, list):
@@ -874,6 +877,8 @@ async def trigger_direct_match_all():
                     timeout=75  # 双重保护，最多等75秒
                 )
                 text = resp.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+                if not text:
+                    raise ValueError("LLM返回空响应")
                 llm_output = _json.loads(text)
                 if isinstance(llm_output, list):
                     llm_results = llm_output
