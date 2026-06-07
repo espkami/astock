@@ -777,13 +777,43 @@ async def trigger_direct_match_all():
 
     async def _run():
         import asyncio as _asyncio
-        client = await _get_llm()
-        if not client:
+        from backend.services.config_service import get_config as _gc2
+
+        # ── 获取所有开启的模型，构建专属客户端列表 ──────────────────────────
+        from backend.services.llm_client import LLMClient as _LLMClient
+        models_cfg = await _gc2("llm_models", [])
+        active_models = [m for m in models_cfg
+                         if m.get("enabled") is not False
+                         and m.get("provider") and m.get("api_key") and m.get("model")]
+        # fallback：旧单模型配置
+        if not active_models:
+            provider = await _gc2("llm_provider")
+            api_key  = await _gc2("llm_api_key")
+            model    = await _gc2("llm_model")
+            base_url = await _gc2("llm_base_url")
+            if provider and api_key and model:
+                active_models = [{"provider": provider, "api_key": api_key,
+                                  "model": model, "base_url": base_url or ""}]
+
+        if not active_models:
             await _sc("match_progress", _json.dumps({
                 "done": 0, "total": pending, "current": "", "finished": True,
                 "error": "未配置大模型", "message": "❌ 未配置大模型",
             }, ensure_ascii=False))
             return
+
+        # 为每个模型创建独立客户端
+        model_clients = [
+            _LLMClient(
+                provider=m["provider"],
+                api_key=m["api_key"],
+                model=m["model"],
+                base_url=m.get("base_url") or _LLMClient._default_base_url(m["provider"]),
+            )
+            for m in active_models
+        ]
+        n_models = len(model_clients)
+        logger.info(f"并发推理：{n_models} 个模型同时工作")
 
         top_k = await _gc("match_top_k", 5)
         company_type = await _gc("match_company_type", "leader")
@@ -826,25 +856,20 @@ async def trigger_direct_match_all():
                 rows = await cur.fetchall()
 
         total = len(rows)
-        done = 0
-        failed_ids = []  # 失败的新闻ID，最后重试
+        done_count = 0
+        done_lock = _asyncio.Lock()
+        db_write_lock = _asyncio.Lock()  # SQLite 写入序列化锁，避免并发冲突
+        failed_items = []  # [(news_id, model_idx)] 失败的新闻及其绑定的模型索引
+
         await _sc("match_progress", _json.dumps({
             "done": 0, "total": total, "current": "", "finished": False,
-            "error": None, "message": f"准备直接推理 {total} 条...",
+            "error": None, "message": f"准备推理 {total} 条（{n_models} 个模型并发）...",
         }, ensure_ascii=False))
 
-        for row in rows:
-            news_id = row["id"]
-            title   = row["title"]
-            news_content = row["content"] or title
+        SYSTEM_PROMPT = "你是A股投研专家，只返回JSON对象。只推荐A股（沪深京交易所上市股票，代码以.SH/.SZ/.BJ结尾），严禁推荐港股（.HK）、美股及任何境外上市公司。"
 
-            await _sc("match_progress", _json.dumps({
-                "done": done, "total": total,
-                "current": title[:40], "finished": False,
-                "error": None, "message": f"推理中 {done}/{total}: {title[:30]}",
-            }, ensure_ascii=False))
-
-            prompt = (
+        def _build_prompt(news_content):
+            return (
                 "你是一位A股投研专家。请严格按照以下方法论逐步分析新闻，输出分析结果。\n\n"
                 "【新闻内容】\n" + news_content + "\n\n"
                 "【匹配方法论】\n" + active_methodology + "\n\n"
@@ -868,13 +893,28 @@ async def trigger_direct_match_all():
                 "只返回JSON，不加任何说明。"
             )
 
+        async def _infer_one(row, model_idx):
+            """单条新闻推理，绑定指定模型"""
+            nonlocal done_count
+            news_id = row["id"]
+            title   = row["title"]
+            news_content = row["content"] or title
+            client = model_clients[model_idx]
+
+            async with done_lock:
+                await _sc("match_progress", _json.dumps({
+                    "done": done_count, "total": total,
+                    "current": title[:40], "finished": False,
+                    "error": None, "message": f"推理中 {done_count}/{total}: {title[:30]}",
+                }, ensure_ascii=False))
+
             try:
                 resp = await _asyncio.wait_for(
                     client.chat([
-                        {"role": "system", "content": "你是A股投研专家，只返回JSON对象。只推荐A股（沪深京交易所上市股票，代码以.SH/.SZ/.BJ结尾），严禁推荐港股（.HK）、美股及任何境外上市公司。"},
-                        {"role": "user",   "content": prompt},
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user",   "content": _build_prompt(news_content)},
                     ], timeout=60, no_failover=True),
-                    timeout=75  # 双重保护，最多等75秒
+                    timeout=75
                 )
                 text = resp.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
                 if not text:
@@ -884,7 +924,7 @@ async def trigger_direct_match_all():
                     llm_results = llm_output
                     news_sentiment, news_level, news_summary = "neutral", "中", ""
                 else:
-                    llm_results  = llm_output.get("stocks", [])
+                    llm_results    = llm_output.get("stocks", [])
                     news_sentiment = llm_output.get("news_sentiment", "neutral")
                     news_level     = llm_output.get("news_level", "中")
                     news_summary   = llm_output.get("news_summary", "")
@@ -895,7 +935,7 @@ async def trigger_direct_match_all():
                         "ts_code":          item.get("ts_code", ""),
                         "name":             item.get("name", ""),
                         "industry":         item.get("industry", ""),
-                        "score":            0.9 if item.get("benefit_tier","") == "第一梯队"
+                        "score":            0.9 if "第一" in item.get("benefit_tier","")
                                             else 0.75 if "第二" in item.get("benefit_tier","")
                                             else 0.6,
                         "benefit_tier":     item.get("benefit_tier", ""),
@@ -905,79 +945,134 @@ async def trigger_direct_match_all():
                         "match_mode":       "direct",
                     })
 
-                async with _get_db() as db:
-                    await db.execute("DELETE FROM match_results WHERE news_id=?", (news_id,))
-                    await db.execute(
-                        "INSERT INTO match_results(news_id, matched_stocks) VALUES(?,?)",
-                        (news_id, _json.dumps(verified, ensure_ascii=False)),
-                    )
-                    if verified and (news_sentiment or news_summary):
-                        # 只有有受益股时才写 sentiment/summary
+                async with db_write_lock:
+                    async with _get_db() as db:
+                        await db.execute("DELETE FROM match_results WHERE news_id=?", (news_id,))
                         await db.execute(
-                            """UPDATE news SET sentiment=?,
-                               summary=COALESCE(NULLIF(summary,''), ?),
-                               news_level=? WHERE id=?""",
-                            (news_sentiment, news_summary, news_level, news_id)
+                            "INSERT INTO match_results(news_id, matched_stocks) VALUES(?,?)",
+                            (news_id, _json.dumps(verified, ensure_ascii=False)),
                         )
-                    await db.commit()
+                        if verified and (news_sentiment or news_summary):
+                            await db.execute(
+                                """UPDATE news SET sentiment=?,
+                                   summary=COALESCE(NULLIF(summary,''), ?),
+                                   news_level=? WHERE id=?""",
+                                (news_sentiment, news_summary, news_level, news_id)
+                            )
+                        await db.commit()
+
             except Exception as e:
-                logger.warning(f"直接推理批量: news_id={news_id} 失败，加入重试队列: {e}")
-                failed_ids.append(news_id)
+                logger.warning(f"推理失败 news_id={news_id} model_idx={model_idx}: {e}，加入重试队列")
+                failed_items.append((news_id, model_idx))
 
-            done += 1
+            async with done_lock:
+                done_count += 1
 
-        # ── 重试失败的新闻（排到最后，只重试一次）────────────────────────────
-        if failed_ids:
-            retry_total = len(failed_ids)
+        # ── 并发推理：共享任务队列 + 每模型串行消费 ────────────────────────
+        # 所有新闻放入共享队列，每个模型独立串行消费
+        # 谁空了谁取下一条 → 慢/坏模型自动被快模型超越，不拖累整体
+        # 同一模型不并发 → 不触发429
+
+        task_queue = list(enumerate(rows))  # [(global_idx, row), ...]
+        queue_lock = _asyncio.Lock()
+        queue_pos = [0]  # 共享游标
+
+        async def _worker(model_idx):
+            """单个模型的工作协程，串行从共享队列取任务"""
+            consecutive_failures = 0
+            MAX_CONSECUTIVE_FAILURES = 3
+            while True:
+                # 取下一条任务
+                async with queue_lock:
+                    if queue_pos[0] >= len(task_queue):
+                        break  # 队列空了，退出
+                    _, row = task_queue[queue_pos[0]]
+                    queue_pos[0] += 1
+
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    # 连续失败太多，把这条加入重试队列，继续取下一条（不退出）
+                    logger.warning(f"模型[{model_idx}] 连续失败 {consecutive_failures} 次，此条加入重试队列")
+                    failed_items.append((row["id"], model_idx))
+                    async with done_lock:
+                        done_count += 1
+                    consecutive_failures = 0  # 重置，继续尝试
+                    continue
+
+                prev_failed = len(failed_items)
+                await _infer_one(row, model_idx)
+                if len(failed_items) > prev_failed:
+                    consecutive_failures += 1
+                else:
+                    consecutive_failures = 0
+
+        # 启动 n_models 个工作协程，各自串行消费共享队列
+        workers = [_asyncio.create_task(_worker(i)) for i in range(n_models)]
+        await _asyncio.gather(*workers)
+
+        # ── 重试失败的新闻 ────────────────────────────────────────────────
+        if failed_items:
+            retry_total = len(failed_items)
             logger.info(f"开始重试 {retry_total} 条失败新闻")
             await _sc("match_progress", _json.dumps({
-                "done": done, "total": total + retry_total,
+                "done": done_count, "total": total + retry_total,
                 "current": "", "finished": False,
                 "error": None, "message": f"重试 {retry_total} 条失败新闻...",
             }, ensure_ascii=False))
 
-            # 重新拉取失败条目的内容
+            # 重新拉取内容
+            failed_ids = [item[0] for item in failed_items]
             async with _get_db() as db:
                 placeholders = ",".join(["?"]*len(failed_ids))
                 async with db.execute(
                     f"SELECT id, title, content FROM news WHERE id IN ({placeholders})",
                     failed_ids
                 ) as cur:
-                    retry_rows = await cur.fetchall()
+                    retry_rows = {r["id"]: r for r in await cur.fetchall()}
 
-            for retry_row in retry_rows:
-                news_id = retry_row["id"]
+            for news_id, orig_model_idx in failed_items:
+                retry_row = retry_rows.get(news_id)
+                if not retry_row:
+                    done_count += 1
+                    continue
+
                 news_content = retry_row["content"] or retry_row["title"]
-                await _sc("match_progress", _json.dumps({
-                    "done": done, "total": total + retry_total,
-                    "current": retry_row["title"][:40], "finished": False,
-                    "error": None, "message": f"重试 {done}/{total+retry_total}: {retry_row['title'][:30]}",
-                }, ensure_ascii=False))
-                prompt = (
-                    "你是一位A股投研专家。请严格按照以下方法论逐步分析新闻，输出分析结果。\\n\\n"
-                    "【新闻内容】\\n" + news_content + "\\n\\n"
-                    "【匹配方法论】\\n" + active_methodology + "\\n\\n"
-                    f"【选股偏好】{type_hint}\\n\\n"
-                    '请返回严格JSON对象（不加markdown）：\n'
-                    '{\n'
-                    '  "news_sentiment": "positive/negative/neutral",\n'
-                    '  "news_level": "高/中/低",\n'
-                    '  "news_summary": "一句话摘要（不超过60字）",\n'
-                    '  "stocks": [{"name":"公司名","ts_code":"代码","benefit_tier":"第一/二/三梯队","reason":"受益逻辑","time_horizon":"short/medium/long","sentiment_impact":"positive/negative/neutral"}]\n'
-                    '}\n'
-                    "只返回JSON，不加任何说明。"
-                )
+
+                # 检查原模型是否还开启
+                cur_models_cfg = await _gc2("llm_models", [])
+                cur_active = [m for m in cur_models_cfg
+                              if m.get("enabled") is not False
+                              and m.get("provider") and m.get("api_key") and m.get("model")]
+
+                # 原模型还在 → 用原模型；否则降级到第一个可用模型
+                if orig_model_idx < len(model_clients) and orig_model_idx < len(cur_active):
+                    retry_client = model_clients[orig_model_idx]
+                    logger.info(f"重试 news_id={news_id}，使用原模型[{orig_model_idx}]")
+                elif cur_active:
+                    retry_client = _LLMClient(
+                        provider=cur_active[0]["provider"],
+                        api_key=cur_active[0]["api_key"],
+                        model=cur_active[0]["model"],
+                        base_url=cur_active[0].get("base_url") or _LLMClient._default_base_url(cur_active[0]["provider"]),
+                    )
+                    logger.info(f"重试 news_id={news_id}，原模型不可用，降级到模型[0]")
+                else:
+                    logger.warning(f"重试 news_id={news_id}，无可用模型，跳过")
+                    done_count += 1
+                    continue
+
                 try:
                     resp = await _asyncio.wait_for(
-                        client.chat([
-                            {"role": "system", "content": "你是A股投研专家，只返回JSON对象。只推荐A股（沪深京交易所上市股票，代码以.SH/.SZ/.BJ结尾），严禁推荐港股（.HK）、美股及任何境外上市公司。"},
-                            {"role": "user",   "content": prompt},
-                        ], timeout=60, no_failover=True),
-                        timeout=75
+                        retry_client.chat([
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user",   "content": _build_prompt(news_content)},
+                        ], timeout=30, no_failover=True),
+                        timeout=40
                     )
                     text = resp.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+                    if not text:
+                        raise ValueError("LLM返回空响应")
                     llm_output = _json.loads(text)
-                    llm_results  = llm_output.get("stocks", []) if isinstance(llm_output, dict) else llm_output
+                    llm_results    = llm_output.get("stocks", []) if isinstance(llm_output, dict) else llm_output
                     news_sentiment = llm_output.get("news_sentiment", "neutral") if isinstance(llm_output, dict) else "neutral"
                     news_level     = llm_output.get("news_level", "中") if isinstance(llm_output, dict) else "中"
                     news_summary   = llm_output.get("news_summary", "") if isinstance(llm_output, dict) else ""
@@ -997,20 +1092,25 @@ async def trigger_direct_match_all():
                         await db.execute("INSERT INTO match_results(news_id, matched_stocks) VALUES(?,?)",
                             (news_id, _json.dumps(verified, ensure_ascii=False)))
                         if verified and (news_sentiment or news_summary):
-                            await db.execute("UPDATE news SET sentiment=?, summary=COALESCE(NULLIF(summary,''),?), news_level=? WHERE id=?",
+                            await db.execute(
+                                "UPDATE news SET sentiment=?, summary=COALESCE(NULLIF(summary,''),?), news_level=? WHERE id=?",
                                 (news_sentiment, news_summary, news_level, news_id))
                         await db.commit()
                 except Exception as e2:
-                    logger.warning(f"重试失败 news_id={news_id}: {e2}，跳过")
-                done += 1
+                    logger.warning(f"重试最终失败 news_id={news_id}: {e2}，跳过")
+
+                done_count += 1
 
         await _sc("match_progress", _json.dumps({
-            "done": done, "total": total + len(failed_ids) if failed_ids else total,
+            "done": done_count,
+            "total": total + len(failed_items) if failed_items else total,
             "current": "", "finished": True,
-            "error": None, "message": f"✅ 直接推理完成，共处理 {done} 条",
+            "error": None, "message": f"✅ 推理完成，共处理 {done_count} 条（{n_models} 模型并发）",
         }, ensure_ascii=False))
 
     _asyncio.create_task(_run())
+    return APIResponse(message=f"直接推理已启动，共 {pending} 条待处理")
+
     return APIResponse(message=f"直接推理已启动，共 {pending} 条待处理")
 
 

@@ -105,5 +105,15 @@ async def init_db():
                 await db.execute(sql)
             except Exception:
                 pass  # 字段已存在则跳过
+        # 清理历史遗留的 sentiment 污染数据：
+        # 旧版 news_processor 可能写了 sentiment 但没有对应 match_results
+        await db.execute("""
+            UPDATE news SET sentiment = NULL, summary = NULL, news_level = NULL
+            WHERE sentiment IS NOT NULL
+              AND id NOT IN (
+                SELECT news_id FROM match_results
+                WHERE matched_stocks != '[]'
+              )
+        """)
         await db.commit()
     logger.info(f"数据库初始化完成: {path}")

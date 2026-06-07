@@ -40,12 +40,75 @@ PROVIDERS = {
 }
 
 
+# ── 各平台默认 RPM（保守值，可在配置中覆盖）──────────────────────────────
+# 用 api_key 作为粒度：同一 key 下的所有请求共享同一个速率限制槽
+# 如果同一平台配了多个 key，每个 key 独立计数
+# 保守统一值：10 RPM → 请求间隔 6s，适配绝大多数平台的免费/低tier限额
+# 宁可慢一点，不触发 429
+DEFAULT_RPM: int = 10
+
+def _parse_retry_after(exc: Exception) -> float | None:
+    """从 429 异常中尝试解析 Retry-After 秒数，解析失败返回 None。
+    httpx 的 HTTPStatusError 把响应头挂在 exc.response 上；
+    anthropic SDK 的 RateLimitError 也有类似结构。
+    """
+    try:
+        resp = getattr(exc, "response", None)
+        if resp is None:
+            return None
+        headers = getattr(resp, "headers", {})
+        val = headers.get("retry-after") or headers.get("Retry-After")
+        if val is None:
+            return None
+        return float(val)
+    except Exception:
+        return None
+
+class _RateLimiter:
+    """基于「最小请求间隔」的简单速率限制器（per API key）。
+    比令牌桶更直接：记录上次请求完成时间，下次请求前等够间隔。
+    线程安全：使用 asyncio.Lock，只在同一事件循环内有效。
+    """
+    def __init__(self, rpm: int):
+        self.min_interval = 60.0 / max(rpm, 1)   # 秒/请求
+        self._last_call: float = 0.0
+        self._lock = asyncio.Lock()
+
+    def update_rpm(self, rpm: int):
+        self.min_interval = 60.0 / max(rpm, 1)
+
+    async def acquire(self):
+        async with self._lock:
+            import time
+            now = time.monotonic()
+            wait = self.min_interval - (now - self._last_call)
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last_call = time.monotonic()
+
+# key → _RateLimiter，在 get_llm_client() / LLMClient 初始化时填充
+_rate_limiters: dict[str, _RateLimiter] = {}
+
+def _get_rate_limiter(api_key: str, provider: str, rpm: int | None = None) -> _RateLimiter:
+    """获取或创建该 key 的速率限制器。rpm=None 时取保守默认值。"""
+    if api_key not in _rate_limiters:
+        effective_rpm = rpm if rpm else DEFAULT_RPM
+        _rate_limiters[api_key] = _RateLimiter(effective_rpm)
+        logger.debug(f"创建速率限制器: {provider}/{api_key[:8]}… RPM={effective_rpm}")
+    elif rpm is not None:
+        _rate_limiters[api_key].update_rpm(rpm)
+    return _rate_limiters[api_key]
+
+
 class LLMClient:
-    def __init__(self, provider: str, api_key: str, model: str, base_url: Optional[str] = None):
+    def __init__(self, provider: str, api_key: str, model: str, base_url: Optional[str] = None,
+                 rpm: int | None = None):
         self.provider = provider
         self.api_key = api_key
         self.model = model
         self.base_url = base_url or PROVIDERS.get(provider, {}).get("base_url", "")
+        # 初始化时挂载速率限制器
+        self._rate_limiter = _get_rate_limiter(api_key, provider, rpm)
 
     @staticmethod
     def _default_base_url(provider: str) -> str:
@@ -81,10 +144,14 @@ class LLMClient:
             cur_api_key  = m["api_key"]
             cur_model    = m["model"]
             cur_base_url = m.get("base_url") or LLMClient._default_base_url(cur_provider)
+            cur_rpm      = m.get("rpm")  # 用户在界面配置的 RPM，None 则取平台默认
+            cur_limiter  = _get_rate_limiter(cur_api_key, cur_provider, cur_rpm)
             if attempt > 0:
                 logger.info(f"LLM 故障转移 → {cur_provider}/{cur_model} ({cur_api_key[:8]}...)")
                 await asyncio.sleep(1)
             try:
+                # 发送前等满本 key 的最小请求间隔
+                await cur_limiter.acquire()
                 if cur_provider == "anthropic":
                     return await self._call_anthropic_with(messages, json_mode, timeout,
                                                            cur_api_key, cur_model)
@@ -98,6 +165,12 @@ class LLMClient:
                 if "400" in err_str:
                     logger.warning(f"LLM 内容被拒(400)，跳过: {err_str[:80]}")
                     raise
+                # 429：解析 Retry-After 或指数退避，不立即转移
+                if "429" in err_str:
+                    retry_after = _parse_retry_after(e)
+                    backoff = retry_after or min(5 * (2 ** attempt), 60)
+                    logger.warning(f"LLM 429 [{cur_provider}/{cur_model}]，等待 {backoff}s 后{'转移' if not no_failover and attempt < len(active)-1 else '重试'}")
+                    await asyncio.sleep(backoff)
                 # 判断是否值得转移：429限速 / 5xx服务错误 / 超时
                 is_failover = (
                     not no_failover and (
@@ -116,6 +189,7 @@ class LLMClient:
                     logger.warning(f"LLM 调用失败，重试: {e}")
                     await asyncio.sleep(1)
                     try:
+                        await cur_limiter.acquire()
                         if cur_provider == "anthropic":
                             return await self._call_anthropic_with(messages, json_mode, timeout,
                                                                    cur_api_key, cur_model)
@@ -313,6 +387,7 @@ async def get_llm_client() -> Optional[LLMClient]:
         api_key=m["api_key"],
         model=m["model"],
         base_url=m.get("base_url") or LLMClient._default_base_url(m["provider"]),
+        rpm=m.get("rpm"),   # 用户在界面配置的 RPM，None 则取平台默认
     )
 
 

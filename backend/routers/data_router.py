@@ -261,8 +261,9 @@ async def import_news(body: dict):
             cur2 = await db.execute(
                 """INSERT INTO news
                    (url,title,source,published_at,content,summary,sentiment,
-                    industries,event_type,keywords,confidence,raw_source,created_at)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    industries,event_type,keywords,confidence,raw_source,
+                    news_level,beneficiary_chain,time_horizon,created_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     url, title, n.get("source",""),
                     n.get("published_at",""), n.get("content",""),
@@ -270,6 +271,8 @@ async def import_news(body: dict):
                     n.get("industries","[]"), n.get("event_type",""),
                     n.get("keywords","[]"), n.get("confidence",0.0),
                     n.get("raw_source","import"),
+                    n.get("news_level"), n.get("beneficiary_chain"),
+                    n.get("time_horizon"),
                     n.get("created_at") or __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 ),
             )

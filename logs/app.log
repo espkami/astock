@@ -953,3 +953,966 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2026-06-01 14:47:12.241 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
 2026-06-01 14:47:12.241 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
 2026-06-01 14:47:12.242 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 13:37:40.776 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 13:37:40.779 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 13:37:40.784 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 13:37:40.787 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 13:37:40.789 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 13:37:40.794 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 13:37:40.795 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 13:37:40.795 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 13:37:40.795 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 13:37:40.797 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 13:37:40.797 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 13:37:40.798 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 13:39:05.198 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 13:39:44.643 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 50 条，新增 47 条
+2026-06-07 13:41:07.624 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 13:41:07.626 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 13:41:07.629 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 13:41:07.631 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 13:41:07.633 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 13:41:07.638 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 13:41:07.638 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 13:41:07.639 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 13:41:07.639 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 13:41:07.640 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 13:41:07.641 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 13:41:07.642 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 13:45:24.621 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-07 13:45:26.284 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-07 13:45:26.912 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-07 13:45:40.886 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-07 13:53:44.890 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 13:53:44.892 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 13:53:44.895 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 13:53:44.897 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 13:53:44.899 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 13:53:44.904 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 13:53:44.905 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 13:53:44.905 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 13:53:44.905 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 13:53:44.907 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 13:53:44.907 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 13:53:44.909 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 13:58:09.726 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:58:10.391 | INFO     | backend.services.news_collector:collect_rss:189 - RSS [36氪财经] 采集 30 条
+2026-06-07 13:58:11.235 | INFO     | backend.services.news_collector:collect_trending:370 - 百度热搜采集 20 条
+2026-06-07 13:58:11.326 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:58:11.327 | ERROR    | backend.services.news_collector:collect_llm_search:319 - 大模型搜索[科技/AI]失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:58:12.192 | INFO     | backend.services.news_collector:collect_trending:409 - 微博热搜采集 20 条
+2026-06-07 13:58:12.563 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:58:12.880 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 13:58:13.618 | INFO     | backend.services.news_collector:collect_trending:444 - 抖音热搜采集 20 条
+2026-06-07 13:58:13.851 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:58:13.892 | ERROR    | backend.services.news_collector:collect_llm_search:319 - 大模型搜索[财经市场]失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:58:30.594 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 140 条，新增 73 条
+2026-06-07 13:58:57.606 | INFO     | backend.main:_run:816 - 并发推理：1 个模型同时工作
+2026-06-07 13:58:57.857 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:58:59.108 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:58:59.109 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16506 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:58:59.336 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:00.856 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:00.856 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16505 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:01.110 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:02.418 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:02.419 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16504 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:02.661 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:03.895 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:03.896 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16503 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:04.112 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:05.336 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:05.337 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16502 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:05.555 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:06.767 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:06.767 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16501 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:06.986 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:08.205 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:08.206 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16500 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:08.422 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:09.644 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:09.644 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16499 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:10.168 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:11.427 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:11.428 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16498 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:11.661 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:12.924 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:12.925 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16497 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:13.137 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:14.399 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:14.400 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16496 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:14.604 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:15.858 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:15.859 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16495 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:16.101 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:17.354 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:17.354 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16494 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:17.589 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:18.806 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:18.806 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16493 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:19.038 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:20.269 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:20.270 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16492 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:20.480 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:21.706 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:21.706 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16491 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:21.929 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:23.158 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:23.159 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16490 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:23.377 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:24.598 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:24.598 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16489 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:24.815 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:26.046 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:26.046 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16488 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:26.269 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:27.509 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:27.509 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16487 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:27.718 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:28.946 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:28.946 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16486 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:29.162 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:30.381 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:30.381 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16485 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:30.627 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:31.850 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:31.851 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16484 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:32.065 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:33.288 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:33.289 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16483 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:33.512 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:34.729 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:34.729 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16482 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:34.949 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:36.163 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:36.164 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16481 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:36.398 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:37.627 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:37.628 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16480 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:37.863 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:39.090 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:39.090 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16479 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:39.327 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:40.566 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:40.566 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16478 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:40.807 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:42.023 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:42.024 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16477 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:42.265 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:43.487 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:43.487 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16476 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:43.718 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:44.947 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:44.947 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16475 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:45.159 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:46.367 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:46.367 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16474 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:46.599 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:47.809 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:47.810 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16473 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:48.033 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:49.270 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:49.270 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16472 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:49.492 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:50.714 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:50.715 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16471 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:50.932 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:52.164 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:52.164 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16470 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:52.377 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:53.590 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:53.590 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16469 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:53.816 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:55.052 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:55.052 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16468 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:55.296 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:56.534 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:56.534 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16467 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:56.764 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:57.975 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:57.975 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16466 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:58.184 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:59.418 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 13:59:59.418 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16465 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 13:59:59.673 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:00.909 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:00.909 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16464 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 14:00:01.142 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:02.391 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:02.392 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16463 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 14:00:02.642 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:03.863 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:03.863 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16462 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 14:00:04.107 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:05.319 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:05.320 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16461 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 14:00:05.550 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:06.766 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:06.766 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16460 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 14:00:06.980 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:08.190 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:08.190 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16459 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 14:00:08.442 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:09.668 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:09.669 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16458 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 14:00:09.909 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:11.129 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:11.130 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16457 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 14:00:11.302 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 5 条
+2026-06-07 14:00:11.373 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:12.588 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-06-07 14:00:12.588 | WARNING  | backend.main:_infer_one:963 - 推理失败 news_id=16456 model_idx=0: Client error '404 Not Found' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404，加入重试队列
+2026-06-07 14:04:16.422 | INFO     | backend.main:_run:986 - 开始重试 51 条失败新闻
+2026-06-07 14:04:16.426 | INFO     | backend.main:_run:1020 - 重试 news_id=16506，使用原模型[0]
+2026-06-07 14:04:28.093 | INFO     | backend.main:_run:1020 - 重试 news_id=16505，使用原模型[0]
+2026-06-07 14:04:39.880 | INFO     | backend.main:_run:1020 - 重试 news_id=16504，使用原模型[0]
+2026-06-07 14:04:49.854 | INFO     | backend.main:_run:1020 - 重试 news_id=16503，使用原模型[0]
+2026-06-07 14:04:59.273 | INFO     | backend.main:_run:1020 - 重试 news_id=16502，使用原模型[0]
+2026-06-07 14:05:08.644 | INFO     | backend.main:_run:1020 - 重试 news_id=16501，使用原模型[0]
+2026-06-07 14:05:16.699 | INFO     | backend.main:_run:1020 - 重试 news_id=16500，使用原模型[0]
+2026-06-07 14:05:27.384 | INFO     | backend.main:_run:1020 - 重试 news_id=16499，使用原模型[0]
+2026-06-07 14:05:39.985 | INFO     | backend.main:_run:1020 - 重试 news_id=16498，使用原模型[0]
+2026-06-07 14:05:51.457 | INFO     | backend.main:_run:1020 - 重试 news_id=16497，使用原模型[0]
+2026-06-07 14:06:06.819 | INFO     | backend.main:_run:1020 - 重试 news_id=16496，使用原模型[0]
+2026-06-07 14:06:20.649 | INFO     | backend.main:_run:1020 - 重试 news_id=16495，使用原模型[0]
+2026-06-07 14:06:33.263 | INFO     | backend.main:_run:1020 - 重试 news_id=16494，使用原模型[0]
+2026-06-07 14:06:38.287 | INFO     | backend.main:_run:1020 - 重试 news_id=16493，使用原模型[0]
+2026-06-07 14:06:52.557 | INFO     | backend.main:_run:1020 - 重试 news_id=16492，使用原模型[0]
+2026-06-07 14:06:57.547 | INFO     | backend.main:_run:1020 - 重试 news_id=16491，使用原模型[0]
+2026-06-07 14:07:07.989 | INFO     | backend.main:_run:1020 - 重试 news_id=16490，使用原模型[0]
+2026-06-07 14:07:23.172 | INFO     | backend.main:_run:1020 - 重试 news_id=16489，使用原模型[0]
+2026-06-07 14:07:38.261 | INFO     | backend.main:_run:1020 - 重试 news_id=16488，使用原模型[0]
+2026-06-07 14:07:50.340 | INFO     | backend.main:_run:1020 - 重试 news_id=16487，使用原模型[0]
+2026-06-07 14:08:07.418 | INFO     | backend.main:_run:1020 - 重试 news_id=16486，使用原模型[0]
+2026-06-07 14:08:19.873 | INFO     | backend.main:_run:1020 - 重试 news_id=16485，使用原模型[0]
+2026-06-07 14:08:33.669 | INFO     | backend.main:_run:1020 - 重试 news_id=16484，使用原模型[0]
+2026-06-07 14:08:45.673 | INFO     | backend.main:_run:1020 - 重试 news_id=16483，使用原模型[0]
+2026-06-07 14:08:56.395 | INFO     | backend.main:_run:1020 - 重试 news_id=16482，使用原模型[0]
+2026-06-07 14:09:08.944 | INFO     | backend.main:_run:1020 - 重试 news_id=16481，使用原模型[0]
+2026-06-07 14:09:22.587 | INFO     | backend.main:_run:1020 - 重试 news_id=16480，使用原模型[0]
+2026-06-07 14:09:32.519 | INFO     | backend.main:_run:1020 - 重试 news_id=16479，使用原模型[0]
+2026-06-07 14:09:43.535 | INFO     | backend.main:_run:1020 - 重试 news_id=16478，使用原模型[0]
+2026-06-07 14:09:59.479 | INFO     | backend.main:_run:1020 - 重试 news_id=16477，使用原模型[0]
+2026-06-07 14:10:11.660 | INFO     | backend.main:_run:1020 - 重试 news_id=16476，使用原模型[0]
+2026-06-07 14:10:23.152 | INFO     | backend.main:_run:1020 - 重试 news_id=16475，使用原模型[0]
+2026-06-07 14:10:32.429 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 14:10:32.431 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 14:10:32.434 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 14:10:32.436 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 14:10:32.438 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 14:10:32.443 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 14:10:32.443 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 14:10:32.444 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 14:10:32.444 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 14:10:32.445 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 14:10:32.446 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 14:10:32.447 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（73/124），自动恢复...
+2026-06-07 14:10:32.447 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 14:10:34.480 | WARNING  | backend.main:_resume_direct_match:53 - 自动恢复推理失败: All connection attempts failed
+2026-06-07 14:20:25.441 | INFO     | backend.services.news_collector:collect_rss:189 - RSS [36氪财经] 采集 30 条
+2026-06-07 14:20:26.446 | INFO     | backend.services.news_collector:collect_trending:370 - 百度热搜采集 20 条
+2026-06-07 14:20:27.440 | INFO     | backend.services.news_collector:collect_trending:409 - 微博热搜采集 20 条
+2026-06-07 14:20:27.874 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 14:20:28.299 | INFO     | backend.services.news_collector:collect_trending:444 - 抖音热搜采集 20 条
+2026-06-07 14:20:43.919 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:20:51.579 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 140 条，新增 77 条
+2026-06-07 14:21:02.745 | INFO     | backend.services.news_collector:collect_llm_search:317 - 大模型搜索[科技/AI] 返回 8 条
+2026-06-07 14:21:06.266 | INFO     | backend.main:_run:816 - 并发推理：1 个模型同时工作
+2026-06-07 14:21:16.961 | INFO     | backend.services.news_collector:collect_llm_search:317 - 大模型搜索[财经市场] 返回 9 条
+2026-06-07 14:21:17.968 | INFO     | backend.services.news_collector:_run_llm_search_async:475 - LLM搜索后台采集: 获取 17 条，新增 17 条
+2026-06-07 14:24:44.614 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 5 条
+2026-06-07 14:24:46.973 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 5 条
+2026-06-07 14:25:32.614 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:25:32.620 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/qwen3.7-max (blz__vbg...)
+2026-06-07 14:25:39.960 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:26:21.427 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 14:26:21.429 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 14:26:21.432 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 14:26:21.434 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 14:26:21.436 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 14:26:21.441 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 14:26:21.442 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 14:26:21.442 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 14:26:21.442 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 14:26:21.444 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 14:26:21.444 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 14:26:21.446 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（28/77），自动恢复...
+2026-06-07 14:26:21.446 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 14:34:19.391 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:34:19.391 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/bytedance/seed-oss-36b-instruct (nvapi-p6...)
+2026-06-07 14:34:29.802 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:34:29.802 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/bytedance/seed-oss-36b-instruct (nvapi-p6...)
+2026-06-07 14:34:32.830 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:34:32.830 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/bytedance/seed-oss-36b-instruct (nvapi-p6...)
+2026-06-07 14:34:33.428 | INFO     | backend.services.news_collector:collect_rss:189 - RSS [36氪财经] 采集 30 条
+2026-06-07 14:34:34.838 | INFO     | backend.services.news_collector:collect_trending:370 - 百度热搜采集 20 条
+2026-06-07 14:34:35.436 | ERROR    | backend.services.llm_client:chat:130 - LLM 所有模型均失败，最后错误: 
+2026-06-07 14:34:35.531 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 14:34:35.823 | INFO     | backend.services.news_collector:collect_trending:409 - 微博热搜采集 20 条
+2026-06-07 14:34:36.515 | INFO     | backend.services.news_collector:collect_trending:444 - 抖音热搜采集 20 条
+2026-06-07 14:34:45.839 | ERROR    | backend.services.llm_client:chat:130 - LLM 所有模型均失败，最后错误: 
+2026-06-07 14:34:53.877 | ERROR    | backend.services.llm_client:chat:130 - LLM 所有模型均失败，最后错误: 
+2026-06-07 14:34:53.878 | ERROR    | backend.services.news_collector:collect_llm_search:319 - 大模型搜索[科技/AI]失败: 
+2026-06-07 14:34:55.422 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:34:55.422 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/bytedance/seed-oss-36b-instruct (nvapi-p6...)
+2026-06-07 14:35:10.000 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 140 条，新增 79 条
+2026-06-07 14:35:16.462 | ERROR    | backend.services.llm_client:chat:130 - LLM 所有模型均失败，最后错误: 
+2026-06-07 14:35:16.463 | ERROR    | backend.services.news_collector:collect_llm_search:319 - 大模型搜索[财经市场]失败: 
+2026-06-07 14:35:26.316 | INFO     | backend.main:_run:816 - 并发推理：2 个模型同时工作
+2026-06-07 14:35:26.831 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:28.336 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:28.336 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16679 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:29.038 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:30.815 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:30.816 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16677 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:31.339 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:33.166 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:33.166 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16675 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:33.923 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:35.488 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:35.488 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16673 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:36.236 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:37.894 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:37.894 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16671 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:38.424 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:40.175 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:40.176 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16669 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:40.900 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:42.604 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:42.604 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16667 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:43.113 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:44.838 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:44.839 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16665 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:45.405 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:46.937 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:46.937 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16663 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:47.640 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:49.162 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:49.162 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16661 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:49.682 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:51.424 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:51.424 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16659 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:52.129 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:53.796 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:53.796 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16657 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:54.524 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:56.053 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:56.053 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16655 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:56.703 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:58.384 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:35:58.385 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16653 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:35:59.118 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:00.620 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:00.620 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16651 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:01.111 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:02.899 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:02.899 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16649 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:03.664 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:05.211 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:05.212 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16647 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:05.968 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:07.470 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:07.471 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16645 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:08.130 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:09.820 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:09.820 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16643 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:10.329 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:12.065 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:12.065 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16641 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:13.093 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:15.000 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:15.001 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16639 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:15.922 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:17.779 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:17.780 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16637 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:18.299 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:19.816 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:19.816 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16635 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:20.357 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:22.031 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:22.031 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16633 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:22.728 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:24.472 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:24.473 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16631 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:25.347 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:26.395 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:36:27.050 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:27.050 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16629 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:27.742 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:29.445 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:29.445 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16627 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:30.070 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:31.778 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:31.779 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16625 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:32.514 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:34.421 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:34.421 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16623 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:35.097 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:36.797 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:36.798 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16621 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:37.538 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:39.204 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:39.205 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16619 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:39.921 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:41.337 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16678 model_idx=1: ，加入重试队列
+2026-06-07 14:36:41.684 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:41.684 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16617 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:42.362 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:43.899 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:43.900 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16615 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:44.421 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:46.124 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:46.124 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16613 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:46.623 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:48.334 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:48.334 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16611 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:49.063 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:50.754 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:50.754 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16609 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:51.435 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:52.953 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:52.953 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16607 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:53.943 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:55.469 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:55.469 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16605 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:56.173 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:57.884 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:36:57.885 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16603 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:36:58.437 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:37:00.125 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:37:00.126 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16601 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:37:41.376 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:37:56.342 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16676 model_idx=1: ，加入重试队列
+2026-06-07 14:38:56.385 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:39:11.348 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16674 model_idx=1: ，加入重试队列
+2026-06-07 14:40:11.392 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:40:26.354 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16672 model_idx=1: ，加入重试队列
+2026-06-07 14:40:40.763 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 14:40:40.765 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 14:40:40.769 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 14:40:40.770 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 14:40:40.772 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 14:40:40.777 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 14:40:40.777 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 14:40:40.777 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 14:40:40.778 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 14:40:40.780 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 14:40:40.780 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 14:40:40.781 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（44/79），自动恢复...
+2026-06-07 14:40:40.781 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 14:40:42.818 | WARNING  | backend.main:_resume_direct_match:53 - 自动恢复推理失败: All connection attempts failed
+2026-06-07 14:40:44.380 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:40:44.381 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/qwen3.7-max (blz__vbg...)
+2026-06-07 14:40:45.225 | INFO     | backend.services.news_collector:collect_rss:189 - RSS [36氪财经] 采集 30 条
+2026-06-07 14:40:46.371 | INFO     | backend.services.news_collector:collect_trending:370 - 百度热搜采集 20 条
+2026-06-07 14:40:47.013 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 14:40:47.288 | INFO     | backend.services.news_collector:collect_trending:409 - 微博热搜采集 20 条
+2026-06-07 14:40:47.989 | INFO     | backend.services.news_collector:collect_trending:444 - 抖音热搜采集 20 条
+2026-06-07 14:41:04.721 | INFO     | backend.services.news_collector:collect_llm_search:317 - 大模型搜索[科技/AI] 返回 10 条
+2026-06-07 14:41:06.439 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:41:06.439 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/qwen3.7-max (blz__vbg...)
+2026-06-07 14:41:20.432 | INFO     | backend.services.news_collector:collect_llm_search:317 - 大模型搜索[财经市场] 返回 10 条
+2026-06-07 14:41:21.445 | INFO     | backend.services.news_collector:_run_llm_search_async:475 - LLM搜索后台采集: 获取 20 条，新增 20 条
+2026-06-07 14:41:21.684 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 140 条，新增 80 条
+2026-06-07 14:41:26.531 | INFO     | backend.main:_run:816 - 并发推理：3 个模型同时工作
+2026-06-07 14:41:27.257 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:41:29.014 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:41:29.014 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16779 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:41:29.694 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:41:31.692 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:41:31.692 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16776 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:41:32.429 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:41:34.155 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:41:34.156 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16773 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:41:34.156 | WARNING  | backend.main:_process_model_queue:987 - 模型[0] 连续失败 3 次，跳过剩余任务加入重试队列
+2026-06-07 14:42:26.636 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:42:41.558 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16777 model_idx=2: ，加入重试队列
+2026-06-07 14:43:41.618 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:43:56.563 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16774 model_idx=2: ，加入重试队列
+2026-06-07 14:44:56.602 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:45:11.570 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16771 model_idx=2: ，加入重试队列
+2026-06-07 14:45:11.571 | WARNING  | backend.main:_process_model_queue:987 - 模型[2] 连续失败 3 次，跳过剩余任务加入重试队列
+2026-06-07 14:51:43.417 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 14:51:43.419 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 14:51:43.423 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 14:51:43.424 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 14:51:43.426 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 14:51:43.432 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 14:51:43.432 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 14:51:43.432 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 14:51:43.433 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 14:51:43.434 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 14:51:43.434 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 14:51:43.436 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（38/100），自动恢复...
+2026-06-07 14:51:43.436 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 14:51:45.473 | WARNING  | backend.main:_resume_direct_match:53 - 自动恢复推理失败: All connection attempts failed
+2026-06-07 14:51:47.466 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:51:47.467 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/qwen3.7-max (blz__vbg...)
+2026-06-07 14:51:47.759 | INFO     | backend.services.news_collector:collect_rss:189 - RSS [36氪财经] 采集 30 条
+2026-06-07 14:51:48.181 | INFO     | backend.services.news_collector:collect_trending:370 - 百度热搜采集 20 条
+2026-06-07 14:51:49.162 | INFO     | backend.services.news_collector:collect_trending:409 - 微博热搜采集 20 条
+2026-06-07 14:51:49.931 | INFO     | backend.services.news_collector:collect_trending:444 - 抖音热搜采集 20 条
+2026-06-07 14:51:50.132 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 14:52:08.550 | ERROR    | backend.services.llm_client:chat:130 - LLM 所有模型均失败，最后错误: 
+2026-06-07 14:52:08.550 | ERROR    | backend.services.news_collector:collect_llm_search:319 - 大模型搜索[科技/AI]失败: 
+2026-06-07 14:52:10.287 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:52:10.287 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/qwen3.7-max (blz__vbg...)
+2026-06-07 14:52:27.597 | INFO     | backend.services.news_collector:collect_llm_search:317 - 大模型搜索[财经市场] 返回 10 条
+2026-06-07 14:52:28.608 | INFO     | backend.services.news_collector:_run_llm_search_async:475 - LLM搜索后台采集: 获取 10 条，新增 10 条
+2026-06-07 14:52:31.247 | INFO     | backend.main:_run:816 - 并发推理：3 个模型同时工作
+2026-06-07 14:52:31.773 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:52:33.579 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:52:33.579 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16789 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:52:34.301 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:52:35.966 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:52:35.966 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16786 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:52:36.524 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:52:38.201 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:52:38.202 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16785 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:52:38.202 | WARNING  | backend.main:_worker:994 - 模型[0] 连续失败 3 次，此条加入重试队列
+2026-06-07 14:52:42.399 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 140 条，新增 77 条
+2026-06-07 14:53:31.320 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:53:46.280 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16787 model_idx=2: ，加入重试队列
+2026-06-07 14:56:25.938 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 14:56:25.940 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 14:56:25.944 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 14:56:25.945 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 14:56:25.947 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 14:56:25.952 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 14:56:25.952 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 14:56:25.952 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 14:56:25.953 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 14:56:25.954 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 14:56:25.954 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 14:56:25.955 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（7/10），自动恢复...
+2026-06-07 14:56:25.956 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 14:56:27.993 | WARNING  | backend.main:_resume_direct_match:53 - 自动恢复推理失败: All connection attempts failed
+2026-06-07 14:56:29.871 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:56:29.871 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/bytedance/seed-oss-36b-instruct (nvapi-p6...)
+2026-06-07 14:56:30.344 | INFO     | backend.services.news_collector:collect_trending:370 - 百度热搜采集 20 条
+2026-06-07 14:56:31.283 | INFO     | backend.services.news_collector:collect_trending:409 - 微博热搜采集 20 条
+2026-06-07 14:56:31.886 | INFO     | backend.services.news_collector:collect_rss:189 - RSS [36氪财经] 采集 30 条
+2026-06-07 14:56:32.918 | INFO     | backend.services.news_collector:collect_trending:444 - 抖音热搜采集 20 条
+2026-06-07 14:56:33.433 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 14:56:50.905 | ERROR    | backend.services.llm_client:chat:130 - LLM 所有模型均失败，最后错误: 
+2026-06-07 14:56:50.906 | ERROR    | backend.services.news_collector:collect_llm_search:319 - 大模型搜索[科技/AI]失败: 
+2026-06-07 14:56:52.610 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 14:56:52.611 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/bytedance/seed-oss-36b-instruct (nvapi-p6...)
+2026-06-07 14:57:13.644 | ERROR    | backend.services.llm_client:chat:130 - LLM 所有模型均失败，最后错误: 
+2026-06-07 14:57:13.644 | ERROR    | backend.services.news_collector:collect_llm_search:319 - 大模型搜索[财经市场]失败: 
+2026-06-07 14:57:25.124 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 140 条，新增 77 条
+2026-06-07 14:57:30.869 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 14:58:02.477 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 50 条，新增 0 条
+2026-06-07 14:58:28.205 | INFO     | backend.main:_run:816 - 并发推理：2 个模型同时工作
+2026-06-07 14:58:29.178 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:58:31.201 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:58:31.202 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16943 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:58:31.863 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:58:33.571 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:58:33.572 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16941 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:58:34.293 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:58:36.035 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 14:58:36.036 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16940 model_idx=0: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429，加入重试队列
+2026-06-07 14:58:36.036 | WARNING  | backend.main:_worker:994 - 模型[0] 连续失败 3 次，此条加入重试队列
+2026-06-07 14:59:28.268 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 14:59:43.230 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16942 model_idx=1: ，加入重试队列
+2026-06-07 15:00:43.291 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 15:00:58.235 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16938 model_idx=1: ，加入重试队列
+2026-06-07 15:01:58.273 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 15:02:13.240 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16937 model_idx=1: ，加入重试队列
+2026-06-07 15:02:13.241 | WARNING  | backend.main:_worker:994 - 模型[1] 连续失败 3 次，此条加入重试队列
+2026-06-07 15:11:28.177 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 5 条
+2026-06-07 15:11:28.925 | WARNING  | backend.services.llm_client:chat:109 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 15:11:28.925 | INFO     | backend.services.llm_client:chat:85 - LLM 故障转移 → custom/bytedance/seed-oss-36b-instruct (nvapi-p6...)
+2026-06-07 15:11:30.995 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 5 条
+2026-06-07 15:11:33.266 | WARNING  | backend.services.llm_client:chat:116 - LLM 调用失败，重试: 
+2026-06-07 15:11:34.716 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 5 条
+2026-06-07 15:11:34.978 | ERROR    | backend.services.llm_client:chat:127 - LLM 调用最终失败: Client error '429 Too Many Requests' for url 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+2026-06-07 15:12:32.165 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 5 条
+2026-06-07 15:12:33.570 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 5 条
+2026-06-07 15:13:28.078 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 15:13:28.081 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 15:13:28.084 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 15:13:28.086 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 15:13:28.088 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 15:13:28.093 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 15:13:28.094 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 15:13:28.094 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 15:13:28.094 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 15:13:28.096 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 15:13:28.096 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 15:13:28.097 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（5/77），自动恢复...
+2026-06-07 15:13:28.098 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 15:13:44.005 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 15:14:22.147 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 50 条，新增 50 条
+2026-06-07 15:14:42.850 | WARNING  | backend.services.llm_client:chat:172 - LLM 429 [glm/GLM-4.7-Flash]，等待 5s 后转移
+2026-06-07 15:14:43.008 | INFO     | backend.services.news_collector:collect_newsapi:145 - NewsAPI 采集 50 条
+2026-06-07 15:14:44.495 | INFO     | backend.services.news_collector:collect_rss:189 - RSS [36氪财经] 采集 30 条
+2026-06-07 15:14:44.885 | INFO     | backend.services.news_collector:collect_trending:370 - 百度热搜采集 20 条
+2026-06-07 15:14:46.207 | INFO     | backend.services.news_collector:collect_trending:409 - 微博热搜采集 20 条
+2026-06-07 15:14:47.037 | INFO     | backend.services.news_collector:collect_trending:444 - 抖音热搜采集 20 条
+2026-06-07 15:14:47.851 | WARNING  | backend.services.llm_client:chat:182 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 15:14:47.851 | INFO     | backend.services.llm_client:chat:150 - LLM 故障转移 → custom/qwen3.7-max (blz__vbg...)
+2026-06-07 15:15:06.748 | INFO     | backend.services.news_collector:collect_llm_search:317 - 大模型搜索[科技/AI] 返回 10 条
+2026-06-07 15:15:08.527 | WARNING  | backend.services.llm_client:chat:172 - LLM 429 [glm/GLM-4.7-Flash]，等待 5s 后转移
+2026-06-07 15:15:13.527 | WARNING  | backend.services.llm_client:chat:182 - LLM [glm/GLM-4.7-Flash] 故障(Client error '429 Too Many Requests' for url 'https://open.b)，切换下一个模型
+2026-06-07 15:15:13.528 | INFO     | backend.services.llm_client:chat:150 - LLM 故障转移 → custom/qwen3.7-max (blz__vbg...)
+2026-06-07 15:15:21.642 | INFO     | backend.services.news_collector:run_collection:534 - 本次采集: 原始 140 条，新增 30 条
+2026-06-07 15:15:25.889 | INFO     | backend.services.news_collector:collect_llm_search:317 - 大模型搜索[财经市场] 返回 8 条
+2026-06-07 15:15:26.901 | INFO     | backend.services.news_collector:_run_llm_search_async:475 - LLM搜索后台采集: 获取 18 条，新增 18 条
+2026-06-07 15:15:55.524 | INFO     | backend.main:_run:816 - 并发推理：3 个模型同时工作
+2026-06-07 15:16:55.604 | WARNING  | backend.services.llm_client:chat:189 - LLM 调用失败，重试: 
+2026-06-07 15:17:10.552 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=17039 model_idx=2: ，加入重试队列
+2026-06-07 15:17:12.401 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=17034 model_idx=0: LLM返回空响应，加入重试队列
+2026-06-07 15:17:37.851 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=17029 model_idx=0: LLM返回空响应，加入重试队列
+2026-06-07 15:18:10.590 | WARNING  | backend.services.llm_client:chat:189 - LLM 调用失败，重试: 
+2026-06-07 15:18:11.130 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=17026 model_idx=0: LLM返回空响应，加入重试队列
+2026-06-07 15:18:11.130 | WARNING  | backend.main:_worker:994 - 模型[0] 连续失败 3 次，此条加入重试队列
+2026-06-07 15:18:25.558 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=17030 model_idx=2: ，加入重试队列
+2026-06-07 15:19:25.593 | WARNING  | backend.services.llm_client:chat:189 - LLM 调用失败，重试: 
+2026-06-07 15:19:40.564 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=17019 model_idx=2: ，加入重试队列
+2026-06-07 15:19:40.565 | WARNING  | backend.main:_worker:994 - 模型[2] 连续失败 3 次，此条加入重试队列
+2026-06-07 15:21:03.043 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-07 15:21:05.856 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-07 15:21:18.039 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-07 15:21:18.862 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-07 15:27:14.132 | WARNING  | backend.services.llm_client:chat:189 - LLM 调用失败，重试: 
+2026-06-07 15:27:23.206 | ERROR    | backend.services.llm_client:chat:201 - LLM 调用最终失败: Server error '502 Bad Gateway' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502
+2026-06-07 15:27:23.206 | WARNING  | backend.main:_infer_one:965 - 推理失败 news_id=16979 model_idx=1: Server error '502 Bad Gateway' for url 'https://blazeai.boxu.dev/api/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502，加入重试队列
+2026-06-07 15:32:21.395 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 15:32:21.397 | INFO     | backend.database:init_db:109 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 15:32:21.400 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 15:32:21.402 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 15:32:21.404 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 15:32:21.409 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 15:32:21.410 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 15:32:21.410 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 15:32:21.410 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 15:32:21.412 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 15:32:21.412 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 15:32:21.413 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（89/98），自动恢复...
+2026-06-07 15:32:21.413 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 15:32:23.452 | WARNING  | backend.main:_resume_direct_match:53 - 自动恢复推理失败: All connection attempts failed
+2026-06-07 15:38:24.039 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-07 15:38:24.045 | INFO     | backend.database:init_db:119 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-07 15:38:24.049 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-07 15:38:24.051 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-07 15:38:24.053 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-07 15:38:24.058 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-07 15:38:24.059 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-07 15:38:24.059 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-07 15:38:24.059 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-07 15:38:24.062 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-07 15:38:24.062 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-07 15:38:24.063 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（0/16），自动恢复...
+2026-06-07 15:38:24.064 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-07 15:38:26.104 | WARNING  | backend.main:_resume_direct_match:53 - 自动恢复推理失败: All connection attempts failed
