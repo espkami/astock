@@ -2396,16 +2396,8 @@ async function loadNewsConfig() {
     </div>`
   ).join('');
 
-  // 关键词
-  const kws = cfg.newsapi_keywords || [];
-  const kwEl = document.getElementById('newsapiKwList');
-  if (kwEl) kwEl.innerHTML = kws.map((kw, i) =>
-    `<div class="kw-tag"><input type="text" value="${esc(kw)}" placeholder="关键词" onchange="updateKwItem('newsapi_keywords',${i},this.value)"><button onclick="removeKwItem('newsapi_keywords',${i})">×</button></div>`
-  ).join('');
-  const kwCount = document.getElementById('kwCountBadge');
-  const kwWarn  = document.getElementById('kwLimitWarn');
-  if (kwCount) kwCount.textContent = `${kws.length}/15`;
-  if (kwWarn)  kwWarn.style.display = kws.length >= 15 ? 'inline' : 'none';
+  // 关键词（使用 renderKwList 统一渲染，含 + 添加按钮）
+  renderKwList('newsapiKwList', cfg.newsapi_keywords || [], 'newsapi_keywords');
 
   // RSS
   const rssEnabled = document.getElementById('rss_enabled');

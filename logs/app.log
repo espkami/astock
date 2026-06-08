@@ -1916,3 +1916,33 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2026-06-07 15:38:24.063 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（0/16），自动恢复...
 2026-06-07 15:38:24.064 | INFO     | backend.main:lifespan:107 - 系统就绪
 2026-06-07 15:38:26.104 | WARNING  | backend.main:_resume_direct_match:53 - 自动恢复推理失败: All connection attempts failed
+2026-06-08 10:15:16.875 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-08 10:15:16.878 | INFO     | backend.database:init_db:119 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-08 10:15:16.882 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-08 10:15:16.884 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-08 10:15:16.886 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-08 10:15:16.891 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-08 10:15:16.892 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-08 10:15:16.892 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-08 10:15:16.892 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-08 10:15:16.893 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-08 10:15:16.894 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-08 10:15:16.895 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（0/16），自动恢复...
+2026-06-08 10:15:16.896 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-08 10:15:18.935 | WARNING  | backend.main:_resume_direct_match:53 - 自动恢复推理失败: All connection attempts failed
+2026-06-08 10:17:07.687 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-08 10:17:09.184 | INFO     | backend.services.config_service:set_config_batch:66 - 批量保存配置 1 条
+2026-06-08 10:22:07.323 | INFO     | backend.main:lifespan:60 - A股新闻匹配系统启动中...
+2026-06-08 10:22:07.326 | INFO     | backend.database:init_db:119 - 数据库初始化完成: /home/user/work/astock/data/astock.db
+2026-06-08 10:22:07.329 | INFO     | backend.services.tag_service:init_tags_table:39 - stock_tags 表初始化完成
+2026-06-08 10:22:07.331 | INFO     | backend.services.board_tag_service:init_board_tags_table:47 - stock_board_tags 表初始化完成
+2026-06-08 10:22:07.333 | INFO     | backend.services.scheduler:start_scheduler:46 - 调度器已启动
+2026-06-08 10:22:07.338 | INFO     | backend.services.scheduler:update_source_intervals:104 - newsapi_collect 间隔更新为 7200s
+2026-06-08 10:22:07.338 | INFO     | backend.services.scheduler:update_source_intervals:104 - rss_collect 间隔更新为 3600s
+2026-06-08 10:22:07.338 | INFO     | backend.services.scheduler:update_source_intervals:104 - llm_collect 间隔更新为 86400s
+2026-06-08 10:22:07.339 | INFO     | backend.services.scheduler:update_source_intervals:104 - trending_collect 间隔更新为 43200s
+2026-06-08 10:22:07.340 | INFO     | backend.services.scheduler:update_match_schedule:140 - 定时匹配已设置: 09:30
+2026-06-08 10:22:07.340 | INFO     | backend.main:lifespan:92 - 定时匹配已恢复: ['09:30']
+2026-06-08 10:22:07.342 | INFO     | backend.main:lifespan:103 - 检测到未完成推理任务（0/16），自动恢复...
+2026-06-08 10:22:07.342 | INFO     | backend.main:lifespan:107 - 系统就绪
+2026-06-08 10:22:09.389 | WARNING  | backend.main:_resume_direct_match:53 - 自动恢复推理失败: All connection attempts failed
