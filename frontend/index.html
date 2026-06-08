@@ -2376,6 +2376,75 @@ function updateLlmCard(mode, enabled) {
   // :has() CSS 自动处理样式，这里备用
 }
 
+async function loadNewsConfig() {
+  const cfg = (await api('/api/config')).data || {};
+
+  // NewsAPI
+  const naEnabled = document.getElementById('newsapi_enabled');
+  if (naEnabled) naEnabled.checked = cfg.newsapi_enabled !== false && !!cfg.newsapi_enabled;
+  const naPageSize = document.getElementById('newsapi_page_size');
+  if (naPageSize && cfg.newsapi_page_size) naPageSize.value = cfg.newsapi_page_size;
+
+  // API Key 列表
+  const keys = cfg.newsapi_keys || [];
+  const keyListEl = document.getElementById('newsapiKeyList');
+  if (keyListEl) keyListEl.innerHTML = keys.map((item, i) =>
+    `<div class="list-item">
+      <label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" ${item.enabled ? 'checked' : ''} onchange="updateListItem('newsapi_keys',${i},'enabled',this.checked)"><span class="toggle-slider"></span></label>
+      <input type="password" value="${esc(item.key || '')}" placeholder="API Key" onchange="updateListItem('newsapi_keys',${i},'key',this.value)">
+      <button class="list-item-del" onclick="removeListItem('newsapi_keys',${i})">×</button>
+    </div>`
+  ).join('');
+
+  // 关键词
+  const kws = cfg.newsapi_keywords || [];
+  const kwEl = document.getElementById('newsapiKwList');
+  if (kwEl) kwEl.innerHTML = kws.map((kw, i) =>
+    `<div class="kw-tag"><input type="text" value="${esc(kw)}" placeholder="关键词" onchange="updateKwItem('newsapi_keywords',${i},this.value)"><button onclick="removeKwItem('newsapi_keywords',${i})">×</button></div>`
+  ).join('');
+  const kwCount = document.getElementById('kwCountBadge');
+  const kwWarn  = document.getElementById('kwLimitWarn');
+  if (kwCount) kwCount.textContent = `${kws.length}/15`;
+  if (kwWarn)  kwWarn.style.display = kws.length >= 15 ? 'inline' : 'none';
+
+  // RSS
+  const rssEnabled = document.getElementById('rss_enabled');
+  if (rssEnabled) rssEnabled.checked = !!cfg.rss_enabled;
+  renderFeedList('rssFeedList', cfg.rss_feeds || [], 'rss_feeds');
+
+  // 热搜
+  const toggleIds = [
+    'trending_enabled', 'baidu_trending_enabled',
+    'weibo_trending_enabled', 'douyin_trending_enabled',
+  ];
+  for (const id of toggleIds) {
+    const el = document.getElementById(id);
+    if (el) el.checked = cfg[id] !== false && !!cfg[id];
+  }
+
+  // 大模型搜索
+  const llmEnabled = document.getElementById('llm_search_enabled');
+  if (llmEnabled) llmEnabled.checked = !!cfg.llm_search_enabled;
+
+  const llmToggles = ['llm_general_enabled', 'llm_tech_enabled', 'llm_finance_enabled'];
+  for (const id of llmToggles) {
+    const el = document.getElementById(id);
+    if (el) el.checked = cfg[id] !== false;  // 默认开启
+  }
+  const llmCounts = ['llm_general_count', 'llm_tech_count', 'llm_finance_count'];
+  for (const id of llmCounts) {
+    const el = document.getElementById(id);
+    if (el && cfg[id]) el.value = cfg[id];
+  }
+
+  // 采集间隔滑块
+  const intervals = ['newsapi_interval', 'rss_interval', 'llm_search_interval', 'trending_interval'];
+  for (const id of intervals) {
+    const el = document.getElementById(id);
+    if (el && cfg[id]) { el.value = cfg[id]; onIntervalInput(id.replace('_interval','')); }
+  }
+}
+
 async function addLlmDirection(){const items=await getListCfg('llm_search_directions');items.push({text:'',enabled:true});await api('/api/config',{method:'POST',body:JSON.stringify({items:[{key:'llm_search_directions',value:items}]})});loadNewsConfig();}
 
 // ── 搜索专用模型 ──
